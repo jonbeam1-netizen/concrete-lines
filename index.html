@@ -1754,7 +1754,7 @@ let shirtTexG = null;
 function paintShirt(g, w, h, name) {
   const body = SHIRT_COLORS[name] || SHIRT_COLORS.red, dark = name === 'black';
   g.fillStyle = body; g.fillRect(0, 0, w, h);
-  g.fillStyle = dark ? '#3b3b42' : '#141416'; g.fillRect(0, h - 22, w, 22); g.fillRect(0, 0, w, h * 0.16);
+  g.fillStyle = 'rgba(0,0,0,0.16)'; g.fillRect(0, h - 7, w, 7); g.fillRect(0, 0, w, h * 0.035);   // a plain tee: just a slightly darker hem and collar rib
   const img = g.getImageData(0, 0, w, h), d = img.data; for (let i = 0; i < d.length; i += 4) { const n = (Math.random() - 0.5) * 18; d[i] += n; d[i + 1] += n; d[i + 2] += n; } g.putImageData(img, 0, 0);
   const ink = dark ? '#f2f2f2' : '#111113';
   g.save(); g.translate(w * 0.75, h * 0.44);
@@ -1780,6 +1780,7 @@ function setShirt(name) {
   if (!SHIRT_COLORS[name]) return;
   shirtName = name; try { localStorage.setItem('concrete-lines-shirt', name); } catch (e) {}
   if (shirtTexG) { paintShirt(shirtTexG.image.getContext('2d'), shirtTexG.image.width, shirtTexG.image.height, name); shirtTexG.needsUpdate = true; }
+  if (typeof rigM !== 'undefined' && rigM && rigM.sleeve) rigM.sleeve.color.set(SHIRT_COLORS[name]);
   document.querySelectorAll('#shirtPick button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.c === name)));
 }
 const rider = new THREE.Group(); scene.add(rider);
@@ -1858,11 +1859,14 @@ const L1 = 0.45, L2 = 0.45;
   shirtTexG = shirtTex;
   shirtTex.wrapS = THREE.RepeatWrapping;
   const denim = holeAt => cv(128, 256, (g, w, h) => {
-    g.fillStyle = '#37598a'; g.fillRect(0, 0, w, h);
-    g.strokeStyle = 'rgba(20,35,70,0.35)'; g.lineWidth = 1;
-    for (let x = -h; x < w; x += 4) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x + h, h); g.stroke(); }
-    grain(g, w, h, 26);
-    g.fillStyle = 'rgba(190,210,235,0.25)'; g.fillRect(w * 0.12, 0, w * 0.26, h);
+    g.fillStyle = '#4b6f9e'; g.fillRect(0, 0, w, h);
+    g.strokeStyle = 'rgba(25,40,75,0.3)'; g.lineWidth = 1;
+    for (let x = -h; x < w; x += 3) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x + h, h); g.stroke(); }
+    grain(g, w, h, 22);
+    const fade = g.createLinearGradient(w * 0.05, 0, w * 0.45, 0); fade.addColorStop(0, 'rgba(205,220,240,0)'); fade.addColorStop(0.5, 'rgba(205,220,240,0.3)'); fade.addColorStop(1, 'rgba(205,220,240,0)');
+    g.fillStyle = fade; g.fillRect(0, 0, w, h);                                          // worn-in fade down the front
+    g.fillStyle = 'rgba(20,30,55,0.35)'; g.fillRect(w * 0.74, 0, 3, h);                  // outer seam
+    g.fillStyle = 'rgba(214,170,90,0.6)'; for (let y = 2; y < h; y += 7) g.fillRect(w * 0.74 + 4, y, 1, 4);   // its orange stitching
     if (holeAt !== null) {
       // ripped knee: skin through a frayed hole, white threads across it
       const cx = w * 0.25, cy = h * holeAt;
@@ -1882,7 +1886,8 @@ const L1 = 0.45, L2 = 0.45;
     grain(g, w, h, 12);
   });
   const shirt = new THREE.MeshStandardMaterial({ map: shirtTex, roughness: 0.85 });
-  const sleeveM = new THREE.MeshStandardMaterial({ color: 0x141416, roughness: 0.85 });
+  const knit = cv(64, 64, (g, w, h) => { g.fillStyle = '#e8e8e8'; g.fillRect(0, 0, w, h); grain(g, w, h, 30); });
+  const sleeveM = new THREE.MeshStandardMaterial({ map: knit, color: SHIRT_COLORS[shirtName] || SHIRT_COLORS.red, roughness: 0.9 });
   const pants = new THREE.MeshStandardMaterial({ map: denim(null), roughness: 0.9 });
   const thighM = pants, shinM = pants;
   const skin = new THREE.MeshStandardMaterial({ color: 0xd29a74, roughness: 0.65 });
@@ -1890,27 +1895,32 @@ const L1 = 0.45, L2 = 0.45;
   const dark = new THREE.MeshStandardMaterial({ color: 0x0e0e10, roughness: 0.5 });
   const capM = new THREE.MeshStandardMaterial({ map: hatTex, roughness: 0.75 });
   const capRed = new THREE.MeshStandardMaterial({ color: 0xb5121b, roughness: 0.7 });
-  const shoeM = new THREE.MeshStandardMaterial({ color: 0xf1f0ec, roughness: 0.6 });
-  const shoeRed = new THREE.MeshStandardMaterial({ color: 0xc4202b, roughness: 0.55 });
-  const shoeBlack = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.6 });
+  const suedeTex = cv(128, 128, (g, w, h) => { g.fillStyle = '#d8d8d8'; g.fillRect(0, 0, w, h); grain(g, w, h, 46); });
+  const shoeM = new THREE.MeshStandardMaterial({ map: suedeTex, color: 0xb63a24, roughness: 0.95 });          // brick-red suede
+  const shoeMaroon = new THREE.MeshStandardMaterial({ map: suedeTex, color: 0x5b2327, roughness: 0.9 });
+  const shoeWhite = new THREE.MeshStandardMaterial({ color: 0xf3f1ec, roughness: 0.55 });
+  const gumM = new THREE.MeshStandardMaterial({ color: 0xb87a43, roughness: 0.7 });
   const steelM = new THREE.MeshStandardMaterial({ color: 0xc9ccd1, roughness: 0.3, metalness: 0.8 });
   const add = (parent, geo, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; parent.add(m); return m; };
   const lathe = (pts, seg, mat, sx = 1) => { const g = new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), seg); g.scale(sx, 1, 1); const m = new THREE.Mesh(g, mat); m.castShadow = true; return m; };
   const limb = (r1, r2, L, mat, seg = 14) => { const g = new THREE.CylinderGeometry(r1, r2, L, seg, 4); g.translate(0, -L / 2, 0); const m = new THREE.Mesh(g, mat); m.castShadow = true; return m; };
 
   // hips and belt
-  pelvis.add(lathe([[0.02, -0.13], [0.13, -0.11], [0.165, -0.03], [0.165, 0.07]], 18, pants, 0.66));
-  add(pelvis, new THREE.CylinderGeometry(0.168, 0.168, 0.04, 20, 1, true), dark, 0, 0.055, 0).scale.x = 0.66;
-  add(pelvis, new THREE.BoxGeometry(0.02, 0.035, 0.05), steelM, 0.112, 0.055, 0);
+  pelvis.add(lathe([[0.02, -0.14], [0.14, -0.12], [0.175, -0.03], [0.172, 0.07]], 20, pants, 0.66));
+  const belt = new THREE.MeshStandardMaterial({ color: 0x3b2417, roughness: 0.6 });
+  add(pelvis, new THREE.CylinderGeometry(0.176, 0.176, 0.036, 22, 1, true), belt, 0, 0.055, 0).scale.x = 0.66;
+  add(pelvis, new THREE.BoxGeometry(0.02, 0.034, 0.05), steelM, 0.117, 0.055, 0);
+  [-1, 1].forEach(z => { const p = add(pelvis, new THREE.BoxGeometry(0.008, 0.075, 0.07), pants, -0.115, -0.03, z * 0.075); p.rotation.y = z * 0.25; });   // back pockets
   // torso: chest wider than the waist, flattened front to back
-  spine.add(lathe([[0.155, -0.07], [0.165, 0.04], [0.172, 0.18], [0.19, 0.31], [0.205, 0.42], [0.185, 0.5], [0.12, 0.555], [0.055, 0.575]], 28, shirt, 0.62));
+  spine.add(lathe([[0.2, -0.13], [0.195, -0.06], [0.188, 0.06], [0.195, 0.2], [0.21, 0.32], [0.222, 0.42], [0.2, 0.5], [0.125, 0.555], [0.055, 0.578]], 30, shirt, 0.64));
   add(spine, new THREE.TorusGeometry(0.05, 0.012, 6, 16), sleeveM, 0, 0.565, 0).rotation.x = Math.PI / 2;
   add(spine, new THREE.CylinderGeometry(0.045, 0.05, 0.1, 10), skin, 0, 0.57, 0);
   // head: skull, jaw, face, ears, hair, trucker hat (front of the face is +x)
   const skull = add(head, new THREE.SphereGeometry(0.115, 20, 16), skin, 0, 0.1, 0); skull.scale.set(1, 1.08, 0.94); skullMesh = skull;
   add(head, new THREE.SphereGeometry(0.085, 16, 10), skin, 0.03, 0.04, 0).scale.set(1, 0.8, 1.05);
   [-1, 1].forEach(s => {
-    add(head, new THREE.SphereGeometry(0.016, 8, 6), dark, 0.103, 0.115, s * 0.04);
+    add(head, new THREE.SphereGeometry(0.019, 10, 8), new THREE.MeshStandardMaterial({ color: 0xf4f1ea, roughness: 0.4 }), 0.098, 0.113, s * 0.04).scale.set(0.55, 0.85, 1);
+    add(head, new THREE.SphereGeometry(0.0095, 8, 6), dark, 0.107, 0.113, s * 0.04);
     add(head, new THREE.BoxGeometry(0.01, 0.008, 0.035), hair, 0.108, 0.145, s * 0.04).rotation.x = s * 0.15;
     add(head, new THREE.SphereGeometry(0.03, 8, 6), skin, -0.005, 0.1, s * 0.108).scale.set(0.6, 1, 0.45);
   });
@@ -1923,39 +1933,67 @@ const L1 = 0.45, L2 = 0.45;
   const brim = add(head, new THREE.CylinderGeometry(0.15, 0.15, 0.012, 24, 1, false, 0, Math.PI), capRed, 0.07, 0.14, 0);
   brim.scale.set(1.15, 1, 0.82); brim.rotation.z = -0.16;
   add(head, new THREE.BoxGeometry(0.01, 0.02, 0.07), dark, -0.125, 0.15, 0);
+  add(head, new THREE.BoxGeometry(0.006, 0.04, 0.06), new THREE.MeshStandardMaterial({ color: 0xf3f1ec, roughness: 0.6 }), 0.127, 0.185, 0).rotation.z = -0.35;   // logo patch on the front
   // arms: black short sleeves over skin, simple hands with a thumb
   [-1, 1].forEach(s => {
     const shoulder = new THREE.Group(); shoulder.position.set(0, 0.47, s * 0.205); spine.add(shoulder);
     shoulder.add(limb(0.05, 0.042, 0.28, skin, 12));
-    const sleeve = limb(0.066, 0.058, 0.17, sleeveM, 14); sleeve.position.y = 0.02; shoulder.add(sleeve);
-    add(shoulder, new THREE.SphereGeometry(0.066, 12, 8), sleeveM);
+    const sleeve = limb(0.082, 0.078, 0.2, sleeveM, 16); sleeve.position.y = 0.03; shoulder.add(sleeve);   // loose tee sleeve, past the bicep
+    add(shoulder, new THREE.SphereGeometry(0.082, 14, 10), sleeveM);
     const elbow = new THREE.Group(); elbow.position.y = -0.28; shoulder.add(elbow);
     add(elbow, new THREE.SphereGeometry(0.043, 10, 8), skin);
     elbow.add(limb(0.041, 0.034, 0.25, skin, 12));
     const hand = new THREE.Group(); hand.position.y = -0.265; elbow.add(hand);
-    add(hand, new THREE.BoxGeometry(0.05, 0.085, 0.075), skin, 0, -0.035, 0);
-    add(hand, new THREE.BoxGeometry(0.03, 0.045, 0.025), skin, 0.02, -0.02, -s * 0.04).rotation.x = s * 0.4;
+    add(hand, new THREE.BoxGeometry(0.042, 0.06, 0.07), skin, 0, -0.028, 0);                                  // palm
+    [-0.026, -0.009, 0.009, 0.026].forEach((fz, k) => { const fg = add(hand, new THREE.BoxGeometry(0.017, 0.05 - Math.abs(k - 1.5) * 0.006, 0.015), skin, 0.006, -0.08, fz); fg.rotation.z = 0.35; });   // fingers, a little curled
+    add(hand, new THREE.BoxGeometry(0.02, 0.042, 0.018), skin, 0.022, -0.03, -s * 0.042).rotation.x = s * 0.5;   // thumb
     arms.push({ s, shoulder, elbow, x: -s * 0.3, z: 0.1, e: 0.3 });
   });
-  // legs: baggy jeans with ripped knees, white-red-black sneakers
+  // A chunky skate shoe (the foot's origin is the ankle; +x is the toe). Gum cupsole, brick-red suede upper that drops toward the toe,
+  // white side stripe, white laces over the tongue, a padded maroon collar and heel tab. The sole's underside sits 0.083 below the ankle.
+  const shoePts = [[-0.082, 0], [-0.075, 0.034], [-0.052, 0.044], [0, 0.047], [0.06, 0.052], [0.12, 0.058], [0.168, 0.055], [0.204, 0.04], [0.222, 0.016], [0.226, 0]];
+  const footprint = k => {   // shoe outline from above, shrunk by k about the middle of the shoe
+    const cx = 0.072, pts = shoePts.map(([x, z]) => new THREE.Vector2(cx + (x - cx) * k, z * k));
+    const all = pts.concat(pts.slice(1, -1).reverse().map(p => new THREE.Vector2(p.x, -p.y)));
+    const sh = new THREE.Shape(); sh.moveTo(all[0].x, all[0].y); sh.splineThru(all.slice(1).concat([all[0]])); return sh;
+  };
+  const halfW = x => { for (let i = 1; i < shoePts.length; i++) if (x <= shoePts[i][0]) { const [x0, z0] = shoePts[i - 1], [x1, z1] = shoePts[i]; return z0 + (z1 - z0) * (x - x0) / (x1 - x0); } return 0; };
+  const extrudeUp = (shape, depth, bevel, size, segs) => { const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelThickness: bevel, bevelSize: size, bevelSegments: segs, curveSegments: 20 }); g.rotateX(-Math.PI / 2); return g; };
+  const soleG = extrudeUp(footprint(1), 0.026, 0.004, 0.003, 2); soleG.translate(0, -0.083 + 0.004, 0);
+  const upperG = extrudeUp(footprint(0.95), 0.04, 0.022, 0.014, 4); upperG.translate(0, -0.052 + 0.022, 0);
+  { // the upper rises to the ankle and drops toward the toe
+    const pa = upperG.attributes.position, base = -0.048;
+    for (let i = 0; i < pa.count; i++) { const x = pa.getX(i), y = pa.getY(i); if (y <= base) continue; const k = x < 0 ? 1 : 1 - 0.62 * smoothT(x / 0.21); pa.setY(i, base + (y - base) * k); }
+    pa.needsUpdate = true; upperG.computeVertexNormals();
+  }
+  const topY = x => -0.048 + 0.084 * (x < 0 ? 1 : 1 - 0.62 * smoothT(x / 0.21));
+  const stripeG = [-1, 1].map(side => new THREE.TubeGeometry(new THREE.CatmullRomCurve3(
+    [[-0.07, -0.032], [-0.035, -0.014], [0.005, -0.006], [0.055, -0.008], [0.1, -0.022], [0.135, -0.035]].map(([x, y]) => new V3(x, y, side * (halfW(x) * 0.95 + 0.016)))), 24, 0.0085, 6));
+  const buildShoe = foot => {
+    add(foot, soleG, gumM);
+    add(foot, upperG, shoeM);
+    stripeG.forEach(g => add(foot, g, shoeWhite));
+    const tongue = add(foot, new THREE.BoxGeometry(0.12, 0.012, 0.05), shoeMaroon, 0.095, (topY(0.035) + topY(0.155)) / 2 + 0.004, 0);
+    tongue.rotation.z = -Math.atan2(topY(0.035) - topY(0.155), 0.12);
+    [0.06, 0.085, 0.11, 0.135].forEach(x => { const l = add(foot, new THREE.BoxGeometry(0.009, 0.007, 0.056), shoeWhite, x, topY(x) + 0.012, 0); l.rotation.z = tongue.rotation.z; });
+    add(foot, new THREE.TorusGeometry(0.05, 0.017, 8, 20), shoeMaroon, 0.0, 0.034, 0).rotation.x = Math.PI / 2;   // padded collar round the ankle
+    add(foot, new THREE.BoxGeometry(0.012, 0.045, 0.036), shoeMaroon, -0.083, -0.008, 0);                            // heel tab
+  };
+  // legs: baggy jeans and skate shoes
   [-1, 1].forEach(s => {
-    const thigh = new THREE.Group(); thigh.add(limb(0.088, 0.068, L1, thighM, 16)); char.add(thigh);
-    const shin = new THREE.Group(); shin.add(limb(0.068, 0.066, L2 - 0.02, shinM, 16));
-    add(shin, new THREE.SphereGeometry(0.069, 12, 8), pants);
+    // baggy, straight-leg jeans: roomy all the way down, the hem stacking over the top of the shoe
+    const thigh = new THREE.Group(); thigh.add(limb(0.102, 0.09, L1, thighM, 18)); char.add(thigh);
+    const shin = new THREE.Group(); shin.add(limb(0.092, 0.088, L2 + 0.005, shinM, 18));
+    add(shin, new THREE.SphereGeometry(0.087, 14, 10), pants);                                                  // knee
+    const stack = add(shin, new THREE.CylinderGeometry(0.1, 0.097, 0.055, 18, 1, true), pants, 0, -(L2 - 0.05), 0);   // fabric bunching at the ankle
+    stack.material = pants;
+    add(shin, new THREE.TorusGeometry(0.089, 0.008, 6, 22), pants, 0, -(L2 + 0.005), 0).rotation.x = Math.PI / 2;   // the hem, resting on the shoe's collar
     char.add(shin);
     const foot = new THREE.Group(); char.add(foot);
-    // shoe pieces sit forward of the foot's origin (the ankle), so the leg comes down over the heel, not the middle of the shoe
-    add(foot, new THREE.BoxGeometry(0.3, 0.032, 0.118), shoeM, 0.075, -0.062, 0);
-    add(foot, new THREE.BoxGeometry(0.29, 0.008, 0.12), shoeBlack, 0.075, -0.079, 0);
-    add(foot, new THREE.BoxGeometry(0.21, 0.06, 0.106), shoeM, 0.04, -0.02, 0);
-    add(foot, new THREE.SphereGeometry(0.055, 14, 10), shoeM, 0.16, -0.034, 0).scale.set(1.15, 0.6, 0.97);
-    [-1, 1].forEach(z => { add(foot, new THREE.BoxGeometry(0.15, 0.03, 0.006), shoeRed, 0.045, -0.025, z * 0.054).rotation.z = 0.12; });
-    add(foot, new THREE.BoxGeometry(0.12, 0.012, 0.055), shoeBlack, 0.095, 0.012, 0).rotation.z = -0.25;
-    add(foot, new THREE.BoxGeometry(0.03, 0.06, 0.07), shoeRed, -0.063, -0.01, 0);
-    add(foot, new THREE.CylinderGeometry(0.066, 0.07, 0.06, 12, 1, true), shoeBlack, 0, 0.018, 0);   // the collar, right round the ankle
+    buildShoe(foot);
     legs.push({ s, thigh, shin, foot, target: new V3() });
   });
-  rigM = { shirt, pants, skin, shoeM, capM: capRed };
+  rigM = { shirt, pants, skin, shoeM, capM: capRed, sleeve: sleeveM };
 }
 const _d = new V3(), _n = new V3(), _perp = new V3(), _thigh = new V3(), _knee = new V3(), _tgt = new V3(), _hint = new V3();
 const _xAx = new V3(1, 0, 0), _zAx = new V3(0, 0, 1), _armP = new V3();
@@ -4341,6 +4379,18 @@ function updateCamera(dt) {
   if (inPipeCam) floor = tunnelCurve(Math.abs(cz - TUN.z)) + 0.6;
   camPos.set(cx, Math.max(camY, floor), cz);
   if (inPipeCam) { const dy = camPos.y - TUN.yc, dz = cz - TUN.z, rr = Math.hypot(dy, dz), lim = TUN.R - 0.5; if (rr > lim) { camPos.y = TUN.yc + dy / rr * lim; camPos.z = TUN.z + dz / rr * lim; } }
+  // never let a wall or tall obstacle sit between the camera and you: if the line from you to the camera runs into one, come in in front of it
+  if (!inPipeCam) {
+    const ox = P.pos.x, oy = P.pos.y + 1.2, oz = P.pos.z;
+    for (let k = 1; k <= 20; k++) {
+      const t = k / 20, x = ox + (camPos.x - ox) * t, y = oy + (camPos.y - oy) * t, z = oz + (camPos.z - oz) * t;
+      if (heightAt(clamp(x, -PX, PX), clamp(z, PZS, PZN)) > y + 0.15) {
+        const tt = Math.max(0, t - 0.09); camPos.set(ox + (camPos.x - ox) * tt, Math.max(oy + (camPos.y - oy) * tt, P.pos.y + 0.8), oz + (camPos.z - oz) * tt);
+        camera.position.lerp(camPos, damp(20, dt));   // snap in quickly so the wall never hides you
+        break;
+      }
+    }
+  }
   camera.position.lerp(camPos, damp(grinding ? 14 : 7, dt));
   if (shake > 0) { camera.position.y += (Math.random() - 0.5) * shake * 0.12; shake = Math.max(0, shake - dt * 3); }
   const ahead = low ? 2.4 : 1.6;
@@ -4391,7 +4441,7 @@ function updateHUD(dt = 1 / 60) {
       sfx.spinUpdate(0, pitch);
     } else sfx.spinUpdate(level * fadeIn, pitch);
   }
-  sfx.update((P.state === 'ground' || P.state === 'pipe' || P.state === 'dome') && !P.manual ? Math.min(0.28, Math.abs(P.s) / 40) : P.manual ? Math.min(0.18, Math.abs(P.s) / 50) : 0,
+  sfx.update(P.state === 'wall' ? Math.min(0.28, Math.hypot(P.vel.x, P.vel.y, P.vel.z) / 40) : (P.state === 'ground' || P.state === 'pipe' || P.state === 'dome') && !P.manual ? Math.min(0.28, Math.abs(P.s) / 40) : P.manual ? Math.min(0.18, Math.abs(P.s) / 50) : 0,
     P.state === 'grind' ? 0.14 : 0, P.state === 'ground' && (P.sliding || (P.recover && P.recover.t < 0.35 && Math.abs(P.recover.off) > 0.3)) ? 0.22 : 0);   // the slide scrape only while you're actually on the ground
 }
 
@@ -4552,13 +4602,13 @@ function mpTag(text, color) {
 function mpNewRemote(peer) {
   const color = MP_COLORS[[...peer.peer].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) >>> 0, 7) % MP_COLORS.length];
   const g = mpTemplate.clone(true), capM = rigM.capM.clone(); capM.color.setHex(color);
-  const shirtM = rigM.shirt.clone();
-  g.traverse(o => { if (o.material === rigM.capM) o.material = capM; if (o.material === rigM.shirt) o.material = shirtM; });
+  const shirtM = rigM.shirt.clone(), sleeveM = rigM.sleeve.clone();
+  g.traverse(o => { if (o.material === rigM.capM) o.material = capM; if (o.material === rigM.shirt) o.material = shirtM; if (o.material === rigM.sleeve) o.material = sleeveM; });
   const nodes = []; g.traverse(o => { if (o !== g) nodes.push(o); });
   const rg = ragGroup.clone(true); rg.visible = false; scene.add(rg, g);
   rg.traverse(o => { if (o.material === rigM.shirt) o.material = shirtM; });
   const tag = mpTag('Skater', color); tag.position.set(0, 2.25, 0); g.add(tag);
-  return { peer: peer.peer, by: peer.by, color, shirtM, sc: null, g, nodes, board: nodes[MP_BOARD], charN: nodes[MP_CHAR], rg, tag, tagName: 'Skater',
+  return { peer: peer.peer, by: peer.by, color, shirtM, sleeveM, sc: null, g, nodes, board: nodes[MP_BOARD], charN: nodes[MP_CHAR], rg, tag, tagName: 'Skater',
     pres: null, recvAt: 0, tgt: null, tq: new THREE.Quaternion(), tp: new V3(), tv: new V3(), ragP: RAG.p.map(() => new V3()), fresh: false };
 }
 function mpDrop(r) { scene.remove(r.g, r.rg); if (r.board.parent === scene) scene.remove(r.board); MP.remotes.delete(r.peer); }
@@ -4575,7 +4625,7 @@ function mpTakePresence(r, pr) {
     k[o + 4] = dv.getInt16(b + 4) / 1000; k[o + 5] = dv.getInt16(b + 6) / 1000; k[o + 6] = dv.getInt16(b + 8) / 1000;
     k[o + 7] = dv.getUint8(b + 10) / 50; k[o + 8] = dv.getUint8(b + 11) / 50; k[o + 9] = dv.getUint8(b + 12) / 50;
   }
-  if (typeof pr.sc === 'string' && SHIRT_COLORS[pr.sc] && pr.sc !== r.sc) { r.sc = pr.sc; if (r.shirtM.map && r.shirtM.map !== rigM.shirt.map) r.shirtM.map.dispose(); r.shirtM.map = makeShirtTex(pr.sc); r.shirtM.needsUpdate = true; }
+  if (typeof pr.sc === 'string' && SHIRT_COLORS[pr.sc] && pr.sc !== r.sc) { r.sc = pr.sc; if (r.shirtM.map && r.shirtM.map !== rigM.shirt.map) r.shirtM.map.dispose(); r.shirtM.map = makeShirtTex(pr.sc); r.shirtM.needsUpdate = true; if (r.sleeveM) r.sleeveM.color.set(SHIRT_COLORS[pr.sc]); }
   const first = !r.tgt;
   r.tgt = { k, st: String(pr.st || ''), bw: Array.isArray(pr.bw) && pr.bw.length === 7 && num(pr.bw) ? pr.bw : null, rg: null };
   if (typeof pr.rg === 'string' && MP_RAG) { const rv = mpUnB64(pr.rg); if (rv && rv.byteLength === RAG.p.length * 6) { r.tgt.rg = true; r.ragP.forEach((p, i) => p.set(rv.getInt16(i * 6) / 300, rv.getInt16(i * 6 + 2) / 300, rv.getInt16(i * 6 + 4) / 300)); } }

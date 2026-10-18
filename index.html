@@ -99,6 +99,18 @@ button:focus-visible { outline: 2px solid var(--hazard); outline-offset: 2px; }
 @keyframes rise { 0% { transform: translateY(12px) scale(.9); opacity: 0; } 12% { transform: none; opacity: 1; } 75% { opacity: 1; } 100% { transform: translateY(-30px); opacity: 0; } }
 
 /* Overlays */
+.menu-go { margin: 6px 0 2px; font-family: var(--font-display); font-size: clamp(20px, 3.6vw, 27px); letter-spacing: .05em; color: var(--hazard); animation: splashPulse 1.6s ease-in-out infinite; }
+.menu-go span { font-family: inherit; font-size: .62em; color: var(--muted); letter-spacing: .04em; }
+.kspace { display: inline-block; padding: 1px 14px; margin: 0 4px; border: 2px solid var(--hazard); border-radius: 8px; font-family: inherit; font-size: .85em; line-height: 1.35; }
+@media (prefers-reduced-motion: reduce) { .menu-go { animation: none; } }
+.overlay.splash { z-index: 60; cursor: pointer; text-align: center; background: radial-gradient(ellipse at center, rgba(16,18,26,.96), rgba(6,7,11,1)); }
+.splash-in { display: flex; flex-direction: column; align-items: center; gap: 14px; max-width: 100%; }
+.splash h1 { font-size: clamp(40px, 9vw, 88px); text-align: center; }
+.splash-by { margin: 8px 0 0; font-size: clamp(18px, 3.4vw, 24px); font-weight: 600; line-height: 1.35; color: var(--chalk); }
+.splash-date { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.splash-go { margin: 26px 0 0; font-family: var(--font-display); font-size: clamp(22px, 4vw, 30px); letter-spacing: .08em; color: var(--hazard); animation: splashPulse 1.4s ease-in-out infinite; }
+@keyframes splashPulse { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .splash-go { animation: none; } }
 .overlay {
   position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; overflow-y: auto;
   padding-block: calc(20px + env(safe-area-inset-top, 0px)) calc(20px + env(safe-area-inset-bottom, 0px));
@@ -213,6 +225,14 @@ body.touch #combo { bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
   <div id="combo"><div id="comboTricks"></div><div id="comboPts"></div></div>
 </div>
 
+<div id="splash" class="overlay splash" role="button" tabindex="0" aria-label="Click to play">
+  <div class="splash-in">
+    <h1>Concrete <span class="hz">Lines</span></h1>
+    <p class="splash-by">Made by Jon Beam<br>with the use of Claude Code</p>
+    <p class="splash-date">October 2026</p>
+    <p class="splash-go">Click to play</p>
+  </div>
+</div>
 <div id="menu" class="overlay">
   <div class="card">
     <div class="eyebrow">Lot 9 skatepark · after hours</div>
@@ -227,10 +247,10 @@ body.touch #combo { bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
       <span class="stance-lbl">Shirt</span>
       <div class="swatches" id="shirtPick" role="group" aria-label="Shirt colour"></div>
     </div>
+    <p class="menu-go">Press <kbd class="kspace">Space</kbd> to start skating <span>· or pick a mode below</span></p>
     <div class="row">
       <button class="btn" id="startFree" type="button">Free skate</button>
       <button class="btn ghost" id="startSession" type="button">2-minute session</button>
-      <span class="stance-lbl">or press Space</span>
       <button class="btn ghost" id="keysMenu" type="button">Change keys</button>
     </div>
     <div class="row" id="netRow">
@@ -2057,7 +2077,10 @@ const keyName = code => KEY_NAMES[code] || code.replace(/^Key/, '').replace(/^Di
 const grindHeld = () => held(K.grind) || !!(P.air && P.air.wantGrind);
 const keys = {}, pressed = {}, released = {};
 let rebinding = null, menuSpace = false;
+function dismissSplash() { const sp = $('splash'); if (sp && !sp.hidden) { sp.hidden = true; try { sfx.init(); } catch (err) {} } }
+$('splash').addEventListener('click', dismissSplash);
 window.addEventListener('keydown', e => {
+  if ($('splash') && !$('splash').hidden) { e.preventDefault(); dismissSplash(); return; }   // the title screen takes the first key press
   if (e.target && e.target.tagName === 'INPUT' && e.target.type !== 'range') return;   // typing a name or code
   if (rebinding) { e.preventDefault(); finishRebind(e.code); return; }
   if (game.running && (e.code === 'Space' || e.code.startsWith('Arrow') || Object.values(BIND).includes(e.code))) e.preventDefault();

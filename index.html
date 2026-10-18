@@ -3193,9 +3193,9 @@ function stepAir(dt, st) {
     const uc = clamp(u, 0, 1);
     const ex = r.a.x + r.dx * uc - P.pos.x, ez = r.a.z + r.dz * uc - P.pos.z, el = Math.hypot(ex, ez);
     const ry = r.a.y + (r.b.y - r.a.y) * uc;
-    if (el < 3) { const k = A.lockOn ? 14 : 7; P.vel.x += ex * k * dt; P.vel.z += ez * k * dt; }
+    if (A.aimed ? el < 3 : el < 1.0) { const k = A.aimed ? 14 : 4; P.vel.x += ex * k * dt; P.vel.z += ez * k * dt; }
     // close enough: snap on, whether still rising or already coming down
-    if (u > -0.05 && u < 1.05 && el < (A.lockOn ? 0.9 : 0.6) && P.pos.y > ry - 0.45 && P.pos.y < ry + (P.vel.y < 0 ? 1.2 : 0.7)) {
+    if (u > -0.05 && u < 1.05 && el < (A.aimed ? 0.9 : 0.7) && P.pos.y > ry - 0.45 && P.pos.y < ry + (P.vel.y < 0 ? 1.2 : 0.7)) {
       const along = P.vel.x * r.dh.x + P.vel.z * r.dh.y;
       startGrind(r, clamp(uc, 0.005, 0.995), along); return;
     }
@@ -3385,11 +3385,11 @@ function lockGrind() {
     ollie(vy);
     const dx = t.cx - P.pos.x, dz = t.cz - P.pos.z, dl = Math.hypot(dx, dz) || 1, hv = Math.max(sp, dl / time);
     P.vel.x = dx / dl * hv; P.vel.z = dz / dl * hv;
-    P.air.wantGrind = true; P.air.wantRail = t.r; P.air.lockOn = true;
+    P.air.wantGrind = true; P.air.wantRail = t.r; P.air.lockOn = true; P.air.aimed = true;
     return true;
   }
   if (P.state === 'air') {
-    const t = findRail(4.8, false);
+    const t = findRail(1.4, false);
     if (!t) return false;
     P.air.wantGrind = true; P.air.wantRail = t.r; P.air.lockOn = true;
     return true;
@@ -3406,7 +3406,7 @@ function wallToGrind() {
   P.vel.y = Math.max(2.5, (t.ry + 0.15 - P.pos.y + 0.5 * AIR_G * time * time) / time);
   const dx = t.cx - P.pos.x, dz = t.cz - P.pos.z, dl = Math.hypot(dx, dz) || 1, hv = Math.max(dl / time, 2);
   P.vel.x = dx / dl * hv + Math.sin(P.heading) * sp * 0.6; P.vel.z = dz / dl * hv + Math.cos(P.heading) * sp * 0.6;
-  P.air.wantGrind = true; P.air.wantRail = t.r; P.air.lockOn = true;
+  P.air.wantGrind = true; P.air.wantRail = t.r; P.air.lockOn = true; P.air.aimed = true;
   sfx.pop(); P.anim.ollieT = 0; P.anim.takeoff = 'ollie';
 }
 function groundInput() {
@@ -3601,7 +3601,7 @@ function physics(dt) {
       if (!P.air.wantRail) lockGrind();
       else {
         const A = P.air, r = A.wantRail, u = clamp(((P.pos.x - r.a.x) * r.dx + (P.pos.z - r.a.z) * r.dz) / r.lenH2, 0, 1);
-        const cur = Math.hypot(r.a.x + r.dx * u - P.pos.x, r.a.z + r.dz * u - P.pos.z), t = findRail(4.8, false);
+        const cur = Math.hypot(r.a.x + r.dx * u - P.pos.x, r.a.z + r.dz * u - P.pos.z), t = findRail(1.4, false);
         if (t && t.r !== r && t.r !== r.next && t.r !== r.prev && t.dh < cur - 0.6) { A.wantRail = t.r; A.lockOn = true; }
       }
     }
@@ -3841,7 +3841,7 @@ function animate(dt) {
     else if (tp === 'five') { pitch = -0.24; pivot = -AXLE; hipZ = -0.08; leanA = -0.1; }
     else if (tp === 'crook') { pitch = 0.2; pivot = AXLE; yaw = 0.35; hipZ = 0.06; }
     else if (tp === 'smith') { pitch = -0.2; pivot = -AXLE; roll = 0.35 * c; hipZ = -0.06; }
-    else if (tp === 'dark') { roll = Math.PI; lift = 0.06; hipY = 0.98; }
+    else if (tp === 'dark') { roll = Math.PI; lift = -0.1; hipY = 0.82; }   // grip side down on the rail, he stands on the graphic
   } else if (st === 'wall') {
     hipY = 0.88; arm = ARM.balance; leanT = -0.15;
   } else if (st === 'bail') {
@@ -3862,9 +3862,9 @@ function animate(dt) {
   // keep a believable bend in the knees: feet never fold up into the backside
   {
     const fe = st === 'air' && A && A.flip ? 0.21 * pose.footFree : 0.22 * pose.footFree, need = st === 'air' ? 0.52 : 0.47;
-    if (pose.hipY - (0.265 + pose.lift + fe) < need) {
-      if (st === 'air') pose.lift = Math.max(0, Math.min(pose.lift, pose.hipY - 0.265 - fe - need));
-      const top = 0.265 + pose.lift + fe;
+    if (pose.hipY - (0.278 + pose.lift + fe) < need) {
+      if (st === 'air') pose.lift = Math.max(0, Math.min(pose.lift, pose.hipY - 0.278 - fe - need));
+      const top = 0.278 + pose.lift + fe;
       if (pose.hipY - top < need) { pose.hipY = top + need; pose.hipYv = Math.max(0, pose.hipYv); }
     }
   }
@@ -3967,10 +3967,11 @@ function animate(dt) {
   const kickY = z => Math.abs(z) > 0.28 ? (Math.abs(z) - 0.28) * Math.tan(KICK) : 0;
   [[pose.frontZ, 1], [pose.backZ, -1]].forEach(([zA, end]) => {
     const leg = legs[(end * c) > 0 ? 1 : 0];
-    const att = vA.set(0, 0.085 + kickY(zA), zA); boardFlip.localToWorld(att);
+    const flipped = Math.cos(pose.roll) < 0;   // board upside down (darkslide): the feet go on its underside, which is now on top
+    const att = vA.set(0, flipped ? -0.098 : 0.098 + kickY(zA), zA); boardFlip.localToWorld(att);
     let tgt = att;
     if (pose.footFree > 0.001) {
-      const free = vB.set(0, 0.085 + 0.22, zA * 1.1);
+      const free = vB.set(0, 0.098 + 0.22, zA * 1.1);
       const fl = st === 'air' && A && A.flip && !specialPose ? A.flip : null;
       if (fl) {
         // front foot: drags up the board toward the nose and flicks off the edge the board flips toward, then hovers clear
@@ -3982,18 +3983,18 @@ function animate(dt) {
         if (end > 0) {
           const lat = (fl.roll ? -Math.sign(fl.roll) : (fl.pitch ? 0 : 0.4 * Math.sign(fl.yaw || 1))) * c * 0.2;
           const out = Math.sin(Math.PI * 0.5 * flick) * (1 - catchF);         // swings out and holds, comes back in for the catch
-          free.set(lat * out, 0.085 + 0.03 + (0.06 * flick + 0.14 * tuck) * (1 - catchF), zA + (0.08 + 0.14 * flick + 0.07 * tuck) * (1 - catchF));
+          free.set(lat * out, 0.098 + 0.03 + (0.06 * flick + 0.14 * tuck) * (1 - catchF), zA + (0.08 + 0.14 * flick + 0.07 * tuck) * (1 - catchF));
         } else {
           const latB = (fl.yaw ? -Math.sign(fl.yaw) : 0) * c * 0.16, back = fl.pitch ? 0.12 : 0.05;
           const scoop = Math.sin(Math.PI * Math.min(1, ft / 0.42));
           const upB = smooth(clamp((ft - 0.08) / 0.32, 0, 1));
-          free.set(latB * scoop * (1 - catchB), 0.085 + 0.02 + 0.17 * upB * (1 - catchB), zA - (back * scoop + 0.11 * upB) * (1 - catchB));
+          free.set(latB * scoop * (1 - catchB), 0.098 + 0.02 + 0.17 * upB * (1 - catchB), zA - (back * scoop + 0.11 * upB) * (1 - catchB));
         }
         // the board sticks up higher while it's on its edge (flips) or end-up (impossibles / hardflips): stay clear of it
         // an envelope over the whole flip (not the board's instantaneous angle, which made the feet bob every half turn)
         const env = Math.sin(Math.PI * clamp(ft / 0.9, 0, 1));
         const deckTop = 0.016 + 0.105 * (fl.roll ? env : 0) + (fl.pitch ? env : 0) * Math.min(0.42, Math.abs(free.z) + 0.06);
-        free.y = Math.max(free.y, deckTop + 0.075);
+        free.y = Math.max(free.y, deckTop + 0.088);
       }
       if (specialPose) free.set(0, -0.2, zA * 0.6);
       // glide each foot along its path rather than snapping between targets
@@ -4007,18 +4008,18 @@ function animate(dt) {
     if (pushT >= 0 && end < 0) {
       // push foot: off the tail, down beside the board, sweep back, return
       // reach forward beside the front truck, plant, drive back past the tail, swing up and return
-      const gnd = (z, y = 0.07) => vC.set(c * 0.2, y, z);
+      const gnd = (z, y = 0.086) => vC.set(c * 0.2, y, z);
       let p;
-      if (pushT < 0.2) { const kk = smooth(pushT / 0.2); p = gnd(lerp(-0.1, 0.18, kk), 0.07 + 0.12 * Math.sin(kk * Math.PI)); rider.localToWorld(p); p = att.clone().lerp(p, kk); }
+      if (pushT < 0.2) { const kk = smooth(pushT / 0.2); p = gnd(lerp(-0.1, 0.18, kk), 0.086 + 0.12 * Math.sin(kk * Math.PI)); rider.localToWorld(p); p = att.clone().lerp(p, kk); }
       else if (pushT < 0.58) { const kk = (pushT - 0.2) / 0.38; p = gnd(lerp(0.18, -0.58, kk)); rider.localToWorld(p); }
-      else { const kk = smooth((pushT - 0.58) / 0.42); p = gnd(lerp(-0.58, -0.3, kk), 0.07 + 0.26 * Math.sin(kk * Math.PI)); rider.localToWorld(p); p.lerp(att, smooth((kk - 0.4) / 0.6)); }
+      else { const kk = smooth((pushT - 0.58) / 0.42); p = gnd(lerp(-0.58, -0.3, kk), 0.086 + 0.26 * Math.sin(kk * Math.PI)); rider.localToWorld(p); p.lerp(att, smooth((kk - 0.4) / 0.6)); }
       tgt = p;
     }
     leg.target.copy(tgt); char.worldToLocal(leg.target);
     const hip = vB.copy(pelvis.position).add(vC.set(0, -0.07, (end * c > 0 ? 1 : -1) * 0.1));
     _hint.set(1, 0, (end * c > 0 ? 1 : -1) * 0.35).normalize();
     solveLeg(leg, hip, leg.target, _hint);
-    qShoe.copy(qChar).invert().multiply(qBoard).multiply(qStance);
+    qShoe.copy(qChar).invert().multiply(qBoard); if (flipped) qShoe.multiply(qTmp.setFromAxisAngle(_zAx, Math.PI)); qShoe.multiply(qStance);
     leg.foot.quaternion.copy(qShoe).slerp(qTmp.identity(), clamp(pose.footFree + (pushT >= 0 && end < 0 ? 1 : 0), 0, 1));
     // off the board the toes point down, and during a flip the front foot rolls with its flick
     if (pose.footFree > 0.01 && st !== 'bail') {

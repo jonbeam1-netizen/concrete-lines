@@ -3891,7 +3891,8 @@ function animate(dt) {
   pose.yaw = lerp(pose.yaw, yaw, damp(12, dt)); pose.charYaw = lerp(pose.charYaw, charYaw, damp(12, dt));
   pose.roll = lerp(pose.roll, roll, k);
   pose.slideOff = lerp(pose.slideOff || 0, slideOff, k);
-  pose.footFree = footFree > pose.footFree ? lerp(pose.footFree, footFree, damp(18, dt)) : lerp(pose.footFree, footFree, damp(14, dt));
+  // feet come back onto the board fast once you're on a rail or the ground (catching a rail mid-flip left them hovering)
+  pose.footFree = footFree > pose.footFree ? lerp(pose.footFree, footFree, damp(18, dt)) : lerp(pose.footFree, footFree, damp(st === 'grind' || st === 'ground' ? 34 : 14, dt));
   pose.frontZ = lerp(pose.frontZ, frontZ, kf); pose.backZ = lerp(pose.backZ, backZ, damp(20, dt));
   pose.fall = st === 'bail' ? fall : lerp(pose.fall, 0, damp(10, dt));
   // shoulders lead spins, head watches the landing, arms catch balance after hard landings
@@ -3985,7 +3986,7 @@ function animate(dt) {
 
   // legs: feet ride the board anchors, lift off for flips, swing to the ground for pushes
   char.getWorldQuaternion(qChar); boardFlip.getWorldQuaternion(qBoard);
-  qStance.setFromAxisAngle(UP, (c < 0 ? Math.PI : 0) + pose.charYaw);
+  qStance.setFromAxisAngle(UP, c < 0 ? Math.PI : 0);   // the board's own yaw is already in qBoard; adding charYaw here turned the shoes twice in slides and reverts
   const kickY = z => Math.abs(z) > 0.28 ? (Math.abs(z) - 0.28) * Math.tan(KICK) : 0;
   [[pose.frontZ, 1], [pose.backZ, -1]].forEach(([zA, end]) => {
     const leg = legs[(end * c) > 0 ? 1 : 0];

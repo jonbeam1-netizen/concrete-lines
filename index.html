@@ -3271,7 +3271,8 @@ function land(nx, h, nz) {
   const n = new V3(-gx, 1, -gz).normalize();
   const vn = P.vel.dot(n), vt = P.vel.clone().addScaledVector(n, -vn);
   const hl = Math.hypot(vt.x, vt.z), sp = vt.length();
-  if (Math.abs(vn) > 26) { bail('Too much impact'); return; }
+  // how hard a landing he can take: a full special meter lets you drop from much higher; without it big drops take you out sooner
+  if (Math.abs(vn) > (P.special >= 1 ? 32 : 22)) { bail('Too much impact'); return; }
   let note = '';
   if (hl > 0.8) {
     const yaw = Math.atan2(vt.x, vt.z), d = angDiff(P.heading, yaw);

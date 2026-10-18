@@ -4085,7 +4085,7 @@ const FIRE_MAX = 1400, flames = [];
 const flameGeo = new THREE.BufferGeometry();
 flameGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(FIRE_MAX * 3), 3));
 flameGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(FIRE_MAX * 3), 3));
-const flamePts = new THREE.Points(flameGeo, new THREE.PointsMaterial({ size: 0.2, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+const flamePts = new THREE.Points(flameGeo, new THREE.PointsMaterial({ size: 0.18, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
 flamePts.frustumCulled = false; scene.add(flamePts);
 const FIRE = { t: 0, on: false };
 const WHEEL_MATS = []; boardFlip.traverse(o => { if (o.isMesh && o.material && o.material.color && o.material.color.getHex() === 0xf4efe6 && !WHEEL_MATS.includes(o.material)) WHEEL_MATS.push(o.material); });
@@ -4119,14 +4119,17 @@ function fxTick(dt) {
   if (hot) {
     const sp = P.state === 'grind' ? Math.abs(P.grind.vr) : P.state === 'ground' ? Math.abs(P.s) : Math.hypot(P.vel.x, P.vel.z);
     const per = Math.max(1, Math.round((1 + sp * 0.12) * heat));
+    // flames start just behind and below each wheel (so the deck stays visible) and stream back from there
+    const mv = P.state === 'grind' ? P.grind.r.dir.clone().multiplyScalar(Math.sign(P.grind.vr) || 1) : P.state === 'ground' ? new V3(Math.sin(P.heading) * Math.sign(P.s || 1), 0, Math.cos(P.heading) * Math.sign(P.s || 1)) : P.vel.clone().setY(0);
+    if (mv.lengthSq() > 1e-6) mv.normalize();
     for (const w of wheels) for (let k = 0; k < per && flames.length < FIRE_MAX; k++)
-      flames.push({ p: w.clone().add(new V3((Math.random() - 0.5) * 0.08, (Math.random() - 0.2) * 0.06, (Math.random() - 0.5) * 0.08)),
-        v: new V3((Math.random() - 0.5) * 0.6, 0.6 + Math.random() * 1.1, (Math.random() - 0.5) * 0.6), life: 0, max: 0.45 + Math.random() * 0.75 });
+      flames.push({ p: w.clone().addScaledVector(mv, -0.12 - Math.random() * 0.1).add(new V3((Math.random() - 0.5) * 0.06, -0.03 + (Math.random() - 0.5) * 0.03, (Math.random() - 0.5) * 0.06)),
+        v: new V3((Math.random() - 0.5) * 0.5, 0.25 + Math.random() * 0.7, (Math.random() - 0.5) * 0.5).addScaledVector(mv, -0.6), life: 0, max: 0.45 + Math.random() * 0.75 });
   }
   const fp = flameGeo.attributes.position.array, fc = flameGeo.attributes.color.array;
   for (let i = flames.length - 1; i >= 0; i--) { const q = flames[i]; q.life += dt; if (q.life >= q.max) { flames.splice(i, 1); continue; } q.v.multiplyScalar(Math.exp(-1.5 * dt)); q.p.addScaledVector(q.v, dt); }
   for (let i = 0; i < flames.length; i++) {
-    const q = flames[i], k = q.life / q.max, fade = 1 - k;
+    const q = flames[i], k = q.life / q.max, fade = (1 - k) * Math.min(1, q.life / 0.1);   // fades in, so it's dim right at the wheels
     fp[i * 3] = q.p.x; fp[i * 3 + 1] = q.p.y; fp[i * 3 + 2] = q.p.z;
     fc[i * 3] = fade; fc[i * 3 + 1] = Math.max(0, 0.85 - 1.3 * k) * fade; fc[i * 3 + 2] = Math.max(0, 0.35 - 1.2 * k) * fade;
   }

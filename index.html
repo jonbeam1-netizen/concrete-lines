@@ -1906,21 +1906,20 @@ const L1 = 0.45, L2 = 0.45;
   const limb = (r1, r2, L, mat, seg = 14) => { const g = new THREE.CylinderGeometry(r1, r2, L, seg, 4); g.translate(0, -L / 2, 0); const m = new THREE.Mesh(g, mat); m.castShadow = true; return m; };
 
   // hips and belt
-  pelvis.add(lathe([[0.02, -0.14], [0.14, -0.12], [0.175, -0.03], [0.172, 0.07]], 20, pants, 0.66));
+  pelvis.add(lathe([[0.02, -0.14], [0.14, -0.12], [0.168, -0.03], [0.165, 0.07]], 20, pants, 0.66));
   const belt = new THREE.MeshStandardMaterial({ color: 0x3b2417, roughness: 0.6 });
   add(pelvis, new THREE.CylinderGeometry(0.176, 0.176, 0.036, 22, 1, true), belt, 0, 0.055, 0).scale.x = 0.66;
   add(pelvis, new THREE.BoxGeometry(0.02, 0.034, 0.05), steelM, 0.117, 0.055, 0);
   [-1, 1].forEach(z => { const p = add(pelvis, new THREE.BoxGeometry(0.008, 0.075, 0.07), pants, -0.115, -0.03, z * 0.075); p.rotation.y = z * 0.25; });   // back pockets
   // torso: chest wider than the waist, flattened front to back
-  spine.add(lathe([[0.2, -0.13], [0.195, -0.06], [0.188, 0.06], [0.195, 0.2], [0.21, 0.32], [0.222, 0.42], [0.2, 0.5], [0.125, 0.555], [0.055, 0.578]], 30, shirt, 0.64));
+  spine.add(lathe([[0.222, -0.16], [0.214, -0.08], [0.2, 0.05], [0.2, 0.2], [0.212, 0.32], [0.222, 0.42], [0.2, 0.5], [0.125, 0.555], [0.055, 0.578]], 30, shirt, 0.8));
   add(spine, new THREE.TorusGeometry(0.05, 0.012, 6, 16), sleeveM, 0, 0.565, 0).rotation.x = Math.PI / 2;
   add(spine, new THREE.CylinderGeometry(0.045, 0.05, 0.1, 10), skin, 0, 0.57, 0);
   // head: skull, jaw, face, ears, hair, trucker hat (front of the face is +x)
   const skull = add(head, new THREE.SphereGeometry(0.115, 20, 16), skin, 0, 0.1, 0); skull.scale.set(1, 1.08, 0.94); skullMesh = skull;
   add(head, new THREE.SphereGeometry(0.085, 16, 10), skin, 0.03, 0.04, 0).scale.set(1, 0.8, 1.05);
   [-1, 1].forEach(s => {
-    add(head, new THREE.SphereGeometry(0.019, 10, 8), new THREE.MeshStandardMaterial({ color: 0xf4f1ea, roughness: 0.4 }), 0.098, 0.113, s * 0.04).scale.set(0.55, 0.85, 1);
-    add(head, new THREE.SphereGeometry(0.0095, 8, 6), dark, 0.107, 0.113, s * 0.04);
+    add(head, new THREE.SphereGeometry(0.015, 10, 8), dark, 0.102, 0.113, s * 0.04);   // black beady eyes
     add(head, new THREE.BoxGeometry(0.01, 0.008, 0.035), hair, 0.108, 0.145, s * 0.04).rotation.x = s * 0.15;
     add(head, new THREE.SphereGeometry(0.03, 8, 6), skin, -0.005, 0.1, s * 0.108).scale.set(0.6, 1, 0.45);
   });
@@ -1933,13 +1932,12 @@ const L1 = 0.45, L2 = 0.45;
   const brim = add(head, new THREE.CylinderGeometry(0.15, 0.15, 0.012, 24, 1, false, 0, Math.PI), capRed, 0.07, 0.14, 0);
   brim.scale.set(1.15, 1, 0.82); brim.rotation.z = -0.16;
   add(head, new THREE.BoxGeometry(0.01, 0.02, 0.07), dark, -0.125, 0.15, 0);
-  add(head, new THREE.BoxGeometry(0.006, 0.04, 0.06), new THREE.MeshStandardMaterial({ color: 0xf3f1ec, roughness: 0.6 }), 0.127, 0.185, 0).rotation.z = -0.35;   // logo patch on the front
   // arms: black short sleeves over skin, simple hands with a thumb
   [-1, 1].forEach(s => {
     const shoulder = new THREE.Group(); shoulder.position.set(0, 0.47, s * 0.205); spine.add(shoulder);
     shoulder.add(limb(0.05, 0.042, 0.28, skin, 12));
-    const sleeve = limb(0.082, 0.078, 0.2, sleeveM, 16); sleeve.position.y = 0.03; shoulder.add(sleeve);   // loose tee sleeve, past the bicep
-    add(shoulder, new THREE.SphereGeometry(0.082, 14, 10), sleeveM);
+    const sleeve = limb(0.074, 0.075, 0.2, sleeveM, 16); sleeve.position.y = 0.02; shoulder.add(sleeve);   // loose tee sleeve, past the bicep
+    add(shoulder, new THREE.SphereGeometry(0.07, 14, 10), sleeveM).scale.set(1, 0.85, 1);
     const elbow = new THREE.Group(); elbow.position.y = -0.28; shoulder.add(elbow);
     add(elbow, new THREE.SphereGeometry(0.043, 10, 8), skin);
     elbow.add(limb(0.041, 0.034, 0.25, skin, 12));
@@ -1982,12 +1980,12 @@ const L1 = 0.45, L2 = 0.45;
   // legs: baggy jeans and skate shoes
   [-1, 1].forEach(s => {
     // baggy, straight-leg jeans: roomy all the way down, the hem stacking over the top of the shoe
-    const thigh = new THREE.Group(); thigh.add(limb(0.102, 0.09, L1, thighM, 18)); char.add(thigh);
-    const shin = new THREE.Group(); shin.add(limb(0.092, 0.088, L2 + 0.005, shinM, 18));
+    const thigh = new THREE.Group(); thigh.add(limb(0.076, 0.09, L1, thighM, 18)); char.add(thigh);
+    const shin = new THREE.Group(); shin.add(limb(0.092, 0.09, L2 - 0.05, shinM, 18));
     add(shin, new THREE.SphereGeometry(0.087, 14, 10), pants);                                                  // knee
-    const stack = add(shin, new THREE.CylinderGeometry(0.1, 0.097, 0.055, 18, 1, true), pants, 0, -(L2 - 0.05), 0);   // fabric bunching at the ankle
+    const stack = add(shin, new THREE.CylinderGeometry(0.099, 0.096, 0.05, 18, 1, true), pants, 0, -(L2 - 0.09), 0);   // fabric bunching at the ankle
     stack.material = pants;
-    add(shin, new THREE.TorusGeometry(0.089, 0.008, 6, 22), pants, 0, -(L2 + 0.005), 0).rotation.x = Math.PI / 2;   // the hem, resting on the shoe's collar
+    add(shin, new THREE.TorusGeometry(0.09, 0.008, 6, 22), pants, 0, -(L2 - 0.05), 0).rotation.x = Math.PI / 2;   // the hem, just above the shoe
     char.add(shin);
     const foot = new THREE.Group(); char.add(foot);
     buildShoe(foot);

@@ -2146,6 +2146,7 @@ const CONTROLS = () => {
       [[k('trick2')], 'Left-side flips: heelflip, BS shove-it, hardflip, 360 shove-it, tre flip and more. Also right click.'],
       [['Air'], 'The game picks a flip from that side that fits your hang time. Tap again for a double, hold to keep it spinning.'],
       [[k('grind')], 'Lock onto grind: press near a rail, ledge or coping (up to about 4 m away) and he jumps onto it and locks in. Works in the air too. With no rail nearby on the ground, it starts a manual or nose manual; press again or press W to roll out and push. Press S to revert and keep manualing.'],
+      [['Grinds'], 'Hold a direction as you land on a rail: nothing = 50-50, W = Nosegrind, S = 5-0, A = Boardslide, D = Lipslide, W+A = Crooked, W+D = Noseslide, S+A = Smith, S+D = Tailslide. FS or BS comes from the side you approach. Press R on the rail to flip into a Darkslide, R again to switch to the next grind.'],
       [['Landing'], 'Tap just before you land: manual on flat, revert on a ramp. Keeps the combo going.'],
       [['Ground'], 'Pops a flip straight off the ground.'],
       [['Rail'], 'On a rail: pop off into a flip. Grinds last as long as the rail; Space, a trick, or left / right gets you off.'],
@@ -2344,7 +2345,13 @@ const GRINDS = {
   fifty: { name: '50-50 Grind' }, nose: { name: 'Nosegrind' }, five: { name: '5-0 Grind' },
   board: { name: 'Boardslide', slide: true }, lip: { name: 'Lipslide', slide: true },
   crook: { name: 'Crooked Grind' }, smith: { name: 'Smith Grind' }, dark: { name: 'Darkslide', rate: 450 },
+  noseslide: { name: 'Noseslide', slide: true }, tailslide: { name: 'Tailslide', slide: true },
 };
+// what you hold as you land on a rail picks the grind (W/S/A/D and the diagonals); R on the rail flips to a Darkslide and back
+const GRIND_KEYS = { none: 'fifty', up: 'nose', down: 'five', left: 'board', right: 'lip',
+  upleft: 'crook', upright: 'noseslide', downleft: 'smith', downright: 'tailslide' };
+const GRIND_CYCLE = ['fifty', 'nose', 'five', 'board', 'lip', 'noseslide', 'tailslide', 'smith', 'crook'];
+const grindName = g => (g.fs ? 'FS ' : 'BS ') + GRINDS[g.type].name;
 
 // ---------- Combo / UI ----------
 const ui = { score: $('score'), timer: $('timer'), speed: $('speed'), best: $('best'), tricks: $('comboTricks'), pts: $('comboPts'),
@@ -3005,6 +3012,13 @@ function groundInput() {
   autoFlip(P.air, side);
 }
 function grindTrick() {
+  if (tapped(K.grind)) {
+    const g = P.grind;
+    if (g.type !== 'dark') { g.prev = g.type; g.type = 'dark'; }
+    else g.type = GRIND_CYCLE[(GRIND_CYCLE.indexOf(g.prev) + 1) % GRIND_CYCLE.length] || 'fifty';
+    addTrick(grindName(g), 100); sfx.clank(); P.anim.impact = 0.2;
+    return;
+  }
   // steer left or right to hop off the rail that way
   const side = (tapped(K.right) ? 1 : 0) - (tapped(K.left) ? 1 : 0);
   if (side) {
@@ -3059,12 +3073,18 @@ function startGrind(r, u, along) {
   const c = Math.abs(Math.cos(angDiff(P.heading, ty)));
   if (Math.abs(angDiff(P.heading, ty)) > Math.PI / 2 + 0.3) { P.switchSt = !P.switchSt; P.snapYaw = true; }
   P.heading = ty;
-  const d = dirKey();
-  // two grinds: lined up with the rail is a 5-0, crossways (or holding a carve key) is a boardslide
-  const type = (c < 0.45 || d === 'left' || d === 'right') ? 'board' : 'five';
-  addTrick(GRINDS[type].name, 100);
+  const d = dirKey2();
+  // the keys you hold pick the grind; with none held, lined up with the rail is a 50-50 and coming in crossways is a boardslide
+  const type = d === 'none' && c < 0.45 ? 'board' : GRIND_KEYS[d] || 'fifty';
+  // frontside or backside: which side of the rail you came from, against the way your chest faces
+  const fx = r.dir.x * Math.sign(vr), fz = r.dir.z * Math.sign(vr), hl = Math.hypot(fx, fz) || 1, rx = fz / hl, rz = -fx / hl;
+  const vLat = P.vel.x * rx + P.vel.z * rz;
+  const pLat = (P.pos.x - (r.a.x + r.dx * u)) * rx + (P.pos.z - (r.a.z + r.dz * u)) * rz;
+  const railSide = Math.abs(vLat) > 0.5 ? Math.sign(vLat) : (-Math.sign(pLat) || 1);
+  const fs = railSide === cs();
+  P.grind = { r, u, vr, bal: (Math.random() - 0.5) * 0.25, type, t: 0, fs };
+  addTrick(grindName(P.grind), 100);
   combo.grind = true;
-  P.grind = { r, u, vr, bal: (Math.random() - 0.5) * 0.25, type, t: 0 };
   P.state = 'grind'; P.air = null; P.pending = 0;
   P.pos.copy(r.a).addScaledVector(r.dir, u * r.len);
   P.anim.impact = 0.35;
@@ -3288,7 +3308,7 @@ function animate(dt) {
   let hipY = 1.03 - 0.03 * spF, hipX = 0.02, hipZ = 0, leanT = -0.05, leanA = 0, twist = 0.3;   // relaxed and fairly upright when just rolling
   let lift = 0, pitch = 0, pivot = 0, yaw = 0, roll = 0, footFree = 0, frontZ = 0.16, backZ = -0.2, charYaw = 0, fall = 0;
   let arm = ARM.ride, grabArm = null, armSway = 0;
-  let flipRoll = 0, flipPitch = 0, flipYaw = 0;
+  let flipRoll = 0, flipPitch = 0, flipYaw = 0, slideOff = 0;
   let pushT = -1, specialPose = false;
   const travel = st === 'ground' && P.s < -0.3 ? -1 : 1;
 
@@ -3379,7 +3399,12 @@ function animate(dt) {
   } else if (st === 'grind') {
     const tp = g.type;
     hipY = 0.92; arm = ARM.balance; armSway = g.bal * 0.6; leanT = -c * g.bal * 0.45 - 0.05;
-    if (GRINDS[tp].slide) { yaw = Math.PI / 2 * (tp === 'lip' ? -1 : 1); charYaw = yaw; }
+    if (GRINDS[tp].slide) {
+      yaw = Math.PI / 2 * (tp === 'lip' ? -1 : 1); charYaw = yaw; lift = -0.05;   // the deck sits on the rail
+      // nose / tail slides: only that end rests on the rail, the rest of the board and the rider hang off to one side, tipped down onto it
+      if (tp === 'noseslide') { slideOff = -0.34; pitch = 0.14; pivot = 0.34; hipZ = 0.05; leanA = 0.08; }
+      else if (tp === 'tailslide') { slideOff = 0.34; pitch = -0.14; pivot = -0.34; hipZ = -0.05; leanA = -0.08; }
+    }
     else if (tp === 'nose') { pitch = 0.24; pivot = AXLE; hipZ = 0.08; leanA = 0.1; }
     else if (tp === 'five') { pitch = -0.24; pivot = -AXLE; hipZ = -0.08; leanA = -0.1; }
     else if (tp === 'crook') { pitch = 0.2; pivot = AXLE; yaw = 0.35; hipZ = 0.06; }
@@ -3415,6 +3440,7 @@ function animate(dt) {
   pose.pivot = pivot !== 0 ? pivot : lerp(pose.pivot, 0, k);
   pose.yaw = lerp(pose.yaw, yaw, damp(12, dt)); pose.charYaw = lerp(pose.charYaw, charYaw, damp(12, dt));
   pose.roll = lerp(pose.roll, roll, k);
+  pose.slideOff = lerp(pose.slideOff || 0, slideOff, k);
   pose.footFree = footFree > pose.footFree ? lerp(pose.footFree, footFree, damp(18, dt)) : lerp(pose.footFree, footFree, damp(14, dt));
   pose.frontZ = lerp(pose.frontZ, frontZ, kf); pose.backZ = lerp(pose.backZ, backZ, damp(20, dt));
   pose.fall = st === 'bail' ? fall : lerp(pose.fall, 0, damp(10, dt));
@@ -3431,9 +3457,12 @@ function animate(dt) {
   // ---- board transform: pitch around an axle when one is set ----
   const c0 = vA.set(0, BOARD_Y + pose.lift, 0);
   if (Math.abs(pose.pivot) > 0.01) {
-    const pv = vB.set(0, pose.lift, pose.pivot);
-    c0.sub(pv).applyAxisAngle(new V3(1, 0, 0), pose.pitch).add(pv);
+    const sy = Math.sin(pose.yaw), cy = Math.cos(pose.yaw);
+    const pv = vB.set(pose.pivot * sy, pose.lift, pose.pivot * cy);
+    c0.sub(pv).applyAxisAngle(new V3(cy, 0, -sy), pose.pitch).add(pv);
   }
+  const so = pose.slideOff || 0, sox = so * Math.sin(pose.yaw), soz = so * Math.cos(pose.yaw);
+  c0.x += sox; c0.z += soz;
   boardRoot.position.copy(c0);
   boardRoot.position.x += pose.boardOff * 0.9 * c;
   boardRoot.rotation.set(pose.pitch, pose.yaw, pose.roll + pose.boardOff * P.bailT * 6);
@@ -3443,6 +3472,7 @@ function animate(dt) {
   // ---- character ----
   char.rotation.order = 'YXZ';
   char.rotation.set(0, (c < 0 ? Math.PI : 0) + pose.charYaw, pose.fall);
+  char.position.set(sox, 0, soz);
   pelvis.position.set(pose.hipX, pose.hipY, pose.hipZ);
   const slam = smooth(Math.min(1, pose.slam || 0));
   spine.rotation.set(pose.leanA, -c * pose.twist + pose.spinLead, pose.leanT - 0.42 * slam + Math.sin(game.clock * 2.1) * 0.012);   // shoulders fold forward over the board on impact
@@ -3735,7 +3765,7 @@ ui.best.textContent = fmt(game.best);
 if (location.hash === '#debug') {
   window.__cl = { P, keys, pressed, released, combo, game, letters, tape, heightAt,
     step: dt => { game.clock += dt; physics(dt); for (const k in pressed) delete pressed[k]; for (const k in released) delete released[k]; },
-    anim: dt => animate(dt), legs, arms, pose, rider, camera,
+    anim: dt => animate(dt), rails, startGrind, legs, arms, pose, rider, camera,
     sfx, SPAWNS, RIM, get camYaw() { return camYaw; }, set camYaw(v) { camYaw = v; }, get SPIRALS() { return SPIRALS; }, get inSky() { return inSky; }, get mp() { return { MP, mpPeers, mpTick, mpPresenceObj, mpCrash, NET }; }, snap: () => [P.state, +P.pos.x.toFixed(2), +P.pos.y.toFixed(2), +P.pos.z.toFixed(2), +P.s.toFixed(2), +P.vel.y.toFixed(2), +P.heading.toFixed(2), P.switchSt ? 'sw' : ''] };
 }
 

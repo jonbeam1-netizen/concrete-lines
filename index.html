@@ -4193,13 +4193,14 @@ function animate(dt) {
   char.getWorldQuaternion(qChar); boardFlip.getWorldQuaternion(qBoard);
   qStance.setFromAxisAngle(UP, c < 0 ? Math.PI : 0);   // the board's own yaw is already in qBoard; adding charYaw here turned the shoes twice in slides and reverts
   const kickY = z => Math.abs(z) > 0.28 ? (Math.abs(z) - 0.28) * Math.tan(KICK) : 0;
+  const FOOT_Y = 0.106;   // ankle height over the deck centre: the gum sole sits right on the grip (and its concave), not sunk into it
   [[pose.frontZ, 1], [pose.backZ, -1]].forEach(([zA, end]) => {
     const leg = legs[(end * c) > 0 ? 1 : 0];
     const flipped = Math.cos(pose.roll) < 0;   // board upside down (darkslide): the feet go on its underside, which is now on top
-    const att = vA.set(0, flipped ? -0.098 : 0.098 + kickY(zA), zA); boardFlip.localToWorld(att);
+    const att = vA.set(0, flipped ? -FOOT_Y : FOOT_Y + kickY(zA), zA); boardFlip.localToWorld(att);
     let tgt = att;
     if (pose.footFree > 0.001) {
-      const free = vB.set(0, 0.098 + 0.22, zA * 1.1);
+      const free = vB.set(0, FOOT_Y + 0.22, zA * 1.1);
       const fl = st === 'air' && A && A.flip && !specialPose ? A.flip : null;
       if (fl) {
         // front foot: drags up the board toward the nose and flicks off the edge the board flips toward, then hovers clear
@@ -4211,22 +4212,22 @@ function animate(dt) {
         if (end > 0) {
           const lat = (fl.roll ? -Math.sign(fl.roll) : (fl.pitch ? 0 : 0.4 * Math.sign(fl.yaw || 1))) * c * 0.2;
           const out = Math.sin(Math.PI * 0.5 * flick) * (1 - catchF);         // swings out and holds, comes back in for the catch
-          free.set(lat * out, 0.098 + 0.03 + (0.06 * flick + 0.14 * tuck) * (1 - catchF), zA + (0.08 + 0.14 * flick + 0.07 * tuck) * (1 - catchF));
+          free.set(lat * out, FOOT_Y + 0.03 + (0.06 * flick + 0.14 * tuck) * (1 - catchF), zA + (0.08 + 0.14 * flick + 0.07 * tuck) * (1 - catchF));
         } else {
           const latB = (fl.yaw ? -Math.sign(fl.yaw) : 0) * c * 0.16, back = fl.pitch ? 0.12 : 0.05;
           const scoop = Math.sin(Math.PI * Math.min(1, ft / 0.42));
           const upB = smooth(clamp((ft - 0.08) / 0.32, 0, 1));
-          free.set(latB * scoop * (1 - catchB), 0.098 + 0.02 + 0.17 * upB * (1 - catchB), zA - (back * scoop + 0.11 * upB) * (1 - catchB));
+          free.set(latB * scoop * (1 - catchB), FOOT_Y + 0.02 + 0.17 * upB * (1 - catchB), zA - (back * scoop + 0.11 * upB) * (1 - catchB));
         }
         // the board sticks up higher while it's on its edge (flips) or end-up (impossibles / hardflips): stay clear of it
         // an envelope over the whole flip (not the board's instantaneous angle, which made the feet bob every half turn)
         const env = Math.sin(Math.PI * clamp(ft / 0.9, 0, 1));
         const deckTop = 0.016 + 0.105 * (fl.roll ? env : 0) + (fl.pitch ? env : 0) * Math.min(0.42, Math.abs(free.z) + 0.06);
-        free.y = Math.max(free.y, deckTop + 0.088);
+        free.y = Math.max(free.y, deckTop + FOOT_Y - 0.01);
       }
       if (st === 'grind') {
         // hopping between grinds: feet hover just over where the deck is, ignoring the board turning over beneath them
-        free.set(0, 0.098 + 0.13, zA); free.applyAxisAngle(_zAx, -pose.roll);
+        free.set(0, FOOT_Y + 0.13, zA); free.applyAxisAngle(_zAx, -pose.roll);
       }
       if (specialPose) free.set(0, -0.2, zA * 0.6);
       // glide each foot along its path rather than snapping between targets

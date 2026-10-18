@@ -1071,10 +1071,10 @@ RIM.rrect(RIM.Rl + 5, 45).filter((p, i) => i % 7 === 3).forEach(([x, z]) => {
   h.position.set(x, y + 9, z); scene.add(h);
 });
 
-// ---------- The sky zone (the far south end) ----------
-// A wooden bowl floating 40 m up. It only exists for physics while you're up at its height (like the tunnel),
-// so you can skate underneath it on the ground.
-const BOWL = { x: 0, z: -175, y: 24, R: 15, rimR: 14.55, deckR: 16.2 };
+// ---------- The floating bowl ----------
+// A thin wooden bowl floating beside the mega half pipe's south end (transfer up into it off the tall extension).
+// It only exists for physics while you're up at its height (like the tunnel), so you can skate underneath it on the ground.
+const BOWL = { x: 57.5, z: -183, y: 6.9, R: 12, rimR: 11.64, deckR: 13.2 };
 BOWL.depth = BOWL.R - Math.sqrt(BOWL.R * BOWL.R - BOWL.rimR * BOWL.rimR); BOWL.top = BOWL.y + BOWL.depth;
 let inSky = false;
 addObs({ cx: BOWL.x, cz: BOWL.z, a: 0, hw: BOWL.deckR, hl: BOWL.deckR, f: (lx, lz) => {
@@ -1092,18 +1092,21 @@ addObs({ cx: BOWL.x, cz: BOWL.z, a: 0, hw: BOWL.deckR, hl: BOWL.deckR, f: (lx, l
   const prof = [];
   const phiMax = Math.asin(BOWL.rimR / BOWL.R);
   for (let k = 0; k <= 64; k++) { const ph = phiMax * k / 64; prof.push(new THREE.Vector2(Math.max(0.001, BOWL.R * Math.sin(ph)), BOWL.R - BOWL.R * Math.cos(ph))); }
-  prof.push(new THREE.Vector2(BOWL.deckR, BOWL.depth));
-  for (let k = 1; k <= 32; k++) { const t = k / 32 * Math.PI / 2; prof.push(new THREE.Vector2(4 + (BOWL.deckR - 4) * Math.cos(t), BOWL.depth - (BOWL.depth + 4) * Math.sin(t))); }
-  prof.push(new THREE.Vector2(4, -4.6), new THREE.Vector2(0.001, -4.6));
+  // a narrow deck round the lip, then back underneath as a thin shell that follows the inside
+  const TH = 0.4, Ro = BOWL.R + TH, yu = BOWL.depth - 0.3;
+  prof.push(new THREE.Vector2(BOWL.deckR, BOWL.depth), new THREE.Vector2(BOWL.deckR, yu));
+  const phiO = Math.acos((BOWL.R - yu) / Ro);
+  for (let k = 0; k <= 64; k++) { const ph = phiO * (1 - k / 64); prof.push(new THREE.Vector2(Math.max(0.001, Ro * Math.sin(ph)), BOWL.R - Ro * Math.cos(ph))); }
   const bowlMesh = new THREE.Mesh(new THREE.LatheGeometry(prof, 120), wood);
   bowlMesh.position.set(BOWL.x, BOWL.y, BOWL.z); bowlMesh.castShadow = bowlMesh.receiveShadow = true; scene.add(bowlMesh);
   const lip = new THREE.Mesh(new THREE.TorusGeometry(BOWL.rimR, 0.13, 10, 140), new THREE.MeshStandardMaterial({ color: 0xc08a5a, roughness: 0.45 }));
   lip.rotation.x = Math.PI / 2; lip.position.set(BOWL.x, BOWL.top + 0.02, BOWL.z); scene.add(lip);
   const ring = []; for (let k = 0; k < 96; k++) { const t = k / 96 * TAU; ring.push([BOWL.x + Math.cos(t) * BOWL.rimR, BOWL.top + 0.15, BOWL.z + Math.sin(t) * BOWL.rimR]); }
   addRailPath(ring, { hidden: true, closed: true }).forEach(r => { const mx = (r.a.x + r.b.x) / 2 - BOWL.x, mz = (r.a.z + r.b.z) / 2 - BOWL.z, l = Math.hypot(mx, mz) || 1; r.inward = [-mx / l, -mz / l]; });
-  const glow = new THREE.PointLight(0xffd6a0, 1.1, 60); glow.position.set(BOWL.x, BOWL.y - 8, BOWL.z); scene.add(glow);
+  const glow = new THREE.PointLight(0xffd6a0, 1.1, 60); glow.position.set(BOWL.x, BOWL.y - 2.5, BOWL.z); scene.add(glow);
 }
-// Giant spiral rails that wind up around a tower and fling you into the bowl
+// Giant spiral rails that wind up around a tower and run across to the bowl
+const DOME_XZ = [0, -175];   // the glass dome sits where the bowl used to float
 const SPIRALS = [];
 function spiralRail(cx, cz, rad, pitch, dirS, opts = {}) {
   const y0 = 0.7, y1 = BOWL.top + 1.1, turns = (y1 - y0) / pitch;
@@ -1138,7 +1141,10 @@ function spiralRail(cx, cz, rad, pitch, dirS, opts = {}) {
   const dl = Math.hypot(ux, uz), E = [BOWL.x - ux / dl * (BOWL.rimR - 5), BOWL.top + 0.9, BOWL.z - uz / dl * (BOWL.rimR - 5)];
   const C = [H[0] + txF * 12, y1 + 0.6, H[2] + tzF * 12], bl = Math.hypot(E[0] - H[0], E[2] - H[2]), m = Math.max(8, Math.round(bl / 1.2));
   for (let k = 1; k <= m; k++) { const t = k / m, a = (1 - t) * (1 - t), b = 2 * t * (1 - t), c = t * t; pts.push([a * H[0] + b * C[0] + c * E[0], a * H[1] + b * C[1] + c * E[1], a * H[2] + b * C[2] + c * E[2]]); }
-  addRailPath(pts, { hidden: true }).slice(-m).forEach(r => { r.brake = true; });   // the bridge slows you so you drop into the bowl, not across it
+  addRailPath(pts, { hidden: true }).slice(-Math.min(m, 10)).forEach(r => { r.brake = true; });   // the end of the bridge slows you so you drop into the bowl, not across it
+  // masts under the long bridge, wherever there's open floor below
+  for (let k = 8; k < m - 6; k += 10) { const p = pts[pts.length - m + k], gy = heightAt(p[0], p[2]);
+    if (gy < 0.05 && Math.hypot(p[0] - DOME_XZ[0], p[2] - DOME_XZ[1]) > 26 && Math.hypot(p[0] - BOWL.x, p[2] - BOWL.z) > BOWL.deckR + 1) cylBetween(new V3(p[0], 0, p[2]), new V3(p[0], p[1] - 0.2, p[2]), 0.09, mats.steel); }
   const curve = new THREE.CatmullRomCurve3(pts.map(p => new V3(p[0], p[1] - 0.085, p[2])));   // the tube's top is where you ride
   const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, pts.length * 3, 0.085, 8), mats.rail); tube.castShadow = true; scene.add(tube);
   cylBetween(new V3(cx, 0, cz), new V3(cx, y1 + 2, cz), 0.6, mats.steel);
@@ -1194,7 +1200,7 @@ const ringObs = (cx, cz, R, f, res, mat = mats.ramp) => { const o = addObs({ cx,
 // The glass dome: the old orbit bowl, closed over with a glass hemisphere you can ride all the way up and over (like the tunnel).
 // Floor -> transition up to the near-vertical lip -> the glass sphere carries on from there. One doorway, on the north side.
 // Outside, a concrete fillet hugs the glass and runs into a ring and a bank, so you can ride up the outside of it too.
-const DOME = { x: BOWL.x, z: BOWL.z, Rb: 7, Rt: 5.5, F: 4, ring: 1.6, S: 6, door: 4.4 };
+const DOME = { x: DOME_XZ[0], z: DOME_XZ[1], Rb: 7, Rt: 5.5, F: 4, ring: 1.6, S: 6, door: 4.4 };
 DOME.Rl = DOME.Rt * 0.97; DOME.Hl = DOME.Rt - Math.sqrt(DOME.Rt * DOME.Rt - DOME.Rl * DOME.Rl); DOME.Rd = DOME.Rb + DOME.Rl;
 DOME.rc = Math.sqrt((DOME.Rd + DOME.F) * (DOME.Rd + DOME.F) - DOME.F * DOME.F); DOME.rt = DOME.rc * DOME.Rd / (DOME.Rd + DOME.F);
 DOME.C = new V3(DOME.x, DOME.Hl, DOME.z);
@@ -1339,13 +1345,29 @@ const MHP = { cx: 93, cz: -85, F: 14, R: 9, D: 4, B: 7, W: 230 };
     return Hl * (1 - smoothT((s - Rl - MHP.D) / MHP.B));
   }, 0.4);
   const z0 = MHP.cz - MHP.W / 2 + 0.5, z1 = MHP.cz + MHP.W / 2 - 0.5;
+  // the extension: a taller wall (bigger radius, starting a little out in the flat) on the west side, facing the floating bowl
+  const X = MHP.ext = { R: 14, D: 4, B: 6, W: 24, z: BOWL.z };
+  X.Rl = X.R * 0.97; X.Hl = X.R - Math.sqrt(X.R * X.R - X.Rl * X.Rl);
+  X.k = Math.sqrt(X.R * X.R - (X.R - Hl) * (X.R - Hl)) - Rl;   // how far into the flat it starts, so it meets the old lip exactly
+  X.lipX = MHP.cx - half - (X.Rl - X.k); X.z0 = X.z - X.W / 2; X.z1 = X.z + X.W / 2;
+  const extMat = mats.ramp.clone(); extMat.polygonOffsetFactor = -2; extMat.polygonOffsetUnits = -4;
+  profileRamp(MHP.cx, X.z, Math.PI / 2, X.W, 0, half + X.Rl - X.k + X.D + X.B, lz => {
+    if (lz >= 0) return 0;
+    const t = -lz - half + X.k;
+    if (t <= 0) return 0;
+    if (t < X.Rl) return X.R - Math.sqrt(Math.max(0, X.R * X.R - t * t));
+    if (t < X.Rl + X.D) return X.Hl;
+    return X.Hl * (1 - smoothT((t - X.Rl - X.D) / X.B));
+  }, 0.3, extMat, null, { vertical: true });
+  lipCoping(X.lipX, X.z0 + 0.5, X.lipX, X.z1 - 0.5, X.Hl, [1, 0]);
   lipCoping(MHP.cx + MHP.lipOff, z0, MHP.cx + MHP.lipOff, z1, Hl, [-1, 0]);
-  lipCoping(MHP.cx - MHP.lipOff, z0, MHP.cx - MHP.lipOff, z1, Hl, [1, 0]);
-  // railings along the back edge of both decks (grindable, like the arena's)
+  lipCoping(MHP.cx - MHP.lipOff, z0, MHP.cx - MHP.lipOff, X.z0 - 0.2, Hl, [1, 0]);
+  lipCoping(MHP.cx - MHP.lipOff, X.z1 + 0.2, MHP.cx - MHP.lipOff, z1, Hl, [1, 0]);
+  // railings along the back edge of both decks (grindable, like the arena's); the west one stops either side of the extension
   [-1, 1].forEach(sd => {
-    const x = MHP.cx + sd * (MHP.deckOut - 0.4), pts = [];
-    for (let z = z0 + 2; z <= z1 - 2; z += 8) pts.push([x, Hl + 1.0, z]);
-    addRailPath(pts);
+    const x = MHP.cx + sd * (MHP.deckOut - 0.4);
+    const runs = sd > 0 ? [[z0 + 2, z1 - 2]] : [[z0 + 2, X.z0 - 1.5], [X.z1 + 1.5, z1 - 2]];
+    runs.forEach(([a, b]) => { const pts = [], n = Math.max(1, Math.round((b - a) / 8)); for (let i = 0; i <= n; i++) pts.push([x, Hl + 1.0, a + (b - a) * i / n]); addRailPath(pts); });
   });
   // floating sky rails high above both lips: boost, go vert, and hold R to catch one
   [-1, 1].forEach(sd => {
@@ -1355,6 +1377,7 @@ const MHP = { cx: 93, cz: -85, F: 14, R: 9, D: 4, B: 7, W: 230 };
   });
   // boosters down the flat so you can get up there
   for (let z = -175; z <= 15; z += 38) { boostPad(MHP.cx - 2.6, z, Math.PI / 2); boostPad(MHP.cx + 2.6, z + 19, -Math.PI / 2); }
+  boostPad(MHP.cx + 3.5, X.z + 6, -Math.PI / 2);   // one lined up with the extension
   // the loop-de-loop: from the west deck, out over the pipe, round a full loop, and down onto the east deck
   const y0 = Hl + 0.7, zc = -100, LR = 5.5, shift = 2.4, pts = [], loopIdx = [];
   for (let x = MHP.cx - MHP.lipOff - 2.4; x < MHP.cx; x += 0.5) pts.push([x, y0, zc]);
@@ -1509,7 +1532,7 @@ function boostCheck() {
 function bowlStop() {
   if (!inSky || P.state !== 'ground') return;
   const dx = P.pos.x - BOWL.x, dz = P.pos.z - BOWL.z, r = Math.hypot(dx, dz), lim = BOWL.deckR - 0.5;
-  if (r < lim) return;
+  if (r < lim || r > BOWL.deckR + 1.5) return;
   const ux = dx / r, uz = dz / r;
   P.pos.x = BOWL.x + ux * lim; P.pos.z = BOWL.z + uz * lim;
   const vx = Math.sin(P.heading) * P.s, vz = Math.cos(P.heading) * P.s, out = vx * ux + vz * uz;
@@ -2632,6 +2655,7 @@ const SPAWNS = [
   { name: 'Tabletops', x: 14, z: -45, heading: Math.PI / 2 },
   { name: 'Tunnel', x: -24, z: 58, heading: Math.PI / 2 },
   { name: 'Floating bowl', x: BOWL.x, z: BOWL.z + 6, heading: 0, sky: true },
+  { name: 'Bowl extension', x: MHP.cx + 5, z: BOWL.z, heading: -Math.PI / 2 },
   { name: 'Spiral rail', x: SPIRALS[0].start[0] - Math.sin(SPIRALS[0].heading) * 6, z: SPIRALS[0].start[2] - Math.cos(SPIRALS[0].heading) * 6, heading: SPIRALS[0].heading },
   { name: 'Mega gap tower', x: -60, z: -100, heading: Math.PI / 2 },
   { name: 'Vert wall', x: 0, z: -215, heading: Math.PI },
@@ -3110,6 +3134,17 @@ function stepGround(dt, st) {
     P.manual = null; P.pending = 0; P.push.phase = -1;
     enterAir(vert);
     P.air.transfer = transfer;
+    const X = MHP.ext;
+    if (vert && !inSky && held(K.up) && Math.abs(P.pos.x - X.lipX) < 1.5 && P.pos.z > X.z0 && P.pos.z < X.z1) {
+      // holding W up the extension: carry up and over the floating bowl's lip and come down inside it
+      const dx = BOWL.x - P.pos.x, dz = BOWL.z - P.pos.z, d = Math.hypot(dx, dz) || 1, ux = dx / d, uz = dz / d;
+      const tx = BOWL.x - ux * 6.5, tz = BOWL.z - uz * 6.5, ty = BOWL.y + BOWL.R - Math.sqrt(BOWL.R * BOWL.R - 6.5 * 6.5) + 0.3;
+      P.vel.y = Math.max(P.vel.y, Math.sqrt(2 * AIR_G * Math.max(1, BOWL.top + 2.6 - P.pos.y)));
+      const T = (P.vel.y + Math.sqrt(P.vel.y * P.vel.y + 2 * AIR_G * (P.pos.y - ty))) / AIR_G;
+      P.vel.x = (tx - P.pos.x) / T; P.vel.z = (tz - P.pos.z) / T;
+      P.air.vert = false; P.air.vertN = null; P.air.auto = null; P.air.xfer = true; P.air.transfer = true;
+      addTrick('Bowl Transfer', 400);
+    }
     if (vert && inSky && held(K.up)) {
       // holding W up the floating bowl's wall: carry on out over the lip and drop back down into the park
       const dx = P.pos.x - BOWL.x, dz = P.pos.z - BOWL.z, r = Math.hypot(dx, dz) || 1;
@@ -3704,7 +3739,7 @@ function physics(dt) {
   // once you're in the tunnel you stay in it until you leave by an end, whatever height you reach inside
   // the floating bowl switches on once you're up at its rim, and off once you've dropped well below it
   { const rb = Math.hypot(P.pos.x - BOWL.x, P.pos.z - BOWL.z);
-    if (!inSky && P.pos.y > BOWL.top - 1.2 && rb < BOWL.deckR + 8) inSky = true; else if (inSky && P.pos.y < BOWL.y - 2) inSky = false; }
+    if (!inSky && P.pos.y > BOWL.top - 1.2 && rb < BOWL.deckR + 8) inSky = true; else if (inSky && (P.pos.y < BOWL.y - 2 || rb > BOWL.deckR + 10)) inSky = false; }
   { const r = Math.hypot(P.pos.x - DOME.x, P.pos.z - DOME.z), y = P.pos.y;
     if (r > DOME.Rd + 3) inDome = false; else if (P.state === 'dome') inDome = true;
     else {   // sticky either way: once inside you stay inside until you leave by the door; the outside of the glass stays solid

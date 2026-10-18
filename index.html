@@ -478,7 +478,7 @@ function addObs(o) { o.c = Math.cos(o.a); o.s = Math.sin(o.a); obstacles.push(o)
 // the tunnel's floor stands in for the tower above it; ride over the top and the tower is solid as usual.
 // Cross-section: flat floor, tall curved walls (a quarter pipe on each side), straight sides, arched roof.
 // A round pipe through the tower base, running along x
-const TUN = { z: 58, xIn: 13, xOut: 17.6, R: 3.8 };
+const TUN = { z: 58, xIn: 6.4, xOut: 7.3, R: 3.8 };
 TUN.yc = TUN.R; TUN.half = TUN.R; TUN.ceil = 2 * TUN.R;
 let inTunnel = false;
 const tunnelCurve = d => d >= TUN.R ? TUN.R : TUN.yc - Math.sqrt(TUN.R * TUN.R - d * d);
@@ -547,6 +547,39 @@ function buildObs(o, topMat, sideMat, xs, zs) {
     sg.computeVertexNormals();
     const side = new THREE.Mesh(sg, sideMat); side.castShadow = side.receiveShadow = true; group.add(side);
   }
+  scene.add(group);
+  return group;
+}
+// A profile swept across a width W: flat top, vertical side walls (with an optional round hole, e.g. a tunnel mouth), vertical end faces
+function buildExtrude(o, W, zs, topMat, sideMat, hole) {
+  const group = new THREE.Group(); group.position.set(o.cx, 0, o.cz); group.rotation.y = o.a;
+  const H = zs.map(z => Math.max(0, o.f(0, z))), x0 = -W / 2, x1 = W / 2;
+  // top
+  { const pos = [], uv = [], idx = [];
+    zs.forEach((z, j) => { pos.push(x0, H[j], z, x1, H[j], z); uv.push(x0 / 4, z / 4, x1 / 4, z / 4); });
+    for (let j = 0; j < zs.length - 1; j++) { if (H[j] <= 0.002 && H[j + 1] <= 0.002) continue; const a = j * 2, b = a + 1, c = a + 2, d = a + 3; idx.push(a, c, b, b, c, d); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+    const m = new THREE.Mesh(g, topMat); m.castShadow = m.receiveShadow = true; group.add(m); }
+  // sides: a (z, height) grid on each wall, clipped to the profile, with any hole left open
+  const maxH = Math.max(...H), rows = Math.max(1, Math.ceil(maxH / 0.3));
+  [x0, x1].forEach(x => {
+    const pos = [], uv = [], idx = [], R = rows + 1;
+    zs.forEach((z, j) => { for (let k = 0; k <= rows; k++) { const y = Math.min(maxH * k / rows, H[j]); pos.push(x, y, z); uv.push(z / 4, y / 4); } });
+    for (let j = 0; j < zs.length - 1; j++) for (let k = 0; k < rows; k++) {
+      const a = j * R + k, b = a + 1, c = a + R, d = c + 1;
+      if (pos[b * 3 + 1] - pos[a * 3 + 1] < 1e-4 && pos[d * 3 + 1] - pos[c * 3 + 1] < 1e-4) continue;   // above the profile on both sides
+      if (hole && hole((zs[j] + zs[j + 1]) / 2, (pos[a * 3 + 1] + pos[d * 3 + 1]) / 2)) continue;
+      if (x < 0) idx.push(a, c, b, b, c, d); else idx.push(a, b, c, b, d, c);   // facing outward
+    }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+    const m = new THREE.Mesh(g, sideMat); m.castShadow = m.receiveShadow = true; group.add(m);
+  });
+  // end faces where the profile starts or stops above the ground
+  [[0, -1], [zs.length - 1, 1]].forEach(([j, sd]) => {
+    if (H[j] <= 0.002) return;
+    const z = zs[j], g = new THREE.PlaneGeometry(W, H[j]); g.translate(0, H[j] / 2, 0); if (sd < 0) g.rotateY(Math.PI); g.translate(0, 0, z);
+    const m = new THREE.Mesh(g, sideMat); m.castShadow = m.receiveShadow = true; group.add(m);
+  });
   scene.add(group);
   return group;
 }
@@ -814,7 +847,16 @@ const addRail = (ax, ay, az, bx, by, bz, opts) => addRailPath([[ax, ay, az], [bx
 // Everything here ramps up and back down; sides taper into banks, so there are no walls to hit.
 const smoothT = t => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
 // A long structure defined by a height profile along local z, full height in the middle, banked down at the sides
-function profileRamp(cx, cz, a, W, S, hl, prof, res = 0.5, mat = mats.ramp, cut) {
+function profileRamp(cx, cz, a, W, S, hl, prof, res = 0.5, mat = mats.ramp, cut, opts = {}) {
+  if (opts.vertical) {
+    // straight up-and-down side walls instead of a steep bank: clean faces to wallride, nothing to clip into
+    const o = addObs({ cx, cz, a, hw: W / 2, hl, f: (lx, lz) => Math.max(0, prof(lz)) });
+    let zs = lin(-hl, hl, Math.ceil(2 * hl / res));
+    (opts.breaks || []).forEach(b => zs.push(b - 0.002, b + 0.002));   // sharp steps in the profile get their own vertical face
+    zs = uniq(zs.sort((p, q) => p - q));
+    o.mesh = buildExtrude(o, W, zs, mat, mats.rampSide, opts.hole);
+    return o;
+  }
   const hw = W / 2 + S;
   const o = addObs({ cx, cz, a, hw, hl, f: (lx, lz) => { const p = prof(lz); return p <= 0 ? 0 : p * smoothT((hw - Math.abs(lx)) / S); } });
   o.grid = buildGrid(o, res, mat, cut);
@@ -908,20 +950,11 @@ const megaZ = z => {
   return 0;
 };
 {
-  // cut the tunnel hole: drop the quads well inside the pipe, then pull the surrounding vertices onto the pipe wall so the hole is a clean circle
-  const inPipe = (x, y, z) => Math.abs(x) < TUN.xOut + 1 && Math.hypot(y - TUN.yc, z - TUN.z) < TUN.R;
-  const mega = profileRamp(0, 9, 0, 14, 10, 65, lz => megaZ(lz + 9), 0.5, mats.ramp,
-    (wx, wz, h) => Math.abs(wx) < TUN.xOut + 1 && Math.hypot(h - TUN.yc, wz - TUN.z) < TUN.R - 0.6);
-  const geo = mega.grid.group.children[0].geometry, pa = geo.attributes.position;
-  for (let i = 0; i < pa.count; i++) {
-    const x = pa.getX(i), y = pa.getY(i), z = pa.getZ(i) + 9;
-    if (!inPipe(x, y, z)) continue;
-    const dy = y - TUN.yc, dz = z - TUN.z, r = Math.hypot(dy, dz) || 1, k = (TUN.R + 0.01) / r;
-    pa.setY(i, TUN.yc + dy * k); pa.setZ(i, TUN.z + dz * k - 9);
-  }
-  pa.needsUpdate = true; geo.computeVertexNormals();
+  // vertical side walls (wallridable, nothing to clip through), with the tunnel's round mouth left open in each
+  profileRamp(0, 9, 0, 14, 0, 65, lz => megaZ(lz + 9), 0.5, mats.ramp, null,
+    { vertical: true, hole: (lz, y) => Math.hypot(y - TUN.yc, lz + 9 - TUN.z) < TUN.R });
 }
-const megaAt = (x, z) => megaZ(z) * smoothT((17 - Math.abs(x)) / 10);
+const megaAt = (x, z) => Math.abs(x) <= 7 ? megaZ(z) : 0;
 {
   // the tunnel: a round tube cut off wherever it would poke out of the slope, with a smooth concrete lip at each end
   const concrete = new THREE.MeshStandardMaterial({ map: rampTex, color: 0x8f8a82, roughness: 0.9, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 });
@@ -965,7 +998,7 @@ const megaAt = (x, z) => megaZ(z) * smoothT((17 - Math.abs(x)) / 10);
   [-6, 6].forEach(x => { const glow = new THREE.PointLight(0xffe6c0, 0.9, 18); glow.position.set(x, TUN.yc + 1, TUN.z); scene.add(glow); });
 }
 // handrails down both sides of the mega landing slope
-[-8, 8].forEach(x => {
+[-6.4, 6.4].forEach(x => {
   const pts = [];
   for (let z = -29; z >= -56; z -= 1.5) pts.push([x, megaAt(x, z) + 0.6, z]);
   addRailPath(pts);
@@ -1132,7 +1165,7 @@ spiralRail(-32, -148, 7, 7.5, 1, { startTan: [0, -1], pre: [[-21, 0.6, 22], [-21
     addRailPath([[MR.x - MR.W / 2 + 0.3, y + 0.05, z], [MR.x + MR.W / 2 - 0.3, y + 0.05, z]], { hidden: true });
     // the back of each deck is a curved bank instead of a flat wall, so you can ride up it from behind
     const L = 3.2, back = MR.z + sd * (MR.flat / 2 + 2 * hl);
-    profileRamp(MR.x, back + sd * L / 2, sd > 0 ? Math.PI : 0, MR.W, 0.05, L / 2, lz => q.Hl * Math.pow(clamp((lz + L / 2) / L, 0, 1), 1.6), 0.2, mats.ramp);
+    profileRamp(MR.x, back + sd * L / 2, sd > 0 ? Math.PI : 0, MR.W, 0, L / 2, lz => q.Hl * Math.pow(clamp((lz + L / 2) / L, 0, 1), 1.6), 0.2, mats.ramp, null, { vertical: true });
   });
 }
 // The mega gap line: a 14 m drop-in tower, a 5 m kicker, a 26 m gap and a long landing (runs east along z = -100)
@@ -1147,7 +1180,7 @@ const megaLine = x => {
   if (x < 30) return 6 * (1 - smoothT((x - 9) / 21));
   return 0;
 };
-profileRamp(-17, -100, Math.PI / 2, 12, 4, 47, lz => megaLine(lz - 17), 0.4, mats.ramp);
+profileRamp(-17, -100, Math.PI / 2, 12, 0, 47, lz => megaLine(lz - 17), 0.4, mats.ramp, null, { vertical: true, breaks: [-46.5, -5, 21] });
 // The wave run: big rollers to pump
 profileRamp(25, -124, Math.PI / 2, 10, 3, 34, lz => Math.abs(lz) > 32 ? 0 : 3.2 * Math.pow(Math.sin(Math.PI * (lz + 32) / 12), 2), 0.3, mats.ramp);
 // A 16 m vert wall at the very far end
@@ -2728,6 +2761,7 @@ function enterAir(vert) {
     A.auto = { left: Math.PI, sign: effRegular() ? 1 : -1, rate: Math.PI / Math.max(0.3, airtime * 0.62), done: 0 };
   }
   P.anim.airT = 0;
+  A.fromSky = inSky;   // left from up in the floating bowl
 }
 function groundVel(out) {
   const fx = Math.sin(P.heading), fz = Math.cos(P.heading);
@@ -3001,6 +3035,13 @@ function stepGround(dt, st) {
     P.manual = null; P.pending = 0; P.push.phase = -1;
     enterAir(vert);
     P.air.transfer = transfer;
+    if (vert && inSky && held(K.up)) {
+      // holding W up the floating bowl's wall: carry on out over the lip and drop back down into the park
+      const dx = P.pos.x - BOWL.x, dz = P.pos.z - BOWL.z, r = Math.hypot(dx, dz) || 1;
+      P.vel.x += dx / r * 4.5; P.vel.z += dz / r * 4.5; P.vel.y = Math.max(P.vel.y, 3);
+      P.air.vert = false; P.air.vertN = null; P.air.auto = null; P.air.xfer = true; P.air.transfer = true; P.air.bowlOut = true;
+      addTrick('Bowl Drop', 300);
+    }
     P.anim.ollieT = -1; P.anim.takeoff = vert ? 'vert' : 'roll';
     return;
   }
@@ -3277,7 +3318,8 @@ function land(nx, h, nz) {
   const vn = P.vel.dot(n), vt = P.vel.clone().addScaledVector(n, -vn);
   const hl = Math.hypot(vt.x, vt.z), sp = vt.length();
   // how hard a landing he can take: a full special meter lets you drop from much higher; without it big drops take you out sooner
-  if (Math.abs(vn) > (P.special >= 1 ? 32 : 22)) { bail('Too much impact'); return; }
+  // (dropping out of the floating bowl is the way down, so that landing never takes you out)
+  if (!(A.fromSky && !inSky) && Math.abs(vn) > (P.special >= 1 ? 32 : 22)) { bail('Too much impact'); return; }
   let note = '';
   if (hl > 0.8) {
     const yaw = Math.atan2(vt.x, vt.z), d = angDiff(P.heading, yaw);

@@ -1912,7 +1912,12 @@ const L1 = 0.45, L2 = 0.45;
   add(pelvis, new THREE.BoxGeometry(0.02, 0.034, 0.05), steelM, 0.117, 0.055, 0);
   [-1, 1].forEach(z => { const p = add(pelvis, new THREE.BoxGeometry(0.008, 0.075, 0.07), pants, -0.115, -0.03, z * 0.075); p.rotation.y = z * 0.25; });   // back pockets
   // torso: chest wider than the waist, flattened front to back
-  spine.add(lathe([[0.222, -0.16], [0.214, -0.08], [0.2, 0.05], [0.2, 0.2], [0.212, 0.32], [0.222, 0.42], [0.2, 0.5], [0.125, 0.555], [0.055, 0.578]], 30, shirt, 0.8));
+  { // torso: a loose tee over a body that's broad across the shoulders and shallow front to back up top, with traps sloping up to the neck
+    const tee = lathe([[0.238, -0.16], [0.226, -0.08], [0.206, 0.05], [0.202, 0.2], [0.215, 0.32], [0.228, 0.41], [0.232, 0.455], [0.215, 0.49], [0.165, 0.525], [0.1, 0.552], [0.056, 0.572]], 32, shirt, 1);
+    const pa = tee.geometry.attributes.position;
+    for (let i = 0; i < pa.count; i++) { const y = pa.getY(i), k = 0.8 - 0.22 * smoothT((y - 0.05) / 0.4); pa.setX(i, pa.getX(i) * k); }   // deep at the hem (room for the hips), flatter through the chest and shoulders
+    pa.needsUpdate = true; tee.geometry.computeVertexNormals(); spine.add(tee);
+  }
   add(spine, new THREE.TorusGeometry(0.05, 0.012, 6, 16), sleeveM, 0, 0.565, 0).rotation.x = Math.PI / 2;
   add(spine, new THREE.CylinderGeometry(0.045, 0.05, 0.1, 10), skin, 0, 0.57, 0);
   // head: skull, jaw, face, ears, hair, trucker hat (front of the face is +x)
@@ -1942,9 +1947,13 @@ const L1 = 0.45, L2 = 0.45;
     add(elbow, new THREE.SphereGeometry(0.043, 10, 8), skin);
     elbow.add(limb(0.041, 0.034, 0.25, skin, 12));
     const hand = new THREE.Group(); hand.position.y = -0.265; elbow.add(hand);
-    add(hand, new THREE.BoxGeometry(0.042, 0.06, 0.07), skin, 0, -0.028, 0);                                  // palm
-    [-0.026, -0.009, 0.009, 0.026].forEach((fz, k) => { const fg = add(hand, new THREE.BoxGeometry(0.017, 0.05 - Math.abs(k - 1.5) * 0.006, 0.015), skin, 0.006, -0.08, fz); fg.rotation.z = 0.35; });   // fingers, a little curled
-    add(hand, new THREE.BoxGeometry(0.02, 0.042, 0.018), skin, 0.022, -0.03, -s * 0.042).rotation.x = s * 0.5;   // thumb
+    add(hand, new THREE.BoxGeometry(0.044, 0.088, 0.084), skin, 0, -0.04, 0);                                 // palm
+    [-0.031, -0.0105, 0.0105, 0.031].forEach((fz, k) => {                                                     // long fingers, a little curled
+      const len = 0.078 - Math.abs(k - 1.4) * 0.01, fg = new THREE.Group(); fg.position.set(0.004, -0.084, fz); fg.rotation.z = 0.3; hand.add(fg);
+      add(fg, new THREE.BoxGeometry(0.019, len, 0.018), skin, 0, -len / 2, 0);
+    });
+    const th = new THREE.Group(); th.position.set(0.018, -0.03, -s * 0.044); th.rotation.set(s * 0.6, 0, 0.25); hand.add(th);
+    add(th, new THREE.BoxGeometry(0.022, 0.062, 0.022), skin, 0, -0.031, 0);                                  // thumb
     arms.push({ s, shoulder, elbow, x: -s * 0.3, z: 0.1, e: 0.3 });
   });
   // A chunky skate shoe (the foot's origin is the ankle; +x is the toe). Gum cupsole, brick-red suede upper that drops toward the toe,

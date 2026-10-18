@@ -3130,7 +3130,8 @@ function startWall(wx, wz) {
   const ty = Math.atan2(P.vel.x, P.vel.z);
   if (Math.abs(angDiff(P.heading, ty)) > Math.PI / 2) { P.switchSt = !P.switchSt; P.snapYaw = true; }
   P.heading = ty;
-  P.wall = { nx: wx, nz: wz, t: 0 };
+  P.wall = { nx: wx, nz: wz, n0x: wx, n0z: wz, t: 0 };
+  { const gp = wallGap(P.pos.x, P.pos.z, P.pos.y, wx, wz); if (gp < 1.2) { P.pos.x += wx * (gp - 0.08); P.pos.z += wz * (gp - 0.08); } }   // straight onto the wall, no settling wobble
   P.state = 'wall'; P.air = null; P.anim.impact = 0.3; P.pending = 0;
   addTrick('Wallride', 200);
   sfx.bump(); sfx.scuff();
@@ -3161,10 +3162,10 @@ function stepWall(dt) {
   let nx = P.pos.x + P.vel.x * dt, nz = P.pos.z + P.vel.z * dt; const ny = P.pos.y + P.vel.y * dt;
   // follow the wall's real direction and keep the wheels just touching it
   { const wd = wallDir(nx, nz, ny);
-    if (wd) {
+    if (wd && wd[0] * w.n0x + wd[1] * w.n0z > 0.97) {   // small corrections only: never creep round onto a ramp top or into a corner
       w.nx = lerp(w.nx, wd[0], 0.3); w.nz = lerp(w.nz, wd[1], 0.3); const l = Math.hypot(w.nx, w.nz) || 1; w.nx /= l; w.nz /= l;
       const into = P.vel.x * w.nx + P.vel.z * w.nz; if (into > 0) { P.vel.x -= w.nx * into; P.vel.z -= w.nz * into; }
-      const gap = wallGap(nx, nz, ny, w.nx, w.nz); if (gap < 1.2) { nx += w.nx * (gap - 0.06); nz += w.nz * (gap - 0.06); }
+      const gap = wallGap(nx, nz, ny, w.nx, w.nz); if (gap < 1.2) { nx += w.nx * (gap - 0.08); nz += w.nz * (gap - 0.08); }
     } }
   // never drift into the wall face (sloped or curved walls): step back out until he's clear of it
   for (let k = 0; k < 12 && heightAt(nx, nz) > ny + 0.02; k++) { nx -= w.nx * 0.04; nz -= w.nz * 0.04; }
@@ -3678,8 +3679,8 @@ function physics(dt) {
   else if (P.state === 'grind') grindTrick();
   else if (P.state === 'pipe' && trickTap()) { const sd = trickTap(); pipeOllie(6.4); autoFlip(P.air, sd); }
   else if (P.state === 'dome' && trickTap()) { const sd = trickTap(); domeOllie(6.4); autoFlip(P.air, sd); }
-  else if (P.state === 'wall' && tapped(K.jump)) { exitWall(4.2, 6.2); P.air.snappy = true; addTrick('Wallie', 150); sfx.pop(); P.anim.ollieT = 0; P.anim.takeoff = 'ollie'; }
-  else if (P.state === 'wall' && trickTap()) { const sd = trickTap(); exitWall(4.2, 6.2); P.air.snappy = true; addTrick('Wallie', 150); sfx.pop(); P.anim.ollieT = 0; P.anim.takeoff = 'ollie'; autoFlip(P.air, sd); }   // Q / E: pop off the wall into a flip
+  else if (P.state === 'wall' && tapped(K.jump)) { exitWall(6.5, 5.6); P.air.snappy = true; addTrick('Wallie', 150); sfx.pop(); P.anim.ollieT = 0; P.anim.takeoff = 'ollie'; }
+  else if (P.state === 'wall' && trickTap()) { const sd = trickTap(); exitWall(6.5, 5.6); P.air.snappy = true; addTrick('Wallie', 150); sfx.pop(); P.anim.ollieT = 0; P.anim.takeoff = 'ollie'; autoFlip(P.air, sd); }   // Q / E: pop off the wall into a flip
 
   const spaceHeld = held(K.jump), spaceUp = released[K.jump];
   if (P.state === 'ground' || P.state === 'grind' || P.state === 'pipe' || P.state === 'dome') {
@@ -3765,7 +3766,7 @@ function orientRider(dt) {
     if (r.loop) upV.copy(r.center).sub(P.pos).normalize(); else upV.set(0, 1, 0);
   } else {
     if (P.state === 'ground' || P.state === 'bail') surfaceUp(upV);
-    else if (P.state === 'wall') { upV.set(-P.wall.nx * 0.85, 0.5, -P.wall.nz * 0.85).normalize(); const wo = RIM.dOut(P.pos.x, P.pos.z) > FENCE.d - 1.5 ? 0 : 0.09; rider.position.x -= P.wall.nx * wo; rider.position.z -= P.wall.nz * wo; }
+    else if (P.state === 'wall') { upV.set(-P.wall.nx * 0.85, 0.5, -P.wall.nz * 0.85).normalize(); /* drawn right where the physics holds him: wheels on the wall */ }
     else if (P.state === 'air' && P.air && P.air.inDome) {
       // jumping and tricking off the glass: stay laid against the dome (like in the tunnel), so he never pokes out through it
       const A = P.air; domeUp(upV);
@@ -3792,7 +3793,7 @@ function orientRider(dt) {
   fwdV.addScaledVector(upV, -fwdV.dot(upV)).normalize();
   rightV.crossVectors(upV, fwdV);
   m4.makeBasis(rightV, upV, fwdV); qT.setFromRotationMatrix(m4);
-  const rate = P.state === 'pipe' || P.state === 'dome' ? 30 : P.state === 'air' ? (P.air && P.air.snappy && P.air.time < 0.3 ? 22 : P.air && P.air.vert ? 12 : 10) : 24;
+  const rate = P.state === 'wall' ? 60 : P.state === 'pipe' || P.state === 'dome' ? 30 : P.state === 'air' ? (P.air && P.air.snappy && P.air.time < 0.3 ? 22 : P.air && P.air.vert ? 12 : 10) : 24;
   rider.quaternion.slerp(qT, damp(rate, dt));
 }
 

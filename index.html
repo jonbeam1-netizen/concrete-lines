@@ -3198,7 +3198,7 @@ function stepAir(dt, st) {
     const ry = r.a.y + (r.b.y - r.a.y) * uc;
     if (A.aimed ? el < 3 : el < 1.0) { const k = A.aimed ? 14 : 4; P.vel.x += ex * k * dt; P.vel.z += ez * k * dt; }
     // close enough: snap on, whether still rising or already coming down
-    if (u > -0.05 && u < 1.05 && el < (A.aimed ? 0.9 : 0.7) && P.pos.y > ry - 0.45 && P.pos.y < ry + (P.vel.y < 0 ? 1.2 : 0.7)) {
+    if (P.grindCD <= 0 && u > -0.05 && u < 1.05 && el < (A.aimed ? 0.9 : 0.7) && P.pos.y > ry - 0.45 && P.pos.y < ry + (P.vel.y < 0 ? 1.2 : 0.7)) {
       const along = P.vel.x * r.dh.x + P.vel.z * r.dh.y;
       startGrind(r, clamp(uc, 0.005, 0.995), along); return;
     }
@@ -3393,6 +3393,7 @@ function lockGrind() {
     return true;
   }
   if (P.state === 'air') {
+    if (P.grindCD > 0) return false;   // just left a rail: no re-grabbing it mid-pop
     const t = findRail(1.4, false);
     if (!t) return false;
     P.air.wantGrind = true; P.air.wantRail = t.r; P.air.lockOn = true;
@@ -3509,7 +3510,7 @@ function exitGrind(vy, sideKick) {
   if (sideKick) { P.vel.x += -r.dh.y * sideKick; P.vel.z += r.dh.x * sideKick; }
   if (r.inward) { P.vel.x += r.inward[0] * 2.4; P.vel.z += r.inward[1] * 2.4; } // drop back in without losing speed
   P.heading = r.inward ? Math.atan2(P.vel.x, P.vel.z) : Math.atan2(r.dir.x * Math.sign(g.vr), r.dir.z * Math.sign(g.vr));
-  P.grind = null; P.grindCD = 0.3; P.pos.y += 0.03;
+  P.grind = null; P.grindCD = 0.3; P.pos.y += 0.03; P.rArmT = -9;
   enterAir(false);
   P.anim.ollieT = vy > 2 ? 0 : -1; P.anim.takeoff = vy > 2 ? 'ollie' : 'roll';
 }

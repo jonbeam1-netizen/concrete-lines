@@ -1184,7 +1184,8 @@ profileRamp(-17, -100, Math.PI / 2, 12, 0, 47, lz => megaLine(lz - 17), 0.4, mat
 // The wave run: big rollers to pump
 profileRamp(25, -124, Math.PI / 2, 10, 3, 34, lz => Math.abs(lz) > 32 ? 0 : 3.2 * Math.pow(Math.sin(Math.PI * (lz + 32) / 12), 2), 0.3, mats.ramp);
 // A 16 m vert wall at the very far end
-quarter(0, -248, Math.PI, 40, 16, 3);
+const VERTWALL = (() => { const q = quarter(0, -248, Math.PI, 40, 16, 3); return { x0: -20, deck: q.Hl, zDeck: -248 - q.hl + 0.4 * (q.hl * 2 - q.Rl), q }; })();
+const WALLR = { x: -58, z: -180, h: 14, len: 104 };
 
 // ---- Sky-zone floor: obstacles and speed boosters ----
 const ringObs = (cx, cz, R, f, res, mat = mats.ramp) => { const o = addObs({ cx, cz, a: 0, hw: R, hl: R, f: (lx, lz) => f(Math.hypot(lx, lz)) }); buildGrid(o, res, mat); return o; };
@@ -1271,12 +1272,18 @@ DOME.doorK = (lx, lz) => lz > 0 ? smoothT((Math.abs(lx) - DOME.door / 2) / 1.5) 
 }
 // The wallride wall: a tall slab beside the edge, with a grindable top rail
 {
-  const W = { x: -55, z: -180, h: 6.5, len: 30 };
+  // the big wall: 104 m long and 14 m tall. A rail runs off the deck of the 16 m vert wall, over to the wall's far end, and on along its whole top
+  const W = WALLR;
   addObs({ cx: W.x, cz: W.z, a: 0, hw: 0.35, hl: W.len / 2, f: () => W.h });
-  const slab = new THREE.Mesh(new THREE.BoxGeometry(0.7, W.h, W.len), new THREE.MeshStandardMaterial({ map: rampTex, color: 0x9a7f9a, roughness: 0.85 }));
+  const wallTex = rampTex.clone(); wallTex.needsUpdate = true; wallTex.repeat.set(W.len / 8, W.h / 8);
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(0.7, W.h, W.len), new THREE.MeshStandardMaterial({ map: wallTex, color: 0x9a7f9a, roughness: 0.85 }));
   slab.position.set(W.x, W.h / 2, W.z); slab.castShadow = slab.receiveShadow = true; scene.add(slab);
-  addRailPath([[W.x, W.h + 0.09, W.z - W.len / 2 + 0.3], [W.x, W.h + 0.09, W.z + W.len / 2 - 0.3]], { hidden: true });
-  cylBetween(new V3(W.x, W.h + 0.02, W.z - W.len / 2 + 0.3), new V3(W.x, W.h + 0.02, W.z + W.len / 2 - 0.3), 0.07, mats.rail);
+  const top = W.h + 0.09, zS = W.z - W.len / 2 + 0.3, zN = W.z + W.len / 2 - 0.3;
+  const vw = VERTWALL, pts = [];
+  pts.push([vw.x0 + 6, vw.deck + 0.6, vw.zDeck], [vw.x0 - 0.5, vw.deck + 0.6, vw.zDeck], [vw.x0 - 12, vw.deck + 1.0, vw.zDeck + 2.5], [W.x + 9, top - 0.5, zS - 8], [W.x + 1.5, top - 0.05, zS - 2.5]);
+  for (let z = zS; z <= zN + 1e-6; z += 8) pts.push([W.x, top, Math.min(z, zN)]);
+  if (pts[pts.length - 1][2] < zN) pts.push([W.x, top, zN]);
+  addRailPath(pts, { smooth: true });
 }
 // The gauntlet: a 3 m box with a ten-stair set and two handrails down its north side
 {
@@ -1301,7 +1308,8 @@ function boostPad(x, z, h, len = 5, w = 5) {
 }
 boostPad(0, -222, Math.PI, 8);                  // at the vert wall
 inDome = true; boostPad(DOME.x, DOME.z, 0); inDome = false;   // one pad in the middle of the dome's floor (placed as seen from inside)
-boostPad(-55 + 3.2, -168, Math.PI, 8);          // along the wallride wall
+boostPad(WALLR.x + 3.2, -150, Math.PI, 8);      // along the big wall
+boostPad(WALLR.x + 3.2, -205, Math.PI, 8);
 boostPad(-38, -190, Math.PI, 7);                // up the volcano
 boostPad(50, -160, Math.PI, 7);                 // up the gauntlet box's back ramp... from the north side ramp
 boostPad(-21 + 2.6, -60, Math.PI, 8);           // beside the long rail, to hit the spiral with speed
@@ -2572,6 +2580,8 @@ const SPAWNS = [
   { name: 'Sky rail quarter', x: -80, z: -35, heading: -Math.PI / 2 },
   { name: 'Car and rails', x: -80, z: -112, heading: -Math.PI * 0.75 },
   { name: 'Corkscrew', x: -75, z: -199.4, heading: -Math.PI / 2 },
+  { name: 'Big wall', x: WALLR.x + 6, z: -215, heading: 0 },
+  { name: 'Vert wall rail', x: VERTWALL.x0 + 9, z: VERTWALL.zDeck - 0.8, heading: -Math.PI / 2 },
 ];
 let spawnIdx = 0;
 const P = {
@@ -3287,7 +3297,7 @@ function stepAir(dt, st) {
   if (P.vel.y < 0 && P.grindCD <= 0 && tryGrind(P.pos.y, nx, ny, nz)) return;
   const h = heightAt(nx, nz);
   // on a transfer, the wall you popped off slides you up it until you clear the coping
-  if (A.xfer && (RIM.dOut(nx, nz) > FENCE.d - 1.5 || (Math.abs(nx + 55) < 1.5 && Math.abs(nz + 180) < 16))) A.xfer = false;
+  if (A.xfer && (RIM.dOut(nx, nz) > FENCE.d - 1.5 || (Math.abs(nx - WALLR.x) < 1.5 && Math.abs(nz - WALLR.z) < WALLR.len / 2 + 1))) A.xfer = false;
   if (A.xfer && P.vel.y > 0 && ny <= h) { P.pos.set(P.pos.x, Math.max(ny, heightAt(P.pos.x, P.pos.z) + 0.02), P.pos.z); return; }   // hold against the face, keep your momentum
   if (ny <= h) {
     const vlw = Math.hypot(P.vel.x, P.vel.z) || 1;

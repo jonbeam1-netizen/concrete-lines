@@ -229,7 +229,7 @@ body.touch #combo { bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
   <div class="splash-in">
     <h1>Concrete <span class="hz">Lines</span></h1>
     <p class="splash-by">Made by Jon Beam<br>with the use of Claude Code</p>
-    <p class="splash-date">Updated October 17, 2026</p>
+    <p class="splash-date">Updated October 18, 2026</p>
     <p class="splash-go">Click to play</p>
   </div>
 </div>
@@ -1186,6 +1186,7 @@ profileRamp(25, -124, Math.PI / 2, 10, 3, 34, lz => Math.abs(lz) > 32 ? 0 : 3.2 
 // A 16 m vert wall at the very far end
 const VERTWALL = (() => { const q = quarter(0, -248, Math.PI, 40, 16, 3); return { x0: -20, deck: q.Hl, zDeck: -248 - q.hl + 0.4 * (q.hl * 2 - q.Rl), q }; })();
 const WALLR = { x: -58, z: -180, h: 14, len: 104 };
+const WALL2 = { x: -66, z: -206, h: 14, len: 52 };   // parallel, two tiles (8 m) in front: wallride one, jump across to the other
 
 // ---- Sky-zone floor: obstacles and speed boosters ----
 const ringObs = (cx, cz, R, f, res, mat = mats.ramp) => { const o = addObs({ cx, cz, a: 0, hw: R, hl: R, f: (lx, lz) => f(Math.hypot(lx, lz)) }); buildGrid(o, res, mat); return o; };
@@ -1284,6 +1285,13 @@ DOME.doorK = (lx, lz) => lz > 0 ? smoothT((Math.abs(lx) - DOME.door / 2) / 1.5) 
   for (let z = zS; z <= zN + 1e-6; z += 8) pts.push([W.x, top, Math.min(z, zN)]);
   if (pts[pts.length - 1][2] < zN) pts.push([W.x, top, zN]);
   addRailPath(pts, { smooth: true });
+  // the second wall, with its own grindable top
+  const W2 = WALL2;
+  addObs({ cx: W2.x, cz: W2.z, a: 0, hw: 0.35, hl: W2.len / 2, f: () => W2.h });
+  const tex2 = rampTex.clone(); tex2.needsUpdate = true; tex2.repeat.set(W2.len / 8, W2.h / 8);
+  const slab2 = new THREE.Mesh(new THREE.BoxGeometry(0.7, W2.h, W2.len), new THREE.MeshStandardMaterial({ map: tex2, color: 0x8f7a96, roughness: 0.85 }));
+  slab2.position.set(W2.x, W2.h / 2, W2.z); slab2.castShadow = slab2.receiveShadow = true; scene.add(slab2);
+  addRailPath([[W2.x, W2.h + 0.09, W2.z - W2.len / 2 + 0.3], [W2.x, W2.h + 0.09, W2.z + W2.len / 2 - 0.3]]);
 }
 // The gauntlet: a 3 m box with a ten-stair set and two handrails down its north side
 {
@@ -1310,6 +1318,7 @@ boostPad(0, -222, Math.PI, 8);                  // at the vert wall
 inDome = true; boostPad(DOME.x, DOME.z, 0); inDome = false;   // one pad in the middle of the dome's floor (placed as seen from inside)
 boostPad(WALLR.x + 3.2, -150, Math.PI, 8);      // along the big wall
 boostPad(WALLR.x + 3.2, -205, Math.PI, 8);
+boostPad((WALLR.x + WALL2.x) / 2, -186, Math.PI, 8);   // into the gap between the two walls
 boostPad(-38, -190, Math.PI, 7);                // up the volcano
 boostPad(50, -160, Math.PI, 7);                 // up the gauntlet box's back ramp... from the north side ramp
 boostPad(-21 + 2.6, -60, Math.PI, 8);           // beside the long rail, to hit the spiral with speed
@@ -1947,7 +1956,7 @@ const L1 = 0.45, L2 = 0.45;
 }
 const _d = new V3(), _n = new V3(), _perp = new V3(), _thigh = new V3(), _knee = new V3(), _tgt = new V3(), _hint = new V3();
 const _xAx = new V3(1, 0, 0), _zAx = new V3(0, 0, 1), _armP = new V3();
-const _qTilt = new THREE.Quaternion();
+const _qTilt = new THREE.Quaternion(), _wq = new THREE.Quaternion(), _wn = new V3();
 const _ankleBack = new V3();
 function solveLeg(leg, hip, target, hint) {
   _d.subVectors(target, hip);
@@ -3151,6 +3160,7 @@ function exitWall(push, vy) {
   P.vel.x -= w.nx * push; P.vel.z -= w.nz * push; P.vel.y += vy;
   P.wall = null; P.wallCD = 0.5;
   enterAir(false);
+  P.air.wallOut = true; P.air.wallRoll = P.wallRoll || 0;   // ease back out of the wallride pose
 }
 function stepWall(dt) {
   const w = P.wall; w.t += dt;
@@ -3297,7 +3307,7 @@ function stepAir(dt, st) {
   if (P.vel.y < 0 && P.grindCD <= 0 && tryGrind(P.pos.y, nx, ny, nz)) return;
   const h = heightAt(nx, nz);
   // on a transfer, the wall you popped off slides you up it until you clear the coping
-  if (A.xfer && (RIM.dOut(nx, nz) > FENCE.d - 1.5 || (Math.abs(nx - WALLR.x) < 1.5 && Math.abs(nz - WALLR.z) < WALLR.len / 2 + 1))) A.xfer = false;
+  if (A.xfer && (RIM.dOut(nx, nz) > FENCE.d - 1.5 || ((Math.abs(nx - WALLR.x) < 1.5 && Math.abs(nz - WALLR.z) < WALLR.len / 2 + 1) || (Math.abs(nx - WALL2.x) < 1.5 && Math.abs(nz - WALL2.z) < WALL2.len / 2 + 1)))) A.xfer = false;
   if (A.xfer && P.vel.y > 0 && ny <= h) { P.pos.set(P.pos.x, Math.max(ny, heightAt(P.pos.x, P.pos.z) + 0.02), P.pos.z); return; }   // hold against the face, keep your momentum
   if (ny <= h) {
     const vlw = Math.hypot(P.vel.x, P.vel.z) || 1;
@@ -3689,8 +3699,8 @@ function physics(dt) {
   else if (P.state === 'grind') grindTrick();
   else if (P.state === 'pipe' && trickTap()) { const sd = trickTap(); pipeOllie(6.4); autoFlip(P.air, sd); }
   else if (P.state === 'dome' && trickTap()) { const sd = trickTap(); domeOllie(6.4); autoFlip(P.air, sd); }
-  else if (P.state === 'wall' && tapped(K.jump)) { exitWall(6.5, 5.6); P.air.snappy = true; addTrick('Wallie', 150); sfx.pop(); P.anim.ollieT = 0; P.anim.takeoff = 'ollie'; }
-  else if (P.state === 'wall' && trickTap()) { const sd = trickTap(); exitWall(6.5, 5.6); P.air.snappy = true; addTrick('Wallie', 150); sfx.pop(); P.anim.ollieT = 0; P.anim.takeoff = 'ollie'; autoFlip(P.air, sd); }   // Q / E: pop off the wall into a flip
+  else if (P.state === 'wall' && tapped(K.jump)) { exitWall(7.5, 5.6); P.air.wallOut = true; P.air.wallRoll = P.wallRoll || 0; addTrick('Wallie', 150); sfx.pop(); P.anim.ollieT = 0; P.anim.takeoff = 'ollie'; }
+  else if (P.state === 'wall' && trickTap()) { const sd = trickTap(); exitWall(7.5, 5.6); P.air.wallOut = true; P.air.wallRoll = P.wallRoll || 0; addTrick('Wallie', 150); sfx.pop(); P.anim.ollieT = 0; P.anim.takeoff = 'ollie'; autoFlip(P.air, sd); }   // Q / E: pop off the wall into a flip
 
   const spaceHeld = held(K.jump), spaceUp = released[K.jump];
   if (P.state === 'ground' || P.state === 'grind' || P.state === 'pipe' || P.state === 'dome') {
@@ -3746,7 +3756,7 @@ const pose = {
 };
 const ARM = {
   ride: [0.2, 0.06, 0.3], crouch: [0.25, 0.6, 0.75], pop: [0.95, 0.3, 0.3], air: [0.75, 0.25, 0.45],
-  balance: [1.25, 0.05, 0.15], slide: [1.0, -0.25, 0.3], special: [1.5, 0.0, 0.0], bail: [1.4, -0.6, 0.2]
+  balance: [1.25, 0.05, 0.15], wall: [1.6, 0.35, 0.65], wallIn: [1.75, -0.2, 0.6], slide: [1.0, -0.25, 0.3], special: [1.5, 0.0, 0.0], bail: [1.4, -0.6, 0.2]
 };
 const m4 = new THREE.Matrix4(), qT = new THREE.Quaternion(), qTmp = new THREE.Quaternion(), qYawPi = new THREE.Quaternion().setFromAxisAngle(UP, Math.PI);
 const V3UP = new V3(0, 1, 0);
@@ -3776,7 +3786,12 @@ function orientRider(dt) {
     if (r.loop) upV.copy(r.center).sub(P.pos).normalize(); else upV.set(0, 1, 0);
   } else {
     if (P.state === 'ground' || P.state === 'bail') surfaceUp(upV);
-    else if (P.state === 'wall') { upV.set(-P.wall.nx * 0.85, 0.5, -P.wall.nz * 0.85).normalize(); /* drawn right where the physics holds him: wheels on the wall */ }
+    else if (P.state === 'wall') {
+      // his body only leans out ~30 degrees (the board does the rest, turned almost flat to the wall), and he rolls into it over a moment
+      const tl = smooth(Math.min(1, P.wall.t / 0.2));
+      upV.set(-P.wall.nx * 0.7 * tl, 1 - 0.3 * tl, -P.wall.nz * 0.7 * tl).normalize();   // his whole body leans out from the wall (~45 degrees)
+      rider.position.x -= P.wall.nx * 0.65 * (1 - tl); rider.position.z -= P.wall.nz * 0.65 * (1 - tl);   // comes in to the wall as the board rolls onto it
+    }
     else if (P.state === 'air' && P.air && P.air.inDome) {
       // jumping and tricking off the glass: stay laid against the dome (like in the tunnel), so he never pokes out through it
       const A = P.air; domeUp(upV);
@@ -3803,7 +3818,7 @@ function orientRider(dt) {
   fwdV.addScaledVector(upV, -fwdV.dot(upV)).normalize();
   rightV.crossVectors(upV, fwdV);
   m4.makeBasis(rightV, upV, fwdV); qT.setFromRotationMatrix(m4);
-  const rate = P.state === 'wall' ? 60 : P.state === 'pipe' || P.state === 'dome' ? 30 : P.state === 'air' ? (P.air && P.air.snappy && P.air.time < 0.3 ? 22 : P.air && P.air.vert ? 12 : 10) : 24;
+  const rate = P.state === 'wall' ? 60 : P.state === 'pipe' || P.state === 'dome' ? 30 : P.state === 'air' ? (P.air && P.air.wallOut && P.air.time < 0.4 ? 7 : P.air && P.air.snappy && P.air.time < 0.3 ? 22 : P.air && P.air.vert ? 12 : 10) : 24;
   rider.quaternion.slerp(qT, damp(rate, dt));
 }
 
@@ -3902,6 +3917,7 @@ function animate(dt) {
       else if (p === 'melon') { roll = 0.4 * c; }
       else roll = -0.2 * c;
     }
+    if (A.wallOut && A.time < 0.4) roll += (A.wallRoll || 0) * (1 - smooth(A.time / 0.4));   // easing back out of the wall
     if (A.special) {
       specialPose = true; lift = 1.2; pitch = -Math.PI / 2; footFree = 1; hipY = 1.05; leanT = 0.05; arm = ARM.special;
     }
@@ -3927,7 +3943,16 @@ function animate(dt) {
       lift += 0.16 * hh; hipY += 0.14 * hh; footFree = clamp((hh - 0.12) * 2.2, 0, 1); arm = ARM.pop;
     }
   } else if (st === 'wall') {
-    hipY = 0.88; arm = ARM.balance; leanT = -0.15;
+    // which side of him the wall is on, in his own frame
+    const tl = smooth(Math.min(1, P.wall.t / 0.2));
+    _wq.copy(rider.quaternion).invert(); const side = Math.sign(_wn.set(P.wall.nx, 0, P.wall.nz).applyQuaternion(_wq).x) || 1;
+    roll = side * 0.42 * tl;                                   // the rest of the way for the board: deck close to vertical, wheels on the wall
+    hipX = -side * (c > 0 ? 1 : -1) * 0.06 * tl;                // hips pushed out over the board, away from the wall
+    hipY = 0.74; leanT = -0.12; twist += 0.15;                    // crouched, knees bent, a slight hunch: the whole body stays tilted out
+    const facing = (c > 0 ? 1 : -1) === side;
+    arm = facing ? ARM.wallIn : ARM.wall;                          // arms spread; facing the wall they swing out and back, not into it
+    if (facing) leanT = 0.32;                                      // facing the wall: keep the lean (bending toward the wall cancelled the tilt)
+    P.wallRoll = roll;
   } else if (st === 'bail') {
     fall = 1.45 * smooth(P.bailT / 0.5); footFree = 1; arm = ARM.bail; hipY = 0.95;
   }
@@ -3945,7 +3970,7 @@ function animate(dt) {
   pose.lift = lerp(pose.lift, lift, fastBoard ? kf : (st === 'grind' || st === 'ground') && lift < pose.lift ? damp(45, dt) : k);
   // keep a believable bend in the knees: feet never fold up into the backside
   {
-    const fe = st === 'air' && A && A.flip ? 0.21 * pose.footFree : 0.22 * pose.footFree, need = st === 'air' ? 0.52 : 0.47;
+    const fe = st === 'air' && A && A.flip ? 0.21 * pose.footFree : 0.22 * pose.footFree, need = st === 'air' ? 0.52 : st === 'wall' ? 0.34 : 0.47;
     if (pose.hipY - (0.278 + pose.lift + fe) < need) {
       if (st === 'air') pose.lift = Math.max(0, Math.min(pose.lift, pose.hipY - 0.278 - fe - need));
       const top = 0.278 + pose.lift + fe;

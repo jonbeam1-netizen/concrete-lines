@@ -571,7 +571,7 @@ function buildGrid(o, res, mat, cut, sign = 1) {
       if (v0 > 0) poly.push(i0);
       if ((v0 > 0) !== (v1 > 0)) {
         const t = v0 / (v0 - v1), x = VX(i0) + (VX(i1) - VX(i0)) * t, z = VZ(i0) + (VZ(i1) - VZ(i0)) * t;
-        pos.push(x, o.f(x, z), z); uv.push(x / 4, z / 4); poly.push(pos.length / 3 - 1);
+        pos.push(x, sign * EPS, z); uv.push(x / 4, z / 4); poly.push(pos.length / 3 - 1);
       }
     }
     for (let k = 1; k + 1 < poly.length; k++) idx.push(poly[0], poly[k], poly[k + 1]);
@@ -1156,7 +1156,76 @@ quarter(0, -248, Math.PI, 40, 16, 3);
 // ---- Sky-zone floor: obstacles and speed boosters ----
 const ringObs = (cx, cz, R, f, res, mat = mats.ramp) => { const o = addObs({ cx, cz, a: 0, hw: R, hl: R, f: (lx, lz) => f(Math.hypot(lx, lz)) }); buildGrid(o, res, mat); return o; };
 // The orbit: a giant round banked ring under the floating bowl to carve laps in
-bowl([[BOWL.x, BOWL.z]], 7, 5.5, 2.5, 5);
+// The glass dome: the old orbit bowl, closed over with a glass hemisphere you can ride all the way up and over (like the tunnel).
+// Floor -> transition up to the near-vertical lip -> the glass sphere carries on from there. One doorway, on the north side.
+// Outside, a concrete fillet hugs the glass and runs into a ring and a bank, so you can ride up the outside of it too.
+const DOME = { x: BOWL.x, z: BOWL.z, Rb: 7, Rt: 5.5, F: 4, ring: 1.6, S: 6, door: 4.4 };
+DOME.Rl = DOME.Rt * 0.97; DOME.Hl = DOME.Rt - Math.sqrt(DOME.Rt * DOME.Rt - DOME.Rl * DOME.Rl); DOME.Rd = DOME.Rb + DOME.Rl;
+DOME.rc = Math.sqrt((DOME.Rd + DOME.F) * (DOME.Rd + DOME.F) - DOME.F * DOME.F); DOME.rt = DOME.rc * DOME.Rd / (DOME.Rd + DOME.F);
+DOME.C = new V3(DOME.x, DOME.Hl, DOME.z);
+let inDome = false;
+DOME.fillet = r => DOME.Hl + DOME.F - Math.sqrt(Math.max(0, DOME.F * DOME.F - (DOME.rc - r) * (DOME.rc - r)));
+DOME.doorK = (lx, lz) => lz > 0 ? smoothT((Math.abs(lx) - DOME.door / 2) / 1.5) : 1;   // 0 inside the doorway channel
+{
+  const D = DOME, outer = D.rc + D.ring + D.S;
+  const lower = r => {
+    if (r < D.Rb) return 0;
+    const t = r - D.Rb; if (t < D.Rl) return D.Rt - Math.sqrt(Math.max(0, D.Rt * D.Rt - t * t));
+    if (r < D.rc) return D.fillet(r);
+    if (r < D.rc + D.ring) return D.Hl;
+    return D.Hl * (1 - smoothT((r - D.rc - D.ring) / D.S));
+  };
+  const oL = addObs({ cx: D.x, cz: D.z, a: 0, hw: outer, hl: outer, f: (lx, lz) => lower(Math.hypot(lx, lz)) * D.doorK(lx, lz) });
+  // the glass, as solid ground, only for someone outside it
+  const oC = addObs({ cx: D.x, cz: D.z, a: 0, hw: D.Rd, hl: D.Rd, f: (lx, lz) => {
+    if (inDome) return 0;
+    const r = Math.hypot(lx, lz); if (r >= D.Rd) return 0;
+    return r < D.rt ? D.Hl + Math.sqrt(Math.max(0, D.Rd * D.Rd - r * r)) : D.fillet(r);
+  } });
+  // drawn as smooth surfaces of revolution (a height grid can't do the sharp step where the bowl's lip meets the outside)
+  const GAP = 32 * Math.PI / 180;   // the doorway wedge, centred on +z
+  const rows = [];
+  for (let k = 0; k <= 48; k++) rows.push([D.Rb + D.Rl * (1 - Math.pow(1 - k / 48, 1.5)), 'in']);            // inside: the transition up to the lip
+  for (let k = 0; k <= 16; k++) rows.push([D.Rd + (D.rc - D.Rd) * k / 16, 'out']);                           // outside: the fillet down from the glass...
+  rows.push([D.rc + D.ring, 'out']);                                                                            // ...the ring...
+  for (let k = 1; k <= 20; k++) rows.push([D.rc + D.ring + D.S * k / 20, 'out']);                             // ...and the bank
+  const prof = ([r, side]) => side === 'in' ? lower(Math.min(r, D.Rd - 1e-4)) : r < D.rc ? D.fillet(r) : lower(r);
+  const surf = (rws, phi0, phi1, cols, door) => {
+    const pos = [], uv = [], idx = [], W = cols + 1;
+    rws.forEach((rw, j) => { for (let i = 0; i <= cols; i++) {
+      const ph = phi0 + (phi1 - phi0) * i / cols, x = rw[0] * Math.sin(ph), z = rw[0] * Math.cos(ph);
+      pos.push(D.x + x, prof(rw) * (door ? D.doorK(x, z) : 1), D.z + z); uv.push(ph * rw[0] / 4, j / 6); } });
+    for (let j = 0; j < rws.length - 1; j++) for (let i = 0; i < cols; i++) { const a = j * W + i, b = a + 1, c = a + W, d = c + 1; idx.push(a, b, c, b, d, c); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: rampTex, roughness: 0.85, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 }));
+    m.castShadow = m.receiveShadow = true; scene.add(m);
+  };
+  surf(rows, GAP, TAU - GAP, 220, false);     // all the way round except the doorway...
+  surf(rows, -GAP, GAP, 96, true);             // ...and the doorway wedge, with the channel cut through it
+  const lint = []; for (let k = 0; k <= 10; k++) lint.push([D.rt + (D.Rd - D.rt) * k / 10, 'cap']);
+  const capProf = ([r]) => r < D.rt ? D.Hl + Math.sqrt(Math.max(0, D.Rd * D.Rd - r * r)) : D.fillet(r);
+  { const pos = [], idx = [], cols = 240, W = cols + 1;
+    lint.forEach(rw => { for (let i = 0; i <= cols; i++) { const ph = i / cols * TAU; pos.push(D.x + rw[0] * Math.sin(ph), capProf(rw), D.z + rw[0] * Math.cos(ph)); } });
+    for (let j = 0; j < lint.length - 1; j++) for (let i = 0; i < cols; i++) { const a = j * W + i, b = a + 1, c = a + W, d = c + 1; idx.push(a, b, c, b, d, c); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: rampTex, roughness: 0.85, side: THREE.DoubleSide })); m.castShadow = true; scene.add(m); }   // the band where the concrete meets the glass
+  const glass = new THREE.MeshStandardMaterial({ color: 0xbfe6ff, transparent: true, opacity: 0.17, roughness: 0.05, metalness: 0.35, side: THREE.DoubleSide, depthWrite: false });
+  const gm = new THREE.Mesh(new THREE.SphereGeometry(D.Rd, 80, 40, 0, TAU, 0, Math.PI / 2), glass); gm.position.copy(D.C); gm.renderOrder = 3; scene.add(gm);
+  // steel ribs over the glass
+  const R = D.Rd + 0.04;
+  for (let k = 0; k < 12; k++) {
+    const a = k / 12 * TAU, pts = [];
+    for (let j = 0; j <= 30; j++) { const t = j / 30 * Math.PI / 2; pts.push(new V3(D.x + Math.cos(a) * Math.cos(t) * R, D.Hl + Math.sin(t) * R, D.z + Math.sin(a) * Math.cos(t) * R)); }
+    const tube = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 30, 0.05, 6), mats.steel); tube.castShadow = true; scene.add(tube);
+  }
+  [0.35, 0.8].forEach(t => { const ring = new THREE.Mesh(new THREE.TorusGeometry(R * Math.cos(t), 0.045, 6, 96), mats.steel); ring.rotation.x = Math.PI / 2; ring.position.set(D.x, D.Hl + R * Math.sin(t), D.z); scene.add(ring); });
+  // a steel arch over the doorway
+  const zd = D.z + D.Rd, arch = [];
+  for (let k = 0; k <= 24; k++) { const t = k / 24 * Math.PI; arch.push(new V3(D.x + Math.cos(t) * 2.3, 1.85 + Math.sin(t) * 2.2, zd)); }
+  arch.unshift(new V3(D.x + 2.3, 0, zd)); arch.push(new V3(D.x - 2.3, 0, zd));
+  scene.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(arch, false, 'catmullrom', 0.1), 80, 0.12, 8), mats.hazard));
+}
+
 // The volcano: a big cone with a crater bowl in the top to drop into
 {
   const V = { x: -38, z: -213, Rout: 17, Hc: 8, floorR: 2.5, Rt: 5, deckW: 1.2 };
@@ -2458,7 +2527,7 @@ const SPAWNS = [
   { name: 'Spiral rail', x: SPIRALS[0].start[0] - Math.sin(SPIRALS[0].heading) * 6, z: SPIRALS[0].start[2] - Math.cos(SPIRALS[0].heading) * 6, heading: SPIRALS[0].heading },
   { name: 'Mega gap tower', x: -60, z: -100, heading: Math.PI / 2 },
   { name: 'Vert wall', x: 0, z: -215, heading: Math.PI },
-  { name: 'Orbit ring', x: 0, z: -181, heading: Math.PI / 2 },
+  { name: 'Glass dome', x: 0, z: -181, heading: Math.PI / 2 },
   { name: 'Mini ramp', x: 25, z: -205, heading: 0 },
   { name: 'School bus', x: -17, z: -86, heading: Math.PI },
   { name: 'Volcano', x: -38, z: -186, heading: Math.PI },
@@ -2504,7 +2573,7 @@ function renderGoals(el) {
 
 function respawn() {
   const SP = SPAWNS[spawnIdx];
-  inSky = !!SP.sky; inTunnel = false;
+  inSky = !!SP.sky; inTunnel = false; inDome = Math.hypot(SP.x - DOME.x, SP.z - DOME.z) < DOME.Rd;
   P.pos.set(SP.x, heightAt(SP.x, SP.z), SP.z); P.vel.set(0, 0, 0); P.heading = SP.heading; P.s = 0;
   P.state = 'ground'; P.air = null; P.grind = null; P.manual = null; P.charge = 0; P.pending = 0; P.switchSt = false;
   P.push.phase = -1; P.anim.ollieT = -1; P.recover = null; P.wall = null; P.pipe = null;
@@ -2791,6 +2860,48 @@ function pipeLand(nx, dy, dz) {
   if (combo.tricks.length) { P.pending = 0.35; P.didRevert = false; }
   sfx.land(0.35); P.anim.impact = 0.35;
 }
+// ---- The glass dome: ride the inside of the sphere above the bowl's lip ----
+const _dn = new V3();
+function enterDome(v) {
+  const n = _dn.copy(DOME.C).sub(P.pos).normalize();
+  P.pos.copy(DOME.C).addScaledVector(n, -DOME.Rd);
+  P.dome = { v: v.clone().addScaledVector(n, -v.dot(n)), topped: false };
+  P.state = 'dome'; P.air = null; P.manual = null; P.recover = null; P.grind = null; P.wall = null; P.pipe = null;
+  P.vel.copy(P.dome.v); inDome = true;
+}
+function domeOllie(vy) {
+  const n = _dn.copy(DOME.C).sub(P.pos).normalize();
+  P.vel.copy(P.dome.v).addScaledVector(n, vy); P.pos.addScaledVector(n, 0.05);
+  P.dome = null; enterAir(false); P.anim.ollieT = 0; P.anim.takeoff = 'ollie'; sfx.pop();
+}
+function stepDome(dt, st) {
+  const d = P.dome, C = DOME.C, n = _dn.copy(C).sub(P.pos).normalize();
+  let sp = d.v.length();
+  if (st && sp > 0.5) d.v.applyAxisAngle(n, st * (1.8 + 1.2 * Math.min(1, sp / 6)) * dt);   // carve, same as on the ground
+  const push = k => { if (sp > 0.3) d.v.addScaledVector(d.v, k / sp); };
+  if (held(K.up) && sp < 16) push((sp < 9.5 ? 8 : 4.5) * dt);
+  if (P.charge > 0 && sp < 18) push(4 * dt);
+  if (held(K.down)) push(-Math.min(sp, 10 * dt));
+  d.v.y -= PIPE_G * dt; d.v.multiplyScalar(1 - 0.03 * dt);   // lighter on the glass, like in the tunnel
+  P.pos.addScaledVector(d.v, dt);
+  const nn = _dn.copy(C).sub(P.pos).normalize(); P.pos.copy(C).addScaledVector(nn, -DOME.Rd);
+  d.v.addScaledVector(nn, -d.v.dot(nn));
+  sp = d.v.length(); P.s = sp; P.vel.copy(d.v);
+  if (sp > 0.3) P.heading = Math.atan2(d.v.x, d.v.z);
+  if (combo.base) combo.base += 60 * dt;
+  if (!d.topped && P.pos.y > DOME.Hl + DOME.Rd * 0.8) { d.topped = true; addTrick('Dome Ceiling', 600); }
+  // not fast enough to stay on the glass: fall off it (back down into the bowl)
+  if (sp * sp / DOME.Rd + PIPE_G * nn.y < -PIPE_STICK) { P.pos.addScaledVector(nn, 0.05); P.dome = null; enterAir(false); P.anim.ollieT = -1; P.anim.takeoff = 'roll'; return; }
+  // back below the lip: roll down onto the bowl wall
+  if (P.pos.y < DOME.Hl) {
+    const dx = P.pos.x - DOME.x, dz = P.pos.z - DOME.z, r = Math.hypot(dx, dz) || 1, ux = dx / r, uz = dz / r;
+    const x = DOME.x + ux * (DOME.Rd - 0.08), z = DOME.z + uz * (DOME.Rd - 0.08), h = heightAt(x, z);
+    P.dome = null;
+    if (h < DOME.Hl - 0.6) { P.pos.set(x, Math.max(h, P.pos.y), z); enterAir(false); P.anim.ollieT = -1; P.anim.takeoff = 'roll'; return; }   // over the doorway
+    const hx = d.v.x - ux * Math.abs(d.v.y) * 0.25, hz = d.v.z - uz * Math.abs(d.v.y) * 0.25;
+    P.state = 'ground'; P.pos.set(x, h, z); P.heading = Math.atan2(hx, hz); P.s = sp;
+  }
+}
 function stepGround(dt, st) {
   const man = P.manual, sp = Math.abs(P.s), dirS = Math.sign(P.s) || 1;
   // rolling into the tunnel puts you on the pipe
@@ -2849,6 +2960,11 @@ function stepGround(dt, st) {
   const nx = P.pos.x + fx * dh, nz = P.pos.z + fz * dh, ny = P.pos.y + dy;
   const outX = Math.abs(nx) > LIMX && Math.abs(nx) > Math.abs(P.pos.x) - 1e-6, outZ = (nz > LIMZN && nz > P.pos.z - 1e-6) || (nz < LIMZS && nz < P.pos.z + 1e-6);
   if (outX || outZ) { glance(outX ? Math.sign(nx) : 0, outZ ? Math.sign(nz - PZC) : 0); return; }
+  // up the dome's bowl wall to the lip: carry straight on up onto the glass
+  if (inDome && P.s * sinT > 0.5 && Math.hypot(nx - DOME.x, nz - DOME.z) >= DOME.Rd - 0.12 && Math.hypot(P.pos.x - DOME.x, P.pos.z - DOME.z) < DOME.Rd && P.pos.y > DOME.Hl - 1.2) {
+    P.vel.set(fx * P.s * inv, P.s * sinT, fz * P.s * inv); P.manual = null;
+    P.pos.set(nx, Math.max(ny, DOME.Hl + 0.01), nz); enterDome(P.vel); return;
+  }
   const h = heightAt(nx, nz);
   if (h - P.pos.y > 0.4 + Math.abs(dy) || (h - P.pos.y > 0.02 && isWallAt(nx, nz, fx * dirS, fz * dirS))) { const w = wallNormal(nx, nz, fx * dirS, fz * dirS); glance(w[0], w[1]); return; }
   // leave the ground when the surface ahead falls away from the board's current slope
@@ -2858,6 +2974,11 @@ function stepGround(dt, st) {
     let vert = false;
     // rolling off a vert lip always goes straight up, even on a spine or a short deck; a mid-air Space tap is how you go over
     const transfer = false;
+    const dr = Math.hypot(P.pos.x - DOME.x, P.pos.z - DOME.z);
+    if (inDome && Math.abs(m) > 1.6 && dr > DOME.Rd - 1.2 && dr < DOME.Rd + 0.3 && P.vel.y > 0) {
+      P.manual = null; P.pending = 0; P.push.phase = -1;
+      P.pos.set(nx, Math.max(ny, DOME.Hl + 0.01), nz); enterDome(P.vel); return;
+    }
     if (Math.abs(m) > 1.6 && !transfer) {
       const gl = Math.hypot(gx, gz) || 1, ux = gx / gl, uz = gz / gl, along = P.vel.x * ux + P.vel.z * uz;
       P.vel.x -= ux * along * 1.05; P.vel.z -= uz * along * 1.05; vert = true;
@@ -3097,6 +3218,14 @@ function stepAir(dt, st) {
   }
   if (Math.abs(nx) > LIMX) { P.vel.x *= -0.1; nx = P.pos.x; }
   if (nz > LIMZN || nz < LIMZS) { P.vel.z *= -0.1; nz = P.pos.z; }
+  if (inDome && ny > DOME.Hl - 0.05 && Math.hypot(nx - DOME.x, ny - DOME.Hl, nz - DOME.z) >= DOME.Rd - 0.02) {
+    if (A.flip) { if (A.flip.t >= 0.35) completeFlip(A); else A.flip = null; }
+    finalizeGrab(); finalizeSpecial();
+    const sn = spinTrick(A); if (sn) addTrick(A.prefix + sn.name, sn.pts);
+    P.pos.set(nx, ny, nz); enterDome(P.vel);
+    if (combo.tricks.length) { P.pending = 0.35; P.didRevert = false; }
+    sfx.land(0.35); P.anim.impact = 0.35; return;
+  }
   if (P.vel.y < 0 && P.grindCD <= 0 && tryGrind(P.pos.y, nx, ny, nz)) return;
   const h = heightAt(nx, nz);
   // on a transfer, the wall you popped off slides you up it until you clear the coping
@@ -3426,6 +3555,12 @@ function physics(dt) {
   // the floating bowl switches on once you're up at its rim, and off once you've dropped well below it
   { const rb = Math.hypot(P.pos.x - BOWL.x, P.pos.z - BOWL.z);
     if (!inSky && P.pos.y > BOWL.top - 1.2 && rb < BOWL.deckR + 8) inSky = true; else if (inSky && P.pos.y < BOWL.y - 2) inSky = false; }
+  { const r = Math.hypot(P.pos.x - DOME.x, P.pos.z - DOME.z), y = P.pos.y;
+    if (r > DOME.Rd + 3) inDome = false; else if (P.state === 'dome') inDome = true;
+    else {   // sticky either way: once inside you stay inside until you leave by the door; the outside of the glass stays solid
+      const low = y < DOME.Hl - 0.3 && r < DOME.Rd + 1.5, dc = Math.hypot(r, y - DOME.Hl);
+      inDome = low || (inDome ? dc < DOME.Rd + 0.3 : dc < DOME.Rd - 0.3);
+    } }
   if (!inTunnelBox(P.pos.x, P.pos.z) || (P.state !== "pipe" && !(P.air && P.air.inPipe) && Math.hypot(P.pos.y - TUN.yc, P.pos.z - TUN.z) > TUN.R + 0.2)) inTunnel = false; else if (!inTunnel && P.pos.y < 2.2) inTunnel = true;
   const st = steerInput(); P.steer = st;
   P.grindCD = Math.max(0, P.grindCD - dt); P.wallCD = Math.max(0, (P.wallCD || 0) - dt);
@@ -3469,20 +3604,22 @@ function physics(dt) {
   else if (P.state === 'ground') groundInput();
   else if (P.state === 'grind') grindTrick();
   else if (P.state === 'pipe' && trickTap()) { const sd = trickTap(); pipeOllie(6.4); autoFlip(P.air, sd); }
+  else if (P.state === 'dome' && trickTap()) { const sd = trickTap(); domeOllie(6.4); autoFlip(P.air, sd); }
   else if (P.state === 'wall' && tapped(K.jump)) { exitWall(4.2, 6.2); P.air.snappy = true; addTrick('Wallie', 150); sfx.pop(); P.anim.ollieT = 0; P.anim.takeoff = 'ollie'; }
   else if (P.state === 'wall' && trickTap()) { const sd = trickTap(); exitWall(4.2, 6.2); P.air.snappy = true; addTrick('Wallie', 150); sfx.pop(); P.anim.ollieT = 0; P.anim.takeoff = 'ollie'; autoFlip(P.air, sd); }   // Q / E: pop off the wall into a flip
 
   const spaceHeld = held(K.jump), spaceUp = released[K.jump];
-  if (P.state === 'ground' || P.state === 'grind' || P.state === 'pipe') {
+  if (P.state === 'ground' || P.state === 'grind' || P.state === 'pipe' || P.state === 'dome') {
     if (spaceHeld) P.charge += dt;
     if (spaceUp && P.charge > 0) {
       const vy = 5.0 + 2.4 * Math.min(1, P.charge / 0.35); P.charge = 0;
       if (P.state === 'pipe') pipeOllie(vy);
+      else if (P.state === 'dome') domeOllie(vy);
       else if (P.state === 'ground') { P.manual = null; P.pending = 0; P.push.phase = -1; ollie(vy); }
       else { exitGrind(vy); sfx.pop(); }
     }
   } else if (!spaceHeld) P.charge = 0;
-  if ((P.state === 'ground' || P.state === 'pipe') && !P.manual && P.pending > 0) {
+  if ((P.state === 'ground' || P.state === 'pipe' || P.state === 'dome') && !P.manual && P.pending > 0) {
     P.pending -= dt;
     if (P.pending <= 0) bankCombo(P.pendingNote || '');
   }
@@ -3495,6 +3632,7 @@ function physics(dt) {
     else if (P.state === 'grind') stepGrind(h, st);
     else if (P.state === 'wall') stepWall(h);
     else if (P.state === 'pipe') stepPipe(h, st);
+    else if (P.state === 'dome') stepDome(h, st);
     else stepBail(h);
     fenceStop(); boostCheck(); bowlStop();
     { const vh = Math.hypot(P.vel.x, P.vel.z); if (P.state === 'air' && vh > 32) { P.vel.x *= 32 / vh; P.vel.z *= 32 / vh; } if (P.state === 'ground' && Math.abs(P.s) > 32) P.s = Math.sign(P.s) * 32; }
@@ -3546,6 +3684,9 @@ function orientRider(dt) {
   rider.position.copy(P.pos);
   if (P.state === 'pipe') {
     const p = P.pipe; upV.copy(pipeN(p.phi)); fwdV.set(Math.cos(p.psi), 0, 0).addScaledVector(pipeT(p.phi), Math.sin(p.psi));
+  } else if (P.state === 'dome') {
+    upV.copy(DOME.C).sub(P.pos).normalize();
+    if (P.dome.v.lengthSq() > 0.09) fwdV.copy(P.dome.v).normalize(); else fwdV.set(Math.sin(P.heading), 0, Math.cos(P.heading));
   } else if (P.state === 'grind') {
     const r = P.grind.r; fwdV.copy(r.dir).multiplyScalar(Math.sign(P.grind.vr) || 1);
     if (r.loop) upV.copy(r.center).sub(P.pos).normalize(); else upV.set(0, 1, 0);
@@ -3569,7 +3710,7 @@ function orientRider(dt) {
   fwdV.addScaledVector(upV, -fwdV.dot(upV)).normalize();
   rightV.crossVectors(upV, fwdV);
   m4.makeBasis(rightV, upV, fwdV); qT.setFromRotationMatrix(m4);
-  const rate = P.state === 'pipe' ? 30 : P.state === 'air' ? (P.air && P.air.snappy && P.air.time < 0.3 ? 22 : P.air && P.air.vert ? 12 : 10) : 24;
+  const rate = P.state === 'pipe' || P.state === 'dome' ? 30 : P.state === 'air' ? (P.air && P.air.snappy && P.air.time < 0.3 ? 22 : P.air && P.air.vert ? 12 : 10) : 24;
   rider.quaternion.slerp(qT, damp(rate, dt));
 }
 
@@ -3589,7 +3730,7 @@ function animate(dt) {
 
   // how hard he's speeding up or slowing down, for the torso to react to
   an.acc = lerp(an.acc || 0, clamp((sp - (an.lastSp ?? sp)) / Math.max(dt, 1e-3), -25, 25), damp(6, dt)); an.lastSp = sp;
-  if (st === 'ground' || st === 'pipe') {
+  if (st === 'ground' || st === 'pipe' || st === 'dome') {
     const turnLean = P.steer * spF;
     roll += -c * turnLean * 0.09;   // the board tips onto its toe or heel edge as you carve, and the feet go with it
     leanA += clamp(an.acc * 0.012, -0.14, 0.14) * travel;                      // pitch into pushes, back on braking
@@ -3997,6 +4138,19 @@ function travelYaw() {
   return P.heading + (P.s < 0 ? Math.PI : 0);
 }
 function updateCamera(dt) {
+  if (P.state === 'dome') {
+    const n = _cn.copy(DOME.C).sub(P.pos).normalize(), fw = _cf;
+    if (P.dome.v.lengthSq() > 1) fw.copy(P.dome.v).normalize();
+    if (!P.camFwd) P.camFwd = fw.clone();
+    P.camFwd.lerp(fw, damp(4, dt)).normalize();
+    camPos.copy(P.pos).addScaledVector(P.camFwd, -5).addScaledVector(n, 2.2);
+    const off = camPos.clone().sub(DOME.C); if (off.length() > DOME.Rd - 0.6) camPos.copy(DOME.C).addScaledVector(off.normalize(), DOME.Rd - 0.6);
+    camera.position.lerp(camPos, damp(8, dt));
+    camera.up.lerp(n, damp(5, dt)).normalize();
+    lookAt.copy(P.pos).addScaledVector(P.camFwd, 2).addScaledVector(n, 0.8); camera.lookAt(lookAt);
+    camYaw = Math.atan2(P.camFwd.x, P.camFwd.z); camY = camera.position.y;
+    return;
+  }
   if (P.state === 'pipe' || (P.state === 'air' && P.air && P.air.inPipe)) {
     // inside the pipe the camera follows behind you whichever way you're heading, rolled so the wall you're on is "down"
     const n = _cn, fw = _cf;
@@ -4054,7 +4208,7 @@ function updateHUD(dt = 1 / 60) {
   ui.fill.style.width = (P.special * 100).toFixed(1) + '%';
   ui.meter.classList.toggle('full', P.special >= 1);
   ui.mbal.hidden = true;
-  if (P.state === 'ground' || P.state === 'pipe') P.wheelSpin = Math.min(1, Math.abs(P.s) / 14);
+  if (P.state === 'ground' || P.state === 'pipe' || P.state === 'dome') P.wheelSpin = Math.min(1, Math.abs(P.s) / 14);
   else P.wheelSpin = (P.wheelSpin || 0) * Math.exp(-dt / (P.state === 'air' ? 1.8 : 0.25));
   {
     // wheels in the air: a faint coast on a plain air; while a trick flips or spins the board they whir up,
@@ -4077,7 +4231,7 @@ function updateHUD(dt = 1 / 60) {
       sfx.spinUpdate(0, pitch);
     } else sfx.spinUpdate(level * fadeIn, pitch);
   }
-  sfx.update((P.state === 'ground' || P.state === 'pipe') && !P.manual ? Math.min(0.28, Math.abs(P.s) / 40) : P.manual ? Math.min(0.18, Math.abs(P.s) / 50) : 0,
+  sfx.update((P.state === 'ground' || P.state === 'pipe' || P.state === 'dome') && !P.manual ? Math.min(0.28, Math.abs(P.s) / 40) : P.manual ? Math.min(0.18, Math.abs(P.s) / 50) : 0,
     P.state === 'grind' ? 0.14 : 0, P.state === 'ground' && (P.sliding || (P.recover && P.recover.t < 0.35 && Math.abs(P.recover.off) > 0.3)) ? 0.22 : 0);   // the slide scrape only while you're actually on the ground
 }
 

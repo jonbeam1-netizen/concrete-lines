@@ -2673,7 +2673,8 @@ const GRINDS = {
 const GRIND_KEYS = { none: 'fifty', up: 'nose', down: 'five', left: 'board', right: 'lip',
   upleft: 'crook', upright: 'noseslide', downleft: 'smith', downright: 'tailslide' };
 const GRIND_CYCLE = ['fifty', 'nose', 'five', 'board', 'lip', 'noseslide', 'tailslide', 'smith', 'crook'];
-const GRIND_HOP = 0.34;   // how long the little hop between grinds takes
+const GRIND_HOP = 0.34;
+const RAIL_POP = 4.6;     // pop speed for a flip off a rail (lower than an ollie, so you're back on it quickly)   // how long the little hop between grinds takes
 const grindName = g => (g.fs ? 'FS ' : 'BS ') + GRINDS[g.type].name;
 
 // ---------- Combo / UI ----------
@@ -3018,6 +3019,7 @@ function finalizeSpecial() {
 }
 // Time until the current arc meets the ground, so flips spin to fit the hang time
 function timeToLand() {
+  if (P.air && P.air.popTTL && P.air.time < P.air.popTTL) return Math.max(0.05, P.air.popTTL - P.air.time);
   for (let t = 0.03; t < 2; t += 0.03) {
     const x = P.pos.x + P.vel.x * t, z = P.pos.z + P.vel.z * t, y = P.pos.y + P.vel.y * t - 0.5 * AIR_G * 0.92 * t * t;
     if (y <= heightAt(x, z)) return t;
@@ -3198,7 +3200,7 @@ function stepAir(dt, st) {
     const ry = r.a.y + (r.b.y - r.a.y) * uc;
     if (A.aimed ? el < 3 : el < 1.0) { const k = A.aimed ? 14 : 4; P.vel.x += ex * k * dt; P.vel.z += ez * k * dt; }
     // close enough: snap on, whether still rising or already coming down
-    if (P.grindCD <= 0 && u > -0.05 && u < 1.05 && el < (A.aimed ? 0.9 : 0.7) && P.pos.y > ry - 0.45 && (A.regrind ? P.vel.y < 0 && P.pos.y < ry + 0.3 : P.pos.y < ry + (P.vel.y < 0 ? 1.2 : 0.7))) {
+    if (P.grindCD <= 0 && u > -0.05 && u < 1.05 && el < (A.aimed ? 0.9 : 0.7) && P.pos.y > ry - 0.45 && (A.regrind ? P.vel.y < 0 && P.pos.y < ry + 0.45 : P.pos.y < ry + (P.vel.y < 0 ? 1.2 : 0.7))) {
       const along = P.vel.x * r.dh.x + P.vel.z * r.dh.y;
       startGrind(r, clamp(uc, 0.005, 0.995), along); return;
     }
@@ -3447,7 +3449,8 @@ function grindTrick() {
   if (!tside) return;
   // E / Q on a rail: pop straight up into a flip and come back down onto the same rail (A / D are what take you off it)
   const rail = P.grind.r;
-  exitGrind(6.2, 0, true); sfx.pop();
+  exitGrind(RAIL_POP, 0, true); sfx.pop();
+  P.air.popTTL = 2 * RAIL_POP / AIR_G;   // flips are timed to come back down to the rail, not the ground below it
   P.anim.ollieT = 0; P.anim.takeoff = 'ollie';
   const vx = P.vel.x, vz = P.vel.z;
   autoFlip(P.air, tside);
@@ -3882,7 +3885,7 @@ function animate(dt) {
   pose.leanT = lerp(pose.leanT, leanT, k); pose.leanA = lerp(pose.leanA, c * leanA, k);
   pose.twist = lerp(pose.twist, twist, k); pose.headY = lerp(pose.headY, -c * 0.85 * travel, damp(6, dt));
   const fastBoard = st === 'air' && an.takeoff === 'ollie' && an.ollieT >= 0 && an.ollieT < 0.4;
-  pose.lift = lerp(pose.lift, lift, fastBoard ? kf : k);
+  pose.lift = lerp(pose.lift, lift, fastBoard ? kf : (st === 'grind' || st === 'ground') && lift < pose.lift ? damp(45, dt) : k);
   // keep a believable bend in the knees: feet never fold up into the backside
   {
     const fe = st === 'air' && A && A.flip ? 0.21 * pose.footFree : 0.22 * pose.footFree, need = st === 'air' ? 0.52 : 0.47;

@@ -1885,8 +1885,12 @@ const L1 = 0.45, L2 = 0.45;
     grain(g, w, h, 22);
     const fade = g.createLinearGradient(w * 0.05, 0, w * 0.45, 0); fade.addColorStop(0, 'rgba(205,220,240,0)'); fade.addColorStop(0.5, 'rgba(205,220,240,0.3)'); fade.addColorStop(1, 'rgba(205,220,240,0)');
     g.fillStyle = fade; g.fillRect(0, 0, w, h);                                          // worn-in fade down the front
-    g.fillStyle = 'rgba(20,30,55,0.35)'; g.fillRect(w * 0.74, 0, 3, h);                  // outer seam
-    g.fillStyle = 'rgba(214,170,90,0.6)'; for (let y = 2; y < h; y += 7) g.fillRect(w * 0.74 + 4, y, 1, 4);   // its orange stitching
+    // the seams run down the sides of the leg (u = 0 and 0.5 face sideways; 0.25 is the front, 0.75 the back, kept plain)
+    [0, 0.5].forEach(u => {
+      const x = u * w;
+      g.fillStyle = 'rgba(20,30,55,0.3)'; g.fillRect(x - 1, 0, 2, h); if (x < 1) g.fillRect(w - 1, 0, 1, h);
+      g.fillStyle = 'rgba(214,170,90,0.5)'; for (let y = 2; y < h; y += 7) g.fillRect(x + 3, y, 1, 4);   // orange stitching beside it
+    });
     if (holeAt !== null) {
       // ripped knee: skin through a frayed hole, white threads across it
       const cx = w * 0.25, cy = h * holeAt;

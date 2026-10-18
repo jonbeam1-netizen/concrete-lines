@@ -1301,9 +1301,11 @@ DOME.doorK = (lx, lz) => lz > 0 ? smoothT((Math.abs(lx) - DOME.door / 2) / 1.5) 
 }
 // The gauntlet: a 3 m box with a ten-stair set and two handrails down its north side
 {
-  funbox(50, -186, 0, 10, 8, 3, { xn: 6, xp: 6, zn: 6, zp: 0.05 });
-  stairs(50, -179.75, 0, 6, 10, 0.3, 0.45);
-  [46.6, 53.4].forEach(x => addRail(x, 3.9, -182.2, x, 0.9, -175.3));
+  // out on the open floor west of the mega half pipe, clear of the floating bowl; the stairs face north
+  const GX = 52, GZ = -154;
+  funbox(GX, GZ, 0, 10, 8, 3, { xn: 6, xp: 6, zn: 6, zp: 0.05 });
+  stairs(GX, GZ + 6.25, 0, 6, 10, 0.3, 0.45);
+  [GX - 3.4, GX + 3.4].forEach(x => addRail(x, 3.9, GZ + 3.8, x, 0.9, GZ + 10.7));
 }
 // Speed boosters: glowing chevrons on the floor that fire you off in their direction
 const BOOSTS = [];
@@ -1326,7 +1328,7 @@ boostPad(WALLR.x + 3.2, -150, Math.PI, 8);      // along the big wall
 boostPad(WALLR.x + 3.2, -205, Math.PI, 8);
 boostPad((WALLR.x + WALL2.x) / 2, -186, Math.PI, 8);   // into the gap between the two walls
 boostPad(-38, -190, Math.PI, 7);                // up the volcano
-boostPad(50, -160, Math.PI, 7);                 // up the gauntlet box's back ramp... from the north side ramp
+boostPad(52, -170, 0, 7);                       // up the gauntlet box's back ramp, then down the stairs
 boostPad(-21 + 2.6, -60, Math.PI, 8);           // beside the long rail, to hit the spiral with speed
 boostPad(25, -146, 0, 7);                       // down the wave run's start
 
@@ -1345,24 +1347,34 @@ const MHP = { cx: 93, cz: -85, F: 14, R: 9, D: 4, B: 7, W: 230 };
     return Hl * (1 - smoothT((s - Rl - MHP.D) / MHP.B));
   }, 0.4);
   const z0 = MHP.cz - MHP.W / 2 + 0.5, z1 = MHP.cz + MHP.W / 2 - 0.5;
-  // the extension: a taller wall (bigger radius, starting a little out in the flat) on the west side, facing the floating bowl
-  const X = MHP.ext = { R: 14, D: 4, B: 6, W: 24, z: BOWL.z };
-  X.Rl = X.R * 0.97; X.Hl = X.R - Math.sqrt(X.R * X.R - X.Rl * X.Rl);
-  X.k = Math.sqrt(X.R * X.R - (X.R - Hl) * (X.R - Hl)) - Rl;   // how far into the flat it starts, so it meets the old lip exactly
-  X.lipX = MHP.cx - half - (X.Rl - X.k); X.z0 = X.z - X.W / 2; X.z1 = X.z + X.W / 2;
-  const extMat = mats.ramp.clone(); extMat.polygonOffsetFactor = -2; extMat.polygonOffsetUnits = -4;
-  profileRamp(MHP.cx, X.z, Math.PI / 2, X.W, 0, half + X.Rl - X.k + X.D + X.B, lz => {
-    if (lz >= 0) return 0;
-    const t = -lz - half + X.k;
+  // the extension: a taller section of the west wall, facing the floating bowl. No ledge at its ends: the wall's radius
+  // swells smoothly from the normal 9 m up to 14 m and back, every cross-section a true vert transition through the old lip
+  const X = MHP.ext = { Rmax: 14, D: 4, B: 7, W: 30, taper: 8, z: BOWL.z };
+  X.z0 = X.z - X.W / 2; X.z1 = X.z + X.W / 2;
+  X.w = z => smoothT(Math.min(z - X.z0, X.z1 - z) / X.taper);
+  X.Rof = w => MHP.R + (X.Rmax - MHP.R) * w;
+  X.kof = R => Math.sqrt(Math.max(0, R * R - (R - Hl) * (R - Hl))) - Rl;   // how far into the flat it starts, so it meets the old lip
+  X.lip = z => { const R = X.Rof(X.w(z)), Rl2 = R * 0.97; return [MHP.cx - half - (Rl2 - X.kof(R)), R - Math.sqrt(R * R - Rl2 * Rl2)]; };
+  X.prof = (sOut, R) => {   // sOut: distance out from the flat's edge
+    const t = sOut + X.kof(R), Rl2 = R * 0.97, H2 = R - Math.sqrt(R * R - Rl2 * Rl2);
     if (t <= 0) return 0;
-    if (t < X.Rl) return X.R - Math.sqrt(Math.max(0, X.R * X.R - t * t));
-    if (t < X.Rl + X.D) return X.Hl;
-    return X.Hl * (1 - smoothT((t - X.Rl - X.D) / X.B));
-  }, 0.3, extMat, null, { vertical: true });
-  lipCoping(X.lipX, X.z0 + 0.5, X.lipX, X.z1 - 0.5, X.Hl, [1, 0]);
+    if (t < Rl2) return R - Math.sqrt(Math.max(0, R * R - t * t));
+    if (t < Rl2 + X.D) return H2;
+    return H2 * (1 - smoothT((t - Rl2 - X.D) / X.B));
+  };
+  X.lipX = X.lip(X.z)[0]; X.Hl = X.lip(X.z)[1];
+  { const sIn = -X.kof(X.Rmax) - 0.3, sOut = X.Rmax * 0.97 - X.kof(X.Rmax) + X.D + X.B + 0.3, xc = MHP.cx - half - (sIn + sOut) / 2;
+    const o = addObs({ cx: xc, cz: X.z, a: Math.PI / 2, hw: X.W / 2, hl: (sOut - sIn) / 2, f: (lx, lz) => {
+      const w = X.w(X.z - lx); return w <= 0 ? 0 : X.prof(MHP.cx - half - (xc + lz), X.Rof(w)); } });
+    const extMat = mats.ramp.clone(); extMat.polygonOffsetFactor = -2; extMat.polygonOffsetUnits = -4;
+    buildGrid(o, 0.3, extMat); }
+  // its coping follows the lip up and over the swell, running straight on into the normal coping either side
+  { const pts = []; for (let z = X.z0; z <= X.z1 + 1e-6; z += 0.5) { const [x, y] = X.lip(z); pts.push([x, y, z]); }
+    const tube = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(p => new V3(p[0], p[1], p[2]))), pts.length * 2, 0.08, 8), mats.steel); tube.castShadow = true; scene.add(tube);
+    addRailPath(pts.map(p => [p[0], p[1] + 0.08, p[2]]), { hidden: true }).forEach(r => { r.inward = [1, 0]; }); }
   lipCoping(MHP.cx + MHP.lipOff, z0, MHP.cx + MHP.lipOff, z1, Hl, [-1, 0]);
-  lipCoping(MHP.cx - MHP.lipOff, z0, MHP.cx - MHP.lipOff, X.z0 - 0.2, Hl, [1, 0]);
-  lipCoping(MHP.cx - MHP.lipOff, X.z1 + 0.2, MHP.cx - MHP.lipOff, z1, Hl, [1, 0]);
+  lipCoping(MHP.cx - MHP.lipOff, z0, MHP.cx - MHP.lipOff, X.z0, Hl, [1, 0]);
+  lipCoping(MHP.cx - MHP.lipOff, X.z1, MHP.cx - MHP.lipOff, z1, Hl, [1, 0]);
   // railings along the back edge of both decks (grindable, like the arena's); the west one stops either side of the extension
   [-1, 1].forEach(sd => {
     const x = MHP.cx + sd * (MHP.deckOut - 0.4);
@@ -3135,7 +3147,7 @@ function stepGround(dt, st) {
     enterAir(vert);
     P.air.transfer = transfer;
     const X = MHP.ext;
-    if (vert && !inSky && held(K.up) && Math.abs(P.pos.x - X.lipX) < 1.5 && P.pos.z > X.z0 && P.pos.z < X.z1) {
+    if (vert && !inSky && held(K.up) && X.w(P.pos.z) > 0.5 && Math.abs(P.pos.x - X.lip(P.pos.z)[0]) < 1.5) {
       // holding W up the extension: carry up and over the floating bowl's lip and come down inside it
       const dx = BOWL.x - P.pos.x, dz = BOWL.z - P.pos.z, d = Math.hypot(dx, dz) || 1, ux = dx / d, uz = dz / d;
       const tx = BOWL.x - ux * 6.5, tz = BOWL.z - uz * 6.5, ty = BOWL.y + BOWL.R - Math.sqrt(BOWL.R * BOWL.R - 6.5 * 6.5) + 0.3;

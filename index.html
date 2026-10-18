@@ -2862,6 +2862,11 @@ function pipeLand(nx, dy, dz) {
 }
 // ---- The glass dome: ride the inside of the sphere above the bowl's lip ----
 const _dn = new V3();
+function domeUp(out) {
+  out.copy(DOME.C).sub(P.pos); const L = out.length() || 1, w = smoothT((L - 3) / (DOME.Rd - 6));
+  return out.multiplyScalar(w / L).add(_dup.set(0, 1 - w, 0)).normalize();
+}
+const _dup = new V3();
 function enterDome(v) {
   const n = _dn.copy(DOME.C).sub(P.pos).normalize();
   P.pos.copy(DOME.C).addScaledVector(n, -DOME.Rd);
@@ -2872,7 +2877,9 @@ function enterDome(v) {
 function domeOllie(vy) {
   const n = _dn.copy(DOME.C).sub(P.pos).normalize();
   P.vel.copy(P.dome.v).addScaledVector(n, vy); P.pos.addScaledVector(n, 0.05);
+  const pf = P.dome.v.lengthSq() > 0.09 ? P.dome.v.clone().normalize() : null;
   P.dome = null; enterAir(false); P.anim.ollieT = 0; P.anim.takeoff = 'ollie'; sfx.pop();
+  P.air.inDome = true; P.air.pf = pf; P.air.h0 = P.heading;
 }
 function stepDome(dt, st) {
   const d = P.dome, C = DOME.C, n = _dn.copy(C).sub(P.pos).normalize();
@@ -2891,7 +2898,7 @@ function stepDome(dt, st) {
   if (combo.base) combo.base += 60 * dt;
   if (!d.topped && P.pos.y > DOME.Hl + DOME.Rd * 0.8) { d.topped = true; addTrick('Dome Ceiling', 600); }
   // not fast enough to stay on the glass: fall off it (back down into the bowl)
-  if (sp * sp / DOME.Rd + PIPE_G * nn.y < -PIPE_STICK) { P.pos.addScaledVector(nn, 0.05); P.dome = null; enterAir(false); P.anim.ollieT = -1; P.anim.takeoff = 'roll'; return; }
+  if (sp * sp / DOME.Rd + PIPE_G * nn.y < -PIPE_STICK) { const pf = sp > 0.3 ? d.v.clone().normalize() : null; P.pos.addScaledVector(nn, 0.05); P.dome = null; enterAir(false); P.anim.ollieT = -1; P.anim.takeoff = 'roll'; P.air.inDome = true; P.air.pf = pf; P.air.h0 = P.heading; return; }
   // back below the lip: roll down onto the bowl wall
   if (P.pos.y < DOME.Hl) {
     const dx = P.pos.x - DOME.x, dz = P.pos.z - DOME.z, r = Math.hypot(dx, dz) || 1, ux = dx / r, uz = dz / r;
@@ -3098,7 +3105,7 @@ function stepWall(dt) {
     let gx = RIM.dOut(px + e, pz) - RIM.dOut(px - e, pz), gz = RIM.dOut(px, pz + e) - RIM.dOut(px, pz - e); const gl = Math.hypot(gx, gz) || 1; gx /= gl; gz /= gl;
     w.nx = gx; w.nz = gz;
     const into = P.vel.x * gx + P.vel.z * gz; P.vel.x -= gx * into; P.vel.z -= gz * into;
-    const nx = px + P.vel.x * dt, nz = pz + P.vel.z * dt, ny = P.pos.y + P.vel.y * dt, d = RIM.dOut(nx, nz), want = FENCE.d - 0.42;
+    const nx = px + P.vel.x * dt, nz = pz + P.vel.z * dt, ny = P.pos.y + P.vel.y * dt, d = RIM.dOut(nx, nz), want = FENCE.d - 0.08;   // wheels right on the railing bars
     const top = RIM.Hl + FENCE.h, g = heightAt(nx - gx * 0.5, nz - gz * 0.5);
     if (ny > top - 0.4 || w.t > 2.2) { P.pos.set(nx, ny, nz); exitWall(1.4, 0); return; }
     if (ny <= g) { P.pos.set(nx - gx * 0.3, g + 0.001, nz - gz * 0.3); exitWall(0.8, 0.5); return; }
@@ -3692,7 +3699,16 @@ function orientRider(dt) {
     if (r.loop) upV.copy(r.center).sub(P.pos).normalize(); else upV.set(0, 1, 0);
   } else {
     if (P.state === 'ground' || P.state === 'bail') surfaceUp(upV);
-    else if (P.state === 'wall') { upV.set(-P.wall.nx * 0.85, 0.5, -P.wall.nz * 0.85).normalize(); rider.position.x -= P.wall.nx * 0.09; rider.position.z -= P.wall.nz * 0.09; }
+    else if (P.state === 'wall') { upV.set(-P.wall.nx * 0.85, 0.5, -P.wall.nz * 0.85).normalize(); const wo = RIM.dOut(P.pos.x, P.pos.z) > FENCE.d - 1.5 ? 0 : 0.09; rider.position.x -= P.wall.nx * wo; rider.position.z -= P.wall.nz * wo; }
+    else if (P.state === 'air' && P.air && P.air.inDome) {
+      // jumping and tricking off the glass: stay laid against the dome (like in the tunnel), so he never pokes out through it
+      const A = P.air; domeUp(upV);
+      if (A.pf) fwdV.copy(A.pf).addScaledVector(upV, -A.pf.dot(upV)).normalize().applyAxisAngle(upV, P.heading - A.h0);
+      else fwdV.set(Math.sin(P.heading), 0, Math.cos(P.heading));
+      fwdV.addScaledVector(upV, -fwdV.dot(upV)); if (fwdV.lengthSq() < 1e-6) fwdV.set(Math.sin(P.heading), 0, Math.cos(P.heading)).addScaledVector(upV, -upV.dot(fwdV)); fwdV.normalize();
+      rightV.crossVectors(upV, fwdV); m4.makeBasis(rightV, upV, fwdV); qT.setFromRotationMatrix(m4);
+      rider.quaternion.slerp(qT, damp(14, dt)); return;
+    }
     else if (P.state === 'air' && P.air && P.air.inPipe) {
       // flying inside the pipe: stay tilted toward the nearest wall
       const A = P.air, dy = TUN.yc - P.pos.y, dz = TUN.z - P.pos.z, r = Math.hypot(dy, dz);
@@ -4138,9 +4154,10 @@ function travelYaw() {
   return P.heading + (P.s < 0 ? Math.PI : 0);
 }
 function updateCamera(dt) {
-  if (P.state === 'dome') {
-    const n = _cn.copy(DOME.C).sub(P.pos).normalize(), fw = _cf;
-    if (P.dome.v.lengthSq() > 1) fw.copy(P.dome.v).normalize();
+  if (P.state === 'dome' || (P.state === 'air' && P.air && P.air.inDome)) {
+    const air = P.state === 'air', n = air ? domeUp(_cn) : _cn.copy(DOME.C).sub(P.pos).normalize(), fw = _cf;
+    const v = air ? P.vel : P.dome.v;
+    if (v.lengthSq() > 1) fw.copy(v).addScaledVector(n, -v.dot(n)); if (fw.lengthSq() > 1e-4) fw.normalize(); else fw.copy(P.camFwd || _cf.set(0, 0, 1));
     if (!P.camFwd) P.camFwd = fw.clone();
     P.camFwd.lerp(fw, damp(4, dt)).normalize();
     camPos.copy(P.pos).addScaledVector(P.camFwd, -5).addScaledVector(n, 2.2);

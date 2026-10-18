@@ -668,7 +668,7 @@ function quarter(cx, cz, a, W, R, D) {
   const g = buildObs(o, mats.ramp, mats.rampSide, [-W / 2, W / 2], [...lin(-hl, -hl + Rl, Math.round(12 * R)), hl]);
   copingLocal(g, W, Hl, -hl + Rl, 0.08, mats.steel);
   // the coping is grindable: hold grind coming down from a vert air
-  const lz = -hl + Rl, cy = Hl + 0.06, c = Math.cos(a), s = Math.sin(a);
+  const lz = -hl + Rl, cy = Hl + 0.08, c = Math.cos(a), s = Math.sin(a);
   const pt = lx => [cx + lx * c + lz * s, cy, cz - lx * s + lz * c];
   addRailPath([pt(-W / 2 + 0.4), pt(W / 2 - 0.4)], { hidden: true }).forEach(sg => { sg.inward = [-s, -c]; });
   return { Hl, hl, Rl, lipOffset: -hl + Rl };
@@ -716,7 +716,7 @@ function bowl(pts, Rb, Rt, D, S) {
       }
     }
     if (chain.length < 4) return;
-    let pts = chain.map(p => [p[0] + cx, Hl + 0.06, p[1] + cz]);
+    let pts = chain.map(p => [p[0] + cx, Hl + 0.1, p[1] + cz]);
     const closed = key(chain[0]) === key(chain[chain.length - 1]);
     if (closed) pts.pop();
     // smooth out the grid's stair-steps, then thin the points
@@ -823,7 +823,7 @@ function profileRamp(cx, cz, a, W, S, hl, prof, res = 0.5, mat = mats.ramp, cut)
 // Straight grindable coping between two points, with the "inward" direction pointing down into the ramp
 function lipCoping(x0, z0, x1, z1, y, inward) {
   cylBetween(new V3(x0, y, z0), new V3(x1, y, z1), 0.08, mats.steel);
-  addRailPath([[x0, y + 0.06, z0], [x1, y + 0.06, z1]], { hidden: true }).forEach(r => { r.inward = inward; });
+  addRailPath([[x0, y + 0.08, z0], [x1, y + 0.08, z1]], { hidden: true }).forEach(r => { r.inward = inward; });
 }
 // Stitch marching-squares coping pieces into continuous grindable rails
 function chainCoping(csegs, ox, oz, y, inwardAt) {
@@ -884,7 +884,7 @@ const RIM = (() => {
   const wall = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: rampTex, roughness: 0.85, side: THREE.DoubleSide })); wall.receiveShadow = wall.castShadow = true; scene.add(wall);
   const lipPts = bnd.slice(0, -1).map(([bx, bz, nx, nz]) => new V3(bx + nx * Rl, Hl, bz + nz * Rl));
   scene.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(lipPts, true), 1600, 0.1, 10, true), mats.steel));
-  addRailPath(lipPts.map(p => [p.x, Hl + 0.06, p.z]), { hidden: true, closed: true }).forEach(r => {
+  addRailPath(lipPts.map(p => [p.x, Hl + 0.1, p.z]), { hidden: true, closed: true }).forEach(r => {
     const mx = (r.a.x + r.b.x) / 2, mz = (r.a.z + r.b.z) / 2, e = 0.05;
     const gx = dOut(mx + e, mz) - dOut(mx - e, mz), gz = dOut(mx, mz + e) - dOut(mx, mz - e), gl = Math.hypot(gx, gz) || 1;
     r.inward = [-gx / gl, -gz / gl];
@@ -1066,7 +1066,7 @@ addObs({ cx: BOWL.x, cz: BOWL.z, a: 0, hw: BOWL.deckR, hl: BOWL.deckR, f: (lx, l
   bowlMesh.position.set(BOWL.x, BOWL.y, BOWL.z); bowlMesh.castShadow = bowlMesh.receiveShadow = true; scene.add(bowlMesh);
   const lip = new THREE.Mesh(new THREE.TorusGeometry(BOWL.rimR, 0.13, 10, 140), new THREE.MeshStandardMaterial({ color: 0xc08a5a, roughness: 0.45 }));
   lip.rotation.x = Math.PI / 2; lip.position.set(BOWL.x, BOWL.top + 0.02, BOWL.z); scene.add(lip);
-  const ring = []; for (let k = 0; k < 96; k++) { const t = k / 96 * TAU; ring.push([BOWL.x + Math.cos(t) * (BOWL.rimR - 0.04), BOWL.top + 0.06, BOWL.z + Math.sin(t) * (BOWL.rimR - 0.04)]); }
+  const ring = []; for (let k = 0; k < 96; k++) { const t = k / 96 * TAU; ring.push([BOWL.x + Math.cos(t) * BOWL.rimR, BOWL.top + 0.15, BOWL.z + Math.sin(t) * BOWL.rimR]); }
   addRailPath(ring, { hidden: true, closed: true }).forEach(r => { const mx = (r.a.x + r.b.x) / 2 - BOWL.x, mz = (r.a.z + r.b.z) / 2 - BOWL.z, l = Math.hypot(mx, mz) || 1; r.inward = [-mx / l, -mz / l]; });
   const glow = new THREE.PointLight(0xffd6a0, 1.1, 60); glow.position.set(BOWL.x, BOWL.y - 8, BOWL.z); scene.add(glow);
 }
@@ -1233,7 +1233,7 @@ DOME.doorK = (lx, lz) => lz > 0 ? smoothT((Math.abs(lx) - DOME.door / 2) / 1.5) 
   ringObs(V.x, V.z, V.Rout, r => r > V.Rout ? 0 : r > deckR ? V.Hc * smoothT((V.Rout - r) / (V.Rout - deckR)) : r > lipR ? V.Hc
     : V.Hc - Hl + (r > V.floorR ? V.Rt - Math.sqrt(Math.max(0, V.Rt * V.Rt - (r - V.floorR) * (r - V.floorR))) : 0), 0.2);
   const lip = new THREE.Mesh(new THREE.TorusGeometry(lipR, 0.08, 10, 120), mats.steel); lip.rotation.x = Math.PI / 2; lip.position.set(V.x, V.Hc + 0.01, V.z); scene.add(lip);
-  const ring = []; for (let k = 0; k < 64; k++) { const t = k / 64 * TAU; ring.push([V.x + Math.cos(t) * (lipR - 0.04), V.Hc + 0.06, V.z + Math.sin(t) * (lipR - 0.04)]); }
+  const ring = []; for (let k = 0; k < 64; k++) { const t = k / 64 * TAU; ring.push([V.x + Math.cos(t) * lipR, V.Hc + 0.09, V.z + Math.sin(t) * lipR]); }
   addRailPath(ring, { hidden: true, closed: true }).forEach(r => { const mx = (r.a.x + r.b.x) / 2 - V.x, mz = (r.a.z + r.b.z) / 2 - V.z, l = Math.hypot(mx, mz) || 1; r.inward = [-mx / l, -mz / l]; });
 }
 // The wallride wall: a tall slab beside the edge, with a grindable top rail
@@ -1242,7 +1242,7 @@ DOME.doorK = (lx, lz) => lz > 0 ? smoothT((Math.abs(lx) - DOME.door / 2) / 1.5) 
   addObs({ cx: W.x, cz: W.z, a: 0, hw: 0.35, hl: W.len / 2, f: () => W.h });
   const slab = new THREE.Mesh(new THREE.BoxGeometry(0.7, W.h, W.len), new THREE.MeshStandardMaterial({ map: rampTex, color: 0x9a7f9a, roughness: 0.85 }));
   slab.position.set(W.x, W.h / 2, W.z); slab.castShadow = slab.receiveShadow = true; scene.add(slab);
-  addRailPath([[W.x, W.h + 0.06, W.z - W.len / 2 + 0.3], [W.x, W.h + 0.06, W.z + W.len / 2 - 0.3]], { hidden: true });
+  addRailPath([[W.x, W.h + 0.09, W.z - W.len / 2 + 0.3], [W.x, W.h + 0.09, W.z + W.len / 2 - 0.3]], { hidden: true });
   cylBetween(new V3(W.x, W.h + 0.02, W.z - W.len / 2 + 0.3), new V3(W.x, W.h + 0.02, W.z + W.len / 2 - 0.3), 0.07, mats.rail);
 }
 // The gauntlet: a 3 m box with a ten-stair set and two handrails down its north side
@@ -1367,7 +1367,7 @@ const MHP = { cx: 93, cz: -85, F: 14, R: 9, D: 4, B: 7, W: 230 };
   buildGrid(o, 0.16, poolMat, null, -1);
   const lipPts = POOL.outline(0.04, 20).map(([x, z]) => new V3(x, 0.02, z));
   scene.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(lipPts, true), 400, 0.07, 10, true), mats.steel));
-  addRailPath(POOL.outline(0.04, 12).map(([x, z]) => [x, 0.06, z]), { hidden: true, closed: true }).forEach(r => {
+  addRailPath(POOL.outline(0.04, 12).map(([x, z]) => [x, 0.09, z]), { hidden: true, closed: true }).forEach(r => {
     const mx = (r.a.x + r.b.x) / 2, mz = (r.a.z + r.b.z) / 2, e = 0.05;
     const gx = POOL.sdf(mx + e, mz) - POOL.sdf(mx - e, mz), gz = POOL.sdf(mx, mz + e) - POOL.sdf(mx, mz - e), gl = Math.hypot(gx, gz) || 1;
     r.inward = [-gx / gl, -gz / gl];
@@ -1438,7 +1438,7 @@ const FENCE = { d: RIM.Rl + 3.2, h: 4.2 };
   ip.castShadow = true; scene.add(ib, ip);
   // physically it's a solid wall (wallride it), and the top rail is grindable
   addObs({ cx: 0, cz: PZC, a: 0, hw: PX, hl: PZH, f: (lx, lz) => { const d = RIM.dOut(lx, lz + PZC); return d > D - 0.12 && d < D + 3 ? y0 + FENCE.h : 0; } });
-  addRailPath(ring.map(([x, z]) => [x, y0 + FENCE.h + 0.06, z]), { hidden: true, closed: true }).forEach(r => {
+  addRailPath(ring.map(([x, z]) => [x, y0 + FENCE.h + 0.09, z]), { hidden: true, closed: true }).forEach(r => {
     const mx = (r.a.x + r.b.x) / 2, mz = (r.a.z + r.b.z) / 2, e = 0.05;
     const gx = RIM.dOut(mx + e, mz) - RIM.dOut(mx - e, mz), gz = RIM.dOut(mx, mz + e) - RIM.dOut(mx, mz - e), gl = Math.hypot(gx, gz) || 1;
     r.inward = [-gx / gl, -gz / gl];

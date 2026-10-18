@@ -3239,9 +3239,13 @@ function stepAir(dt, st) {
     const uc = clamp(u, 0, 1);
     const ex = r.a.x + r.dx * uc - P.pos.x, ez = r.a.z + r.dz * uc - P.pos.z, el = Math.hypot(ex, ez);
     const ry = r.a.y + (r.b.y - r.a.y) * uc;
-    if (A.aimed ? el < 3 : el < 1.0) { const k = A.aimed ? 14 : 4; P.vel.x += ex * k * dt; P.vel.z += ez * k * dt; }
+    if (A.aimed) { if (el < 3) { P.vel.x += ex * 14 * dt; P.vel.z += ez * 14 * dt; } }
+    else if (el < 3) {   // slide sideways onto the rail's line; no tugging forward or back along it
+      const al = ex * r.dh.x + ez * r.dh.y, lx = ex - r.dh.x * al, lz = ez - r.dh.y * al;
+      P.vel.x += lx * 10 * dt; P.vel.z += lz * 10 * dt;
+    }
     // close enough: snap on, whether still rising or already coming down
-    if (P.grindCD <= 0 && u > -0.05 && u < 1.05 && el < (A.aimed ? 0.9 : 0.7) && P.pos.y > ry - 0.45 && (A.regrind ? P.vel.y < 0 && P.pos.y < ry + 0.45 : P.pos.y < ry + (P.vel.y < 0 ? 1.2 : 0.7))) {
+    if (P.grindCD <= 0 && u > -0.05 && u < 1.05 && el < (A.aimed ? 0.9 : 0.85) && P.pos.y > ry - 0.45 && (A.regrind ? P.vel.y < 0 && P.pos.y < ry + 0.45 : P.pos.y < ry + (P.vel.y < 0 ? 1.2 : 0.7))) {
       const along = P.vel.x * r.dh.x + P.vel.z * r.dh.y;
       startGrind(r, clamp(uc, 0.005, 0.995), along); return;
     }
@@ -3399,7 +3403,7 @@ function revert() {
   P.recover = { t: 0, off: (Math.random() < 0.5 ? -1 : 1) * 1.3 }; pose.yaw = pose.charYaw = P.recover.off;
 }
 // Nearest rail, ledge or coping the rider could reach: ahead, roughly lined up, not far above
-function findRail(maxDist, fromGround, maxUp) {
+function findRail(maxDist, fromGround, maxUp, maxSide = 1.6) {
   const sp = Math.hypot(P.vel.x, P.vel.z);
   const fx = fromGround ? Math.sin(P.heading) * (Math.sign(P.s) || 1) : (sp > 1 ? P.vel.x / sp : Math.sin(P.heading));
   const fz = fromGround ? Math.cos(P.heading) * (Math.sign(P.s) || 1) : (sp > 1 ? P.vel.z / sp : Math.cos(P.heading));
@@ -3412,7 +3416,7 @@ function findRail(maxDist, fromGround, maxUp) {
       if (u < 0 || u > 1) continue;
       const cx = r.a.x + r.dx * u, cz = r.a.z + r.dz * u, ry = r.a.y + (r.b.y - r.a.y) * u;
       const dh = Math.hypot(cx - P.pos.x, cz - P.pos.z), side = Math.hypot(cx - x, cz - z);
-      if (dh > maxDist || side > 1.6) continue;
+      if (dh > maxDist || side > maxSide) continue;
       const dy = ry - P.pos.y;
       if (dy > (maxUp || (fromGround ? 3.1 : 0.9)) || dy < -3) continue;
       const align = Math.abs(fx * r.dh.x + fz * r.dh.y);
@@ -3439,7 +3443,7 @@ function lockGrind() {
   if (P.state === 'air') {
     if (P.grindCD > 0) return false;   // just left a rail: no re-grabbing it mid-pop
     if (P.air.popRail) { P.air.wantGrind = true; P.air.wantRail = P.air.popRail; P.air.regrind = true; P.air.popRail = null; return true; }
-    const t = findRail(1.4, false);
+    const t = findRail(4.8, false, undefined, 0.9);   // ahead of you on your line, not off to the side
     if (!t) return false;
     P.air.wantGrind = true; P.air.wantRail = t.r; P.air.lockOn = true;
     return true;
@@ -3663,7 +3667,7 @@ function physics(dt) {
       if (!P.air.wantRail) lockGrind();
       else {
         const A = P.air, r = A.wantRail, u = clamp(((P.pos.x - r.a.x) * r.dx + (P.pos.z - r.a.z) * r.dz) / r.lenH2, 0, 1);
-        const cur = Math.hypot(r.a.x + r.dx * u - P.pos.x, r.a.z + r.dz * u - P.pos.z), t = findRail(1.4, false);
+        const cur = Math.hypot(r.a.x + r.dx * u - P.pos.x, r.a.z + r.dz * u - P.pos.z), t = findRail(4.8, false, undefined, 0.9);
         if (t && t.r !== r && t.r !== r.next && t.r !== r.prev && t.dh < cur - 0.6) { A.wantRail = t.r; A.lockOn = true; }
       }
     }

@@ -2670,6 +2670,7 @@ const GRINDS = {
 const GRIND_KEYS = { none: 'fifty', up: 'nose', down: 'five', left: 'board', right: 'lip',
   upleft: 'crook', upright: 'noseslide', downleft: 'smith', downright: 'tailslide' };
 const GRIND_CYCLE = ['fifty', 'nose', 'five', 'board', 'lip', 'noseslide', 'tailslide', 'smith', 'crook'];
+const GRIND_HOP = 0.34;   // how long the little hop between grinds takes
 const grindName = g => (g.fs ? 'FS ' : 'BS ') + GRINDS[g.type].name;
 
 // ---------- Combo / UI ----------
@@ -3420,9 +3421,11 @@ function groundInput() {
 function grindTrick() {
   if (tapped(K.grind)) {
     const g = P.grind;
-    if (g.type !== 'dark') { g.prev = g.type; g.type = 'dark'; }
-    else g.type = GRIND_CYCLE[(GRIND_CYCLE.indexOf(g.prev) + 1) % GRIND_CYCLE.length] || 'fifty';
-    addTrick(grindName(g), 100); sfx.clank(); P.anim.impact = 0.2;
+    if (g.hopT !== undefined && g.hopT < GRIND_HOP) return;   // already mid-hop
+    // a tiny hop: the feet come up, the board turns over underneath, and he lands back on it in the new grind
+    if (g.type !== 'dark') { g.prev = g.type; g.nextType = 'dark'; }
+    else g.nextType = GRIND_CYCLE[(GRIND_CYCLE.indexOf(g.prev) + 1) % GRIND_CYCLE.length] || 'fifty';
+    g.hopT = 0; sfx.pop();
     return;
   }
   // steer left or right to hop off the rail that way
@@ -3510,6 +3513,11 @@ function exitGrind(vy, sideKick) {
 function stepGrind(dt, st) {
   const g = P.grind, r = g.r;
   g.t += dt;
+  if (g.hopT !== undefined && g.hopT < GRIND_HOP) {
+    const was = g.hopT; g.hopT += dt;
+    if (g.nextType && g.hopT >= 0.1) { g.type = g.nextType; g.nextType = null; addTrick(grindName(g), 100); }   // the board turns over while he's up
+    if (was < GRIND_HOP - 0.04 && g.hopT >= GRIND_HOP - 0.04) { sfx.clank(); P.anim.impact = 0.25; }       // and he lands back on it
+  }
   if (r.bus) {   // grinding the parked bus: it honks at you every few seconds
     if (g.honkT === undefined) g.honkT = 0.35 + Math.random() * 0.4;
     g.honkT -= dt; if (g.honkT <= 0) { sfx.honk(); g.honkT = 2.5 + Math.random() * 3; }
@@ -3842,6 +3850,10 @@ function animate(dt) {
     else if (tp === 'crook') { pitch = 0.2; pivot = AXLE; yaw = 0.35; hipZ = 0.06; }
     else if (tp === 'smith') { pitch = -0.2; pivot = -AXLE; roll = 0.35 * c; hipZ = -0.06; }
     else if (tp === 'dark') { roll = Math.PI; lift = -0.1; hipY = 0.82; }   // grip side down on the rail, he stands on the graphic
+    if (g.hopT !== undefined && g.hopT < GRIND_HOP) {   // the little hop between grinds: up, feet off, back down
+      const hh = Math.sin(Math.PI * g.hopT / GRIND_HOP);
+      lift += 0.16 * hh; hipY += 0.14 * hh; footFree = clamp((hh - 0.12) * 2.2, 0, 1); arm = ARM.pop;
+    }
   } else if (st === 'wall') {
     hipY = 0.88; arm = ARM.balance; leanT = -0.15;
   } else if (st === 'bail') {
@@ -3995,6 +4007,10 @@ function animate(dt) {
         const env = Math.sin(Math.PI * clamp(ft / 0.9, 0, 1));
         const deckTop = 0.016 + 0.105 * (fl.roll ? env : 0) + (fl.pitch ? env : 0) * Math.min(0.42, Math.abs(free.z) + 0.06);
         free.y = Math.max(free.y, deckTop + 0.088);
+      }
+      if (st === 'grind') {
+        // hopping between grinds: feet hover just over where the deck is, ignoring the board turning over beneath them
+        free.set(0, 0.098 + 0.13, zA); free.applyAxisAngle(_zAx, -pose.roll);
       }
       if (specialPose) free.set(0, -0.2, zA * 0.6);
       // glide each foot along its path rather than snapping between targets

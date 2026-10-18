@@ -3625,7 +3625,7 @@ function updateHUD(dt = 1 / 60) {
       // only for a real air (not every tiny hop off a bump), and never restarted in quick succession
       if (air && !sfx.wheel && A.time > 0.15 && performance.now() - (sfx.wheelEndT || 0) > 250) sfx.wheelStart();
       else if (!air && sfx.wheel) sfx.wheelStop();
-      if (air) sfx.wheelSet(0.4 * Math.min(1, (0.6 + 0.4 * ws) * (1 + 0.3 * trick)) * fadeIn, 0.92 + 0.2 * ws + 0.3 * trick);   // a quiet background spin
+      if (air) sfx.wheelSet(0.25 * Math.min(1, (0.6 + 0.4 * ws) * (1 + 0.3 * trick)) * fadeIn, 0.95 + 0.06 * ws + 0.08 * trick);   // quiet, and only a slight pitch lift   // a quiet background spin
       sfx.spinUpdate(0, pitch);
     } else sfx.spinUpdate(level * fadeIn, pitch);
   }

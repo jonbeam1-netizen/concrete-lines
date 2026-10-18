@@ -1267,8 +1267,7 @@ function boostPad(x, z, h, len = 5, w = 5) {
   BOOSTS.push({ x, z, h, c: Math.cos(h), s: Math.sin(h), len, w });
 }
 boostPad(0, -222, Math.PI, 8);                  // at the vert wall
-boostPad(-4, -175, Math.PI / 2, 6);             // inside the orbit, both ways round
-boostPad(4, -175, -Math.PI / 2, 6);
+inDome = true; boostPad(DOME.x, DOME.z, 0); inDome = false;   // one pad in the middle of the dome's floor (placed as seen from inside)
 boostPad(-55 + 3.2, -168, Math.PI, 8);          // along the wallride wall
 boostPad(-38, -190, Math.PI, 7);                // up the volcano
 boostPad(50, -160, Math.PI, 7);                 // up the gauntlet box's back ramp... from the north side ramp
@@ -1388,13 +1387,13 @@ const MHP = { cx: 93, cz: -85, F: 14, R: 9, D: 4, B: 7, W: 230 };
 }
 {
   // the corkscrew: a 4 m tower with a rail spiralling down round a pole, spitting you out toward the car
-  const T = { x: -92, z: -196, H: 4 }, R = 3.4, turns = 1.5, n = 90;
+  const T = { x: -92, z: -196, H: 4 }, R = 3.4, turns = 1.25, n = 80;
   funbox(T.x + 6, T.z - R, 0, 3, 3, T.H, { xn: 0.05, xp: 7, zn: 7, zp: 7 });
   const pts = [];
   for (let x = T.x + 4.8; x > T.x + 0.3; x -= 0.75) pts.push([x, T.H + 0.6, T.z - R]);   // off the tower's edge...
   for (let k = 0; k <= n; k++) { const t = k / n, th = -Math.PI / 2 - t * turns * TAU; pts.push([T.x + R * Math.cos(th), T.H + 0.6 - (T.H - 0.1) * t, T.z + R * Math.sin(th)]); }
   const e = pts[pts.length - 1];
-  for (let k = 1; k <= 8; k++) pts.push([e[0] + k * 1.5, 0.7, e[2]]);                     // ...and out along the ground
+  for (let k = 1; k <= 8; k++) pts.push([e[0], 0.7, e[2] + k * 1.5]);                     // ...and out north along the ground, clear of the tower
   addRailPath(pts, { smooth: true, noPosts: true });
   cylBetween(new V3(T.x, 0, T.z), new V3(T.x, T.H + 2, T.z), 0.35, mats.steel);
   for (let k = 12; k < n; k += 10) { const p = pts[k];cylBetween(new V3(T.x, p[1] - 0.2, T.z), new V3(p[0], p[1] - 0.1, p[2]), 0.04, mats.steel); }
@@ -2536,7 +2535,7 @@ const SPAWNS = [
   { name: 'Pool', x: POOL.x, z: POOL.z - POOL.b - 6, heading: 0 },
   { name: 'Sky rail quarter', x: -80, z: -35, heading: -Math.PI / 2 },
   { name: 'Car and rails', x: -80, z: -112, heading: -Math.PI * 0.75 },
-  { name: 'Corkscrew', x: -82, z: -196, heading: -Math.PI / 2 },
+  { name: 'Corkscrew', x: -75, z: -199.4, heading: -Math.PI / 2 },
 ];
 let spawnIdx = 0;
 const P = {

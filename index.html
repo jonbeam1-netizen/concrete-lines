@@ -2027,6 +2027,7 @@ const L1 = 0.45, L2 = 0.45;
     [0.06, 0.085, 0.11, 0.135].forEach(x => { const l = add(foot, new THREE.BoxGeometry(0.009, 0.007, 0.056), shoeWhite, x, topY(x) + 0.012, 0); l.rotation.z = tongue.rotation.z; });
     add(foot, new THREE.TorusGeometry(0.05, 0.017, 8, 20), shoeMaroon, 0.0, 0.034, 0).rotation.x = Math.PI / 2;   // padded collar round the ankle
     add(foot, new THREE.BoxGeometry(0.012, 0.045, 0.036), shoeMaroon, -0.083, -0.008, 0);                            // heel tab
+    add(foot, new THREE.SphereGeometry(0.04, 16, 12), skin, -0.018, 0.03, 0);                                       // his heel, filling the collar opening
   };
   // legs: baggy jeans and skate shoes
   [-1, 1].forEach(s => {

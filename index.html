@@ -2390,7 +2390,7 @@ const ch = String.fromCharCode; // arrow glyphs built from code points so the fi
 const KEY_NAMES = { ArrowLeft: ch(8592), ArrowRight: ch(8594), ArrowUp: ch(8593), ArrowDown: ch(8595), Space: 'Space', ShiftLeft: 'L Shift', ShiftRight: 'R Shift',
   ControlLeft: 'L Ctrl', ControlRight: 'R Ctrl', AltLeft: 'L Alt', AltRight: 'R Alt', Enter: 'Enter', Backspace: 'Backspace', Tab: 'Tab', Escape: 'Esc' };
 const keyName = code => KEY_NAMES[code] || code.replace(/^Key/, '').replace(/^Digit/, '').replace(/^Numpad/, 'Num ');
-const grindHeld = () => held(K.grind) || !!(P.air && P.air.wantGrind);
+const grindHeld = () => (held(K.grind) && !(P.air && P.air.popRail && !P.air.rArmed)) || !!(P.air && P.air.wantGrind);
 const keys = {}, pressed = {}, released = {};
 let rebinding = null, menuSpace = false;
 function dismissSplash() { const sp = $('splash'); if (sp && !sp.hidden) { sp.hidden = true; try { sfx.init(); } catch (err) {} } }
@@ -3198,7 +3198,7 @@ function stepAir(dt, st) {
     const ry = r.a.y + (r.b.y - r.a.y) * uc;
     if (A.aimed ? el < 3 : el < 1.0) { const k = A.aimed ? 14 : 4; P.vel.x += ex * k * dt; P.vel.z += ez * k * dt; }
     // close enough: snap on, whether still rising or already coming down
-    if (P.grindCD <= 0 && u > -0.05 && u < 1.05 && el < (A.aimed ? 0.9 : 0.7) && P.pos.y > ry - 0.45 && P.pos.y < ry + (P.vel.y < 0 ? 1.2 : 0.7)) {
+    if (P.grindCD <= 0 && u > -0.05 && u < 1.05 && el < (A.aimed ? 0.9 : 0.7) && P.pos.y > ry - 0.45 && (A.regrind ? P.vel.y < 0 && P.pos.y < ry + 0.3 : P.pos.y < ry + (P.vel.y < 0 ? 1.2 : 0.7))) {
       const along = P.vel.x * r.dh.x + P.vel.z * r.dh.y;
       startGrind(r, clamp(uc, 0.005, 0.995), along); return;
     }
@@ -3394,6 +3394,7 @@ function lockGrind() {
   }
   if (P.state === 'air') {
     if (P.grindCD > 0) return false;   // just left a rail: no re-grabbing it mid-pop
+    if (P.air.popRail) { P.air.wantGrind = true; P.air.wantRail = P.air.popRail; P.air.regrind = true; P.air.popRail = null; return true; }
     const t = findRail(1.4, false);
     if (!t) return false;
     P.air.wantGrind = true; P.air.wantRail = t.r; P.air.lockOn = true;
@@ -3444,10 +3445,14 @@ function grindTrick() {
   }
   const tside = trickTap();
   if (!tside) return;
-  // pop off the rail straight into a flip
-  exitGrind(6.2); sfx.pop();
+  // E / Q on a rail: pop straight up into a flip and come back down onto the same rail (A / D are what take you off it)
+  const rail = P.grind.r;
+  exitGrind(6.2, 0, true); sfx.pop();
   P.anim.ollieT = 0; P.anim.takeoff = 'ollie';
+  const vx = P.vel.x, vz = P.vel.z;
   autoFlip(P.air, tside);
+  P.vel.x = vx; P.vel.z = vz;   // straight up off the rail: no sideways drift toward the trick's side
+  P.air.popRail = rail;   // remembered, so a fresh R press in the air puts you straight back on it
 }
 
 function tryGrind(py, nx, ny, nz) {
@@ -3503,13 +3508,13 @@ function startGrind(r, u, along) {
   P.anim.impact = 0.35;
   sfx.clank();
 }
-function exitGrind(vy, sideKick) {
+function exitGrind(vy, sideKick, straight) {
   const g = P.grind, r = g.r;
   sfx.grindOff();
   P.vel.copy(r.dir).multiplyScalar(g.vr); P.vel.y += vy;
   if (sideKick) { P.vel.x += -r.dh.y * sideKick; P.vel.z += r.dh.x * sideKick; }
-  if (r.inward) { P.vel.x += r.inward[0] * 2.4; P.vel.z += r.inward[1] * 2.4; } // drop back in without losing speed
-  P.heading = r.inward ? Math.atan2(P.vel.x, P.vel.z) : Math.atan2(r.dir.x * Math.sign(g.vr), r.dir.z * Math.sign(g.vr));
+  if (r.inward && !straight) { P.vel.x += r.inward[0] * 2.4; P.vel.z += r.inward[1] * 2.4; } // drop back in without losing speed
+  P.heading = r.inward && !straight ? Math.atan2(P.vel.x, P.vel.z) : Math.atan2(r.dir.x * Math.sign(g.vr), r.dir.z * Math.sign(g.vr));
   P.grind = null; P.grindCD = 0.3; P.pos.y += 0.03; P.rArmT = -9;
   enterAir(false);
   P.anim.ollieT = vy > 2 ? 0 : -1; P.anim.takeoff = vy > 2 ? 'ollie' : 'roll';
@@ -3608,8 +3613,8 @@ function physics(dt) {
   }
   else if (P.state === 'air') {
     // R in the air stays armed: it locks onto the next rail you come near, or goes into a manual when you land
-    if (tapped(K.grind) || (P.air.time < 0.1 && game.clock - (P.rArmT ?? -9) < 1)) P.air.rArmed = true;
-    if (P.air.rArmed || held(K.grind)) {
+    if (tapped(K.grind) || (!P.air.popRail && P.air.time < 0.1 && game.clock - (P.rArmT ?? -9) < 1)) P.air.rArmed = true;
+    if (P.air.rArmed || (held(K.grind) && !P.air.popRail)) {
       if (!P.air.wantRail) lockGrind();
       else {
         const A = P.air, r = A.wantRail, u = clamp(((P.pos.x - r.a.x) * r.dx + (P.pos.z - r.a.z) * r.dz) / r.lenH2, 0, 1);

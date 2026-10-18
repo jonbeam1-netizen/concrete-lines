@@ -1787,6 +1787,7 @@ const boardRoot = new THREE.Group(); boardRoot.rotation.order = 'YXZ'; rider.add
 const boardSpin = new THREE.Group(); boardRoot.add(boardSpin);
 const boardFlip = new THREE.Group(); boardSpin.add(boardFlip);
 const KICK = 0.35;
+const TRUCKS = [];   // each truck's hanger (with its axle and wheels), which pivots on the kingpin
 {
   // a real popsicle deck: rounded nose and tail that curve up, a little concave, grip on top, graphic underneath
   const HW = 0.105, HL = 0.405, T = 0.022;
@@ -1828,11 +1829,13 @@ const KICK = 0.35;
     const base = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.008, 0.075), truckM); base.position.set(0, by - 0.004, z); boardFlip.add(base);
     const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.04, 8), truckM); pin.position.set(0, by - 0.024, z - Math.sign(z) * 0.012); boardFlip.add(pin);
     const bush = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.022, 10), bushM); bush.position.copy(pin.position); boardFlip.add(bush);
-    const hanger = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.022, 0.028), truckM); hanger.position.set(0, -0.066, z); hanger.castShadow = true; boardFlip.add(hanger);
-    const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.22, 6), truckM); axle.rotation.z = Math.PI / 2; axle.position.set(0, -0.078, z); boardFlip.add(axle);
+    // the hanger, axle and wheels hang from a pivot at the kingpin, so the truck can lean and steer under the deck
+    const hg = new THREE.Group(); hg.position.set(0, -0.045, z); boardFlip.add(hg); TRUCKS.push({ g: hg, dir: Math.sign(z) });
+    const hanger = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.022, 0.028), truckM); hanger.position.set(0, -0.021, 0); hanger.castShadow = true; hg.add(hanger);
+    const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.22, 6), truckM); axle.rotation.z = Math.PI / 2; axle.position.set(0, -0.033, 0); hg.add(axle);
     [-0.092, 0.092].forEach(x => {
-      const w = new THREE.Mesh(wheelG, wheelM); w.position.set(x, -0.078, z); w.castShadow = true; boardFlip.add(w);
-      const cr = new THREE.Mesh(coreG, coreM); cr.position.set(x, -0.078, z); boardFlip.add(cr);
+      const w = new THREE.Mesh(wheelG, wheelM); w.position.set(x, -0.033, 0); w.castShadow = true; hg.add(w);
+      const cr = new THREE.Mesh(coreG, coreM); cr.position.set(x, -0.033, 0); hg.add(cr);
     });
   });
 }
@@ -1956,6 +1959,7 @@ const L1 = 0.45, L2 = 0.45;
 }
 const _d = new V3(), _n = new V3(), _perp = new V3(), _thigh = new V3(), _knee = new V3(), _tgt = new V3(), _hint = new V3();
 const _xAx = new V3(1, 0, 0), _zAx = new V3(0, 0, 1), _armP = new V3();
+const _tq = new THREE.Quaternion(), _tn = new V3();
 const _qTilt = new THREE.Quaternion(), _wq = new THREE.Quaternion(), _wn = new V3();
 const _ankleBack = new V3();
 function solveLeg(leg, hip, target, hint) {
@@ -3150,7 +3154,7 @@ function startWall(wx, wz) {
   if (Math.abs(angDiff(P.heading, ty)) > Math.PI / 2) { P.switchSt = !P.switchSt; P.snapYaw = true; }
   P.heading = ty;
   P.wall = { nx: wx, nz: wz, n0x: wx, n0z: wz, t: 0 };
-  { const gp = wallGap(P.pos.x, P.pos.z, P.pos.y, wx, wz); if (gp < 1.2) { P.pos.x += wx * (gp - 0.08); P.pos.z += wz * (gp - 0.08); } }   // straight onto the wall, no settling wobble
+  { const gp = wallGap(P.pos.x, P.pos.z, P.pos.y, wx, wz); if (gp < 1.2) { P.pos.x += wx * (gp - 0.03); P.pos.z += wz * (gp - 0.03); } }   // straight onto the wall, no settling wobble
   P.state = 'wall'; P.air = null; P.anim.impact = 0.3; P.pending = 0;
   addTrick('Wallride', 200);
   sfx.bump(); sfx.scuff();
@@ -3185,7 +3189,7 @@ function stepWall(dt) {
     if (wd && wd[0] * w.n0x + wd[1] * w.n0z > 0.97) {   // small corrections only: never creep round onto a ramp top or into a corner
       w.nx = lerp(w.nx, wd[0], 0.3); w.nz = lerp(w.nz, wd[1], 0.3); const l = Math.hypot(w.nx, w.nz) || 1; w.nx /= l; w.nz /= l;
       const into = P.vel.x * w.nx + P.vel.z * w.nz; if (into > 0) { P.vel.x -= w.nx * into; P.vel.z -= w.nz * into; }
-      const gap = wallGap(nx, nz, ny, w.nx, w.nz); if (gap < 1.2) { nx += w.nx * (gap - 0.08); nz += w.nz * (gap - 0.08); }
+      const gap = wallGap(nx, nz, ny, w.nx, w.nz); if (gap < 1.2) { nx += w.nx * (gap - 0.03); nz += w.nz * (gap - 0.03); }
     } }
   // never drift into the wall face (sloped or curved walls): step back out until he's clear of it
   for (let k = 0; k < 12 && heightAt(nx, nz) > ny + 0.02; k++) { nx -= w.nx * 0.04; nz -= w.nz * 0.04; }
@@ -3789,7 +3793,7 @@ function orientRider(dt) {
     else if (P.state === 'wall') {
       // his body only leans out ~30 degrees (the board does the rest, turned almost flat to the wall), and he rolls into it over a moment
       const tl = smooth(Math.min(1, P.wall.t / 0.2));
-      upV.set(-P.wall.nx * 0.7 * tl, 1 - 0.3 * tl, -P.wall.nz * 0.7 * tl).normalize();   // his whole body leans out from the wall (~45 degrees)
+      upV.set(-P.wall.nx * 0.85 * tl, 1 - 0.47 * tl, -P.wall.nz * 0.85 * tl).normalize();   // his whole body leans well out from the wall (~58 degrees)
       rider.position.x -= P.wall.nx * 0.65 * (1 - tl); rider.position.z -= P.wall.nz * 0.65 * (1 - tl);   // comes in to the wall as the board rolls onto it
     }
     else if (P.state === 'air' && P.air && P.air.inDome) {
@@ -3840,7 +3844,7 @@ function animate(dt) {
   an.acc = lerp(an.acc || 0, clamp((sp - (an.lastSp ?? sp)) / Math.max(dt, 1e-3), -25, 25), damp(6, dt)); an.lastSp = sp;
   if (st === 'ground' || st === 'pipe' || st === 'dome') {
     const turnLean = P.steer * spF;
-    roll += -c * turnLean * 0.09;   // the board tips onto its toe or heel edge as you carve, and the feet go with it
+    roll += -c * turnLean * 0.22;   // the board tips onto its toe or heel edge as you carve, and the feet go with it
     leanA += clamp(an.acc * 0.012, -0.14, 0.14) * travel;                      // pitch into pushes, back on braking
     twist += P.steer * 0.3 * spF;                                               // shoulders lead the carve
     leanT += Math.sin(game.clock * 3.3) * 0.025 * spF; hipY += Math.sin(game.clock * 6.6) * 0.01 * spF;   // rides the bumps
@@ -3946,12 +3950,12 @@ function animate(dt) {
     // which side of him the wall is on, in his own frame
     const tl = smooth(Math.min(1, P.wall.t / 0.2));
     _wq.copy(rider.quaternion).invert(); const side = Math.sign(_wn.set(P.wall.nx, 0, P.wall.nz).applyQuaternion(_wq).x) || 1;
-    roll = side * 0.42 * tl;                                   // the rest of the way for the board: deck close to vertical, wheels on the wall
+    roll = side * 0.06 * tl;                                   // board tilts with him; the trucks bend the rest of the way onto the wall                                   // the rest of the way for the board: deck close to vertical, wheels on the wall
     hipX = -side * (c > 0 ? 1 : -1) * 0.06 * tl;                // hips pushed out over the board, away from the wall
-    hipY = 0.74; leanT = -0.12; twist += 0.15;                    // crouched, knees bent, a slight hunch: the whole body stays tilted out
+    hipY = 0.82; leanT = 0.55 * tl; twist += 0.15;                     // crouched, knees bent, a slight hunch: the whole body stays tilted out
     const facing = (c > 0 ? 1 : -1) === side;
     arm = facing ? ARM.wallIn : ARM.wall;                          // arms spread; facing the wall they swing out and back, not into it
-    if (facing) leanT = 0.32;                                      // facing the wall: keep the lean (bending toward the wall cancelled the tilt)
+    if (facing) leanT = -0.9 * tl;                                      // facing the wall: keep the lean (bending toward the wall cancelled the tilt)
     P.wallRoll = roll;
   } else if (st === 'bail') {
     fall = 1.45 * smooth(P.bailT / 0.5); footFree = 1; arm = ARM.bail; hipY = 0.95;
@@ -4014,6 +4018,17 @@ function animate(dt) {
     if (st !== 'bail' && Math.abs(pose.railTilt) > 1e-4) { _qTilt.setFromAxisAngle(_xAx, -pose.railTilt); boardRoot.quaternion.premultiply(_qTilt); boardRoot.position.applyQuaternion(_qTilt); } }
   boardSpin.rotation.y = flipYaw;
   boardFlip.rotation.set(flipPitch, 0, flipRoll);
+  // trucks: the hangers pivot so the wheels sit flat on whatever they're rolling on (the ground as you carve, a wall, a rail),
+  // and they steer a touch as the deck leans, front and back opposite ways, like real trucks
+  { let phi = 0;
+    const n = st === 'wall' && P.wall ? _tn.set(-P.wall.nx, 0, -P.wall.nz) : (st === 'ground' || st === 'grind' || st === 'pipe' || st === 'dome') ? _tn.set(0, 1, 0).applyQuaternion(rider.quaternion) : null;
+    if (n && pose.footFree < 0.5 && !(A && A.flip)) {
+      boardFlip.updateMatrixWorld(true); boardFlip.getWorldQuaternion(_tq); n.applyQuaternion(_tq.invert());
+      if (n.y > 0.2) phi = clamp(Math.atan2(-n.x, n.y), -0.55, 0.55);
+    }
+    pose.truckRoll = lerp(pose.truckRoll || 0, phi, damp(20, dt));
+    TRUCKS.forEach(t => t.g.rotation.set(0, pose.truckRoll * 0.45 * t.dir, pose.truckRoll));
+  }
 
   // ---- character ----
   char.rotation.order = 'YXZ';
@@ -4139,6 +4154,7 @@ function animate(dt) {
     _hint.set(1, 0, (end * c > 0 ? 1 : -1) * 0.35).normalize();
     solveLeg(leg, hip, leg.target, _hint);
     qShoe.copy(qChar).invert().multiply(qBoard); if (flipped) qShoe.multiply(qTmp.setFromAxisAngle(_zAx, Math.PI)); qShoe.multiply(qStance);
+    // on a wall the deck is near vertical: the shoes ease part way back toward his legs so they don't look snapped sideways at the ankle
     leg.foot.quaternion.copy(qShoe).slerp(qTmp.identity(), clamp(pose.footFree + (pushT >= 0 && end < 0 ? 1 : 0), 0, 1));
     // off the board the toes point down, and during a flip the front foot rolls with its flick
     if (pose.footFree > 0.01 && st !== 'bail') {

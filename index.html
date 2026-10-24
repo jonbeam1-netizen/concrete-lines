@@ -5,7 +5,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Barlow+Condensed:wght@500;600;700&display=swap">
 <style>
-/* Layout: full-bleed 3D canvas, thin HUD rails top + bottom, centered overlays for menu / pause / results */
+/* Layout: full-bleed 3D canvas, thin HUD rails top + bottom, centered overlays for menu / pause */
 :root {
   --asphalt: #11151b;
   --chalk: #f2ede4;
@@ -133,6 +133,9 @@ h2 { font-family: var(--font-display); font-weight: 400; font-size: 34px; margin
   font-size: 18px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
   padding: 12px 18px; border-radius: 8px; border: 2px solid var(--hazard); background: var(--hazard); color: #1a1406;
 }
+.btn.big { font-family: var(--font-display); font-weight: 400; font-size: clamp(26px, 4.4vw, 36px); letter-spacing: .06em; padding: 14px 40px; border-radius: 12px;
+  border: 3px solid #1a1406; outline: 3px solid var(--hazard); outline-offset: 3px; box-shadow: 0 6px 24px rgba(255, 190, 40, .25); }
+.btn.big:hover { outline-offset: 5px; }
 .btn.ghost { background: transparent; color: var(--chalk); border-color: var(--line); }
 .btn.ghost:hover { border-color: var(--chalk); }
 .stance { display: flex; gap: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
@@ -167,11 +170,6 @@ kbd {
 .keybtn:hover { border-color: var(--hazard); }
 .keybtn.listening { border-color: var(--hazard); color: var(--hazard); }
 @media (max-width: 620px) { .keylist { grid-template-columns: 1fr; } }
-.goals { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 18px; }
-.goals li { display: flex; gap: 10px; align-items: baseline; color: var(--muted); }
-.goals li::before { content: ''; flex: none; width: 12px; height: 12px; border-radius: 3px; border: 2px solid var(--ghost); transform: translateY(1px); }
-.goals li.done { color: var(--chalk); }
-.goals li.done::before { background: var(--hazard); border-color: var(--hazard); }
 
 /* Touch controls */
 #touch { position: fixed; inset: auto 0 0 0; pointer-events: none;
@@ -209,8 +207,7 @@ body.touch #combo { bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
 <div id="hud" hidden>
   <div class="hud-top">
     <div class="readout"><span class="lbl">Score</span><b id="score">0</b><div class="meter" id="meter"><div id="specialFill"></div></div><span class="meter-lbl" id="meterLbl">Special</span></div>
-    <div class="readout"><span class="lbl" id="timerLbl">Session</span><b id="timer">2:00</b></div>
-    <div class="readout small"><span class="lbl">Speed</span><b id="speed">0</b><span class="unit" id="stanceTag">km/h · regular</span></div>
+    <div class="readout small"><span class="lbl">Speed</span><b id="speed">0</b><span class="unit" id="stanceTag">mph · regular</span></div>
     <div class="spacer"></div>
     <div id="letters" aria-label="Letters collected"><span>S</span><span>K</span><span>A</span><span>T</span><span>E</span><span class="tape" id="tapeTag">Tape</span></div>
     <div class="spacer"></div>
@@ -247,10 +244,9 @@ body.touch #combo { bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
       <span class="stance-lbl">Shirt</span>
       <div class="swatches" id="shirtPick" role="group" aria-label="Shirt colour"></div>
     </div>
-    <p class="menu-go">Press <kbd class="kspace">Space</kbd> to start skating <span>· or pick a mode below</span></p>
+    <p class="menu-go">Press <kbd class="kspace">Space</kbd> to start skating</p>
     <div class="row">
-      <button class="btn" id="startFree" type="button">Free skate</button>
-      <button class="btn ghost" id="startSession" type="button">2-minute session</button>
+      <button class="btn big" id="startFree" type="button">Free skate</button>
     </div>
     <div class="row" id="netRow">
       <span class="stance-lbl">Online</span>
@@ -277,8 +273,6 @@ body.touch #combo { bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
       <button class="btn ghost" id="keysPause" type="button">Change keys</button>
       <button class="btn ghost" id="quitBtn" type="button">Back to menu</button>
     </div>
-    <div class="section-lbl">Goals</div>
-    <ul class="goals" id="pauseGoals"></ul>
     <div id="pauseControls"></div>
   </div>
 </div>
@@ -295,25 +289,6 @@ body.touch #combo { bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
   </div>
 </div>
 
-<div id="results" class="overlay" hidden>
-  <div class="card">
-    <div class="eyebrow">Session over</div>
-    <h2 id="resScore">0</h2>
-    <div id="resPb" class="pb" hidden>New personal best</div>
-    <div class="stats">
-      <div class="stat"><span>Best combo</span><b id="resCombo">0</b></div>
-      <div class="stat"><span>Tricks landed</span><b id="resTricks">0</b></div>
-      <div class="stat"><span>Bails</span><b id="resBails">0</b></div>
-      <div class="stat"><span>Personal best</span><b id="resBest">0</b></div>
-    </div>
-    <div class="section-lbl">Goals</div>
-    <ul class="goals" id="resGoals"></ul>
-    <div class="row">
-      <button class="btn" id="againBtn" type="button">Skate again</button>
-      <button class="btn ghost" id="menuBtn" type="button">Menu</button>
-    </div>
-  </div>
-</div>
 
 <div id="touch" hidden>
   <div class="pad left">
@@ -1546,7 +1521,7 @@ function boostCheck() {
     // a big kick in whatever direction you're already going
     const dirS = Math.sign(P.s) || 1;
     P.s = dirS * Math.min(26, Math.max(Math.abs(P.s) + 7, 20)); P.boostCD = game.clock + 0.8;
-    sfx.special(); shake = Math.max(shake, 0.35); toast('Boost!', '', 'info');
+    sfx.special(); shake = Math.max(shake, 0.35);
     return;
   }
 }
@@ -2477,7 +2452,6 @@ const sfx = {
   sketch() { if (!this._ok('sketch', 0.3) || !this.smp) return; this.play(this.smp.sketch, 1, 0.94 + Math.random() * 0.12); },
   scuff() { if (!this._ok('scuff', 0.12)) return; if (this.smp) { this.play(this.smp.sketch, 0.7, 1.05 + Math.random() * 0.1); return; } this.burst('bandpass', 700, 0.12, 0.22); },
   chime() { this.tone(880, 0.25, 0.18, 'triangle', 1); this.tone(1320, 0.35, 0.16, 'triangle', 1, 0.09); },
-  goal() { [660, 880, 1100, 1320].forEach((f, i) => this.tone(f, 0.3, 0.14, 'triangle', 1, i * 0.08)); },
   special() { this.tone(440, 0.5, 0.15, 'sawtooth', 2); },
   // a tired old bus horn: two low notes, kept quiet
   honk() { if (!this._ok('honk', 1)) return; [[311, 0], [370, 0]].forEach(([f, d]) => this.tone(f, 0.42, 0.055, 'square', 0.97, d)); this.tone(311, 0.3, 0.045, 'square', 0.97, 0.55); this.tone(370, 0.3, 0.04, 'square', 0.97, 0.55); },
@@ -2577,7 +2551,7 @@ renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
 window.addEventListener('keyup', e => {
   keys[e.code] = false; released[e.code] = true;
   if (e.target && e.target.tagName === 'INPUT' && e.target.type !== 'range') return;
-  if (menuSpace && (e.code === 'Space' || e.code === K.jump)) { menuSpace = false; if (!game.running && !$('menu').hidden) { e.preventDefault(); startGame('free'); } }
+  if (menuSpace && (e.code === 'Space' || e.code === K.jump)) { menuSpace = false; if (!game.running && !$('menu').hidden) { e.preventDefault(); startGame(); } }
 });
 window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (game.running && !game.paused) togglePause(); });
 const held = c => !!keys[c];
@@ -2707,31 +2681,14 @@ const P = {
   switchSt: false, special: 0, lastTapT: -9, lastTapKey: null, push: { phase: -1 }, sliding: false, slideDir: 0, snapYaw: false,
   anim: { ollieT: -1, takeoff: 'roll', airT: 0, impact: 0, ay: 0, vyG: 0 }
 };
-const game = { running: false, paused: false, mode: 'free', time: 120, clock: 0, score: 0, best: 0, over: false,
-  stats: { tricks: 0, bails: 0, bestCombo: 0 }, goals: {} };
+const game = { running: false, paused: false, clock: 0, score: 0, best: 0,
+  stats: { tricks: 0, bails: 0, bestCombo: 0 } };
 try { game.best = parseInt(localStorage.getItem('concrete-lines-best') || '0', 10) || 0; } catch (e) { game.best = 0; }
 const combo = { tricks: [], base: 0, mult: 0, counts: {}, manual: false, grind: false };
 let stance = 'regular';
 const effRegular = () => (stance === 'regular') !== P.switchSt;
 const cs = () => effRegular() ? -1 : 1;  // which way the chest faces along the rider's x axis
 
-const GOALS = [
-  { id: 'hs', name: 'Score 15,000 points', test: () => game.score >= 15000 },
-  { id: 'pro', name: 'Score 40,000 points', test: () => game.score >= 40000 },
-  { id: 'skate', name: 'Collect S-K-A-T-E', test: () => letters.every(l => l.got) },
-  { id: 'tape', name: 'Find the secret tape', test: () => tape.got },
-  { id: 'combo', name: 'Land a 10,000-point combo', test: () => game.stats.bestCombo >= 10000 },
-  { id: 'link', name: 'Link a grind and a manual in one combo', test: () => !!game.goals.linkFlag },
-];
-function checkGoals() {
-  GOALS.forEach(g => {
-    if (!game.goals[g.id] && g.test()) { game.goals[g.id] = true; toast('Goal', g.name, 'info'); sfx.goal(); }
-  });
-}
-function renderGoals(el) {
-  el.innerHTML = '';
-  GOALS.forEach(g => { const li = document.createElement('li'); li.textContent = g.name; if (game.goals[g.id]) li.className = 'done'; el.appendChild(li); });
-}
 
 function respawn() {
   const SP = SPAWNS[spawnIdx];
@@ -2839,7 +2796,7 @@ const RAIL_POP = 4.6;     // pop speed for a flip off a rail (lower than an olli
 const grindName = g => (g.fs ? 'FS ' : 'BS ') + GRINDS[g.type].name;
 
 // ---------- Combo / UI ----------
-const ui = { score: $('score'), timer: $('timer'), speed: $('speed'), best: $('best'), tricks: $('comboTricks'), pts: $('comboPts'),
+const ui = { score: $('score'), speed: $('speed'), best: $('best'), tricks: $('comboTricks'), pts: $('comboPts'),
   toasts: $('toasts'), gbal: $('gbalance'), mbal: $('mbalance'), meter: $('meter'), fill: $('specialFill'), stanceTag: $('stanceTag'),
   letters: [...document.querySelectorAll('#letters span:not(.tape)')], tapeTag: $('tapeTag') };
 let liveLabel = '';
@@ -2863,7 +2820,6 @@ function bankCombo(note) {
   if (!combo.tricks.length) return;
   const pts = Math.round(combo.base) * Math.max(1, combo.mult);
   game.score += pts; game.stats.tricks += combo.tricks.length; game.stats.bestCombo = Math.max(game.stats.bestCombo, pts);
-  if (combo.manual && combo.grind) game.goals.linkFlag = true;
   toast('+' + fmt(pts), (combo.tricks.length > 1 ? `${combo.tricks.length}-trick combo` : combo.tricks[0]) + (note || ''), 'good');
   resetCombo();
 }
@@ -4534,12 +4490,9 @@ function attractCamera(dt) {
 function updateHUD(dt = 1 / 60) {
   ui.score.textContent = fmt(game.score);
   ui.best.textContent = fmt(game.best);
-  if (game.mode === 'session') {
-    const t = Math.max(0, Math.ceil(game.time)); ui.timer.textContent = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
-  } else ui.timer.textContent = 'Free';
   const sp = P.state === 'ground' ? Math.abs(P.s) : P.state === 'grind' ? Math.abs(P.grind.vr) : P.state === 'bail' ? 0 : Math.hypot(P.vel.x, P.vel.y, P.vel.z);
-  ui.speed.textContent = Math.round(sp * 3.6);
-  ui.stanceTag.textContent = 'km/h · ' + (P.state === 'ground' && P.s < -0.3 ? 'fakie' : P.switchSt ? 'switch' : stance);
+  ui.speed.textContent = Math.round(sp * 2.237);
+  ui.stanceTag.textContent = 'mph · ' + (P.state === 'ground' && P.s < -0.3 ? 'fakie' : P.switchSt ? 'switch' : stance);
   ui.fill.style.width = (P.special * 100).toFixed(1) + '%';
   ui.meter.classList.toggle('full', P.special >= 1);
   ui.mbal.hidden = true;
@@ -4571,15 +4524,14 @@ function updateHUD(dt = 1 / 60) {
 }
 
 // ---------- Flow ----------
-function startGame(mode) {
+function startGame() {
   sfx.init();
-  game.mode = mode; game.time = 120; game.score = 0; game.over = false; game.running = true; game.paused = false;
-  game.stats = { tricks: 0, bails: 0, bestCombo: 0 }; game.goals = {};
+  game.score = 0; game.running = true; game.paused = false;
+  game.stats = { tricks: 0, bails: 0, bestCombo: 0 };
   P.special = 0;
   letters.forEach((l, i) => { l.got = false; l.sprite.visible = true; ui.letters[i].classList.remove('got'); });
   tape.got = false; tape.mesh.visible = true; ui.tapeTag.classList.remove('got');
-  $('timerLbl').textContent = mode === 'session' ? 'Session' : 'Mode';
-  $('menu').hidden = true; $('results').hidden = true; $('pause').hidden = true; $('hud').hidden = false;
+  $('menu').hidden = true; $('pause').hidden = true; $('hud').hidden = false;
   $('touch').hidden = !isTouch;
   respawn();
 }
@@ -4587,28 +4539,15 @@ function saveBest() {
   if (game.score > game.best) { game.best = game.score; try { localStorage.setItem('concrete-lines-best', String(game.best)); } catch (e) {} return true; }
   return false;
 }
-function endSession() {
-  game.running = false; game.over = true;
-  const pb = saveBest();
-  $('resScore').textContent = fmt(game.score) + ' pts';
-  $('resPb').hidden = !pb;
-  $('resCombo').textContent = fmt(game.stats.bestCombo);
-  $('resTricks').textContent = fmt(game.stats.tricks);
-  $('resBails').textContent = fmt(game.stats.bails);
-  $('resBest').textContent = fmt(game.best);
-  renderGoals($('resGoals'));
-  $('results').hidden = false; $('touch').hidden = true;
-  sfx.update(0, 0, 0); sfx.spinUpdate(0, 300); sfx.wheelStop();
-}
 function togglePause() {
   if (!game.running) return;
   game.paused = !game.paused; $('pause').hidden = !game.paused;
-  if (game.paused) { renderGoals($('pauseGoals')); sfx.update(0, 0, 0); sfx.spinUpdate(0, 300); sfx.wheelStop(); }
+  if (game.paused) { sfx.update(0, 0, 0); sfx.spinUpdate(0, 300); sfx.wheelStop(); }
 }
 function toMenu() {
   game.running = false; game.paused = false;
-  if (game.mode === 'free') saveBest();
-  ['pause', 'results', 'hud', 'touch'].forEach(id => $(id).hidden = true); $('menu').hidden = false;
+  saveBest();
+  ['pause', 'hud', 'touch'].forEach(id => $(id).hidden = true); $('menu').hidden = false;
   resetCombo(); sfx.update(0, 0, 0);
 }
 function setVolume(v, save) {
@@ -4632,10 +4571,7 @@ setVolume(0.5, false);
 try { const sv = localStorage.getItem('concrete-lines-vol4'); if (sv !== null) setVolume(parseFloat(sv), false); } catch (e) {}
 function toggleMute() { sfx.setMuted(!sfx.muted); $('muteBtn').textContent = sfx.muted ? 'Sound off' : 'Sound on'; }
 
-$('startSession').onclick = () => startGame('session');
-$('startFree').onclick = () => startGame('free');
-$('againBtn').onclick = () => startGame(game.mode);
-$('menuBtn').onclick = toMenu;
+$('startFree').onclick = () => startGame();
 $('resumeBtn').onclick = togglePause;
 $('quitBtn').onclick = toMenu;
 $('pauseBtn').onclick = togglePause;
@@ -4654,7 +4590,7 @@ if (location.hash === '#debug') {
 }
 
 // ---------- Main loop ----------
-let last = performance.now(), goalTick = 0;
+let last = performance.now();
 {
   const pick = $('shirtPick');
   if (pick) Object.entries(SHIRT_COLORS).forEach(([name, hex]) => {
@@ -4933,13 +4869,8 @@ function frame(now) {
   if (game.running && !game.paused) {
     game.clock += dt;
     physics(dt);
-    if (game.mode === 'session') {
-      game.time -= dt;
-      if (game.time <= 0 && P.state === 'ground' && !P.manual && P.pending <= 0) endSession();
-    }
     stepDrops(dt); animate(dt); fxTick(dt); updateCamera(dt); updateHUD(dt);
-    goalTick += dt; if (goalTick > 0.25) { goalTick = 0; checkGoals(); }
-  } else if (!game.running && !game.over) {
+  } else if (!game.running) {
     attractCamera(dt); animate(dt);
   }
   mpTick(dt); trafficTick(dt);

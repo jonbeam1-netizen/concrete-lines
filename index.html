@@ -93,7 +93,10 @@ button:focus-visible { outline: 2px solid var(--hazard); outline-offset: 2px; }
 .toast { display: flex; flex-direction: column; align-items: center; animation: rise 1.6s ease-out forwards; text-shadow: 0 3px 14px rgba(0,0,0,.6); }
 .toast b { font-family: var(--font-display); font-weight: 400; font-size: 46px; line-height: 1; }
 .toast span { font-size: 18px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
-.toast.good b { color: var(--hazard); }
+.toast.good { animation: pop .28s cubic-bezier(.2,1.4,.4,1) both; }
+.toast.good b { color: var(--hazard); font-size: 30px; }
+.toast.good span { font-size: 13px; }
+@keyframes pop { 0% { transform: scale(.6); opacity: 0; } 100% { transform: none; opacity: 1; } }
 .toast.bad b { color: var(--bail); }
 .toast.info b { color: var(--rail); font-size: 34px; }
 @keyframes rise { 0% { transform: translateY(12px) scale(.9); opacity: 0; } 12% { transform: none; opacity: 1; } 75% { opacity: 1; } 100% { transform: translateY(-30px); opacity: 0; } }
@@ -192,6 +195,7 @@ body.touch #combo { bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
   .readout.small { display: none; }
   #letters { font-size: 17px; }
   .toast b { font-size: 34px; }
+  .toast.good b { font-size: 24px; }
   #comboTricks { font-size: 18px; }
   #comboPts { font-size: 24px; }
   .card { padding: 20px 18px; }
@@ -2829,7 +2833,38 @@ function toast(big, small, cls) {
   if (small) { const s = document.createElement('span'); s.textContent = small; d.appendChild(s); }
   ui.toasts.appendChild(d);
   while (ui.toasts.children.length > 3) ui.toasts.firstChild.remove();
-  setTimeout(() => d.remove(), 1700);
+  if (cls === 'good') setTimeout(() => shatter(d), 1150);   // a landed combo breaks apart instead of floating off
+  else setTimeout(() => d.remove(), 1700);
+}
+// break an element into glassy triangle shards that fly apart and fade
+function shatter(d) {
+  if (!d.isConnected) return;
+  const rc = d.getBoundingClientRect();
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches || !rc.width) { d.remove(); return; }
+  const wrap = document.createElement('div');
+  wrap.style.cssText = `position:fixed;left:${rc.left}px;top:${rc.top}px;width:${rc.width}px;height:${rc.height}px;pointer-events:none;z-index:40;`;
+  // a jittered grid of points; each cell splits into two triangles
+  const C = 5, R = 3, pt = [];
+  for (let j = 0; j <= R; j++) for (let i = 0; i <= C; i++) {
+    const edgeX = i === 0 || i === C, edgeY = j === 0 || j === R;
+    pt.push([i / C * 100 + (edgeX ? 0 : (Math.random() - 0.5) * 12), j / R * 100 + (edgeY ? 0 : (Math.random() - 0.5) * 18)]);
+  }
+  const P_ = (i, j) => pt[j * (C + 1) + i];
+  for (let j = 0; j < R; j++) for (let i = 0; i < C; i++) {
+    const a = P_(i, j), b = P_(i + 1, j), c = P_(i + 1, j + 1), e = P_(i, j + 1);
+    for (const tri of Math.random() < 0.5 ? [[a, b, c], [a, c, e]] : [[a, b, e], [b, c, e]]) {
+      const s = d.cloneNode(true);
+      s.style.cssText = `position:absolute;inset:0;margin:0;animation:none;clip-path:polygon(${tri.map(p => p[0] + '% ' + p[1] + '%').join(',')});`;
+      const cx = (tri[0][0] + tri[1][0] + tri[2][0]) / 3 - 50, cy = (tri[0][1] + tri[1][1] + tri[2][1]) / 3 - 50;   // fly out from the middle
+      const dx = cx * (1.2 + Math.random() * 1.6) + (Math.random() - 0.5) * 40, dy = cy * (0.8 + Math.random()) + 30 + Math.random() * 70;
+      s.animate([{ transform: 'none', opacity: 1 }, { transform: `translate(${dx}px, ${dy}px) rotate(${(Math.random() - 0.5) * 140}deg) scale(${0.6 + Math.random() * 0.3})`, opacity: 0 }],
+        { duration: 520 + Math.random() * 260, easing: 'cubic-bezier(.2,.6,.4,1)', fill: 'forwards' });
+      wrap.appendChild(s);
+    }
+  }
+  document.body.appendChild(wrap);
+  d.style.visibility = 'hidden';
+  setTimeout(() => { wrap.remove(); d.remove(); }, 820);
 }
 
 // ---------- Physics ----------
@@ -4310,7 +4345,7 @@ flameGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(FIR
 flameGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(FIRE_MAX * 3), 3));
 const flamePts = new THREE.Points(flameGeo, new THREE.PointsMaterial({ size: 0.18, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
 flamePts.frustumCulled = false; scene.add(flamePts);
-const FIRE = { t: 0, on: false };
+const FIRE = { t: 0, on: false }, FIRE_TIME = 30;   // how long the wheels keep burning once the big combo is over
 const WHEEL_MATS = []; boardFlip.traverse(o => { if (o.isMesh && o.material && o.material.color && o.material.color.getHex() === 0xf4efe6 && !WHEEL_MATS.includes(o.material)) WHEEL_MATS.push(o.material); });
 // water splashes
 const SPL_MAX = 400, spl = [];
@@ -4335,9 +4370,9 @@ function fxTick(dt) {
   const wheels = WHEEL_LOCAL.map(l => boardFlip.localToWorld(_wp.set(l[0], l[1], l[2])).clone());
   // on fire: a combo worth a million or more lights the wheels up for a while
   const total = Math.round(combo.base) * Math.max(1, combo.mult);
-  if (total >= 1e6 && P.state !== 'bail') { if (FIRE.t <= 0) { toast("You're on fire!", 'hot wheels', 'good'); sfx.special(); } FIRE.t = 14; }
+  if (total >= 1e6 && P.state !== 'bail') { if (FIRE.t <= 0) { toast("You're on fire!", 'hot wheels', 'good'); sfx.special(); } FIRE.t = FIRE_TIME; }
   FIRE.t = Math.max(0, FIRE.t - dt);
-  const hot = FIRE.t > 0, heat = Math.min(1, FIRE.t / 2);
+  const hot = FIRE.t > 0, heat = Math.min(1, FIRE.t / 4);   // burns down over the last few seconds
   WHEEL_MATS.forEach(m => { if (!m.emissive) return; m.emissive.setRGB(1, 0.35, 0.05); m.emissiveIntensity = hot ? 1.4 * heat : 0; });
   if (hot) {
     const sp = P.state === 'grind' ? Math.abs(P.grind.vr) : P.state === 'ground' ? Math.abs(P.s) : Math.hypot(P.vel.x, P.vel.z);

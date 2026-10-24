@@ -229,7 +229,7 @@ body.touch #combo { bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
   <div class="splash-in">
     <h1>Concrete <span class="hz">Lines</span></h1>
     <p class="splash-by">Made by Jon Beam<br>with the use of Claude Code</p>
-    <p class="splash-date">Updated October 18, 2026</p>
+    <p class="splash-date">Updated October 24, 2026</p>
     <p class="splash-go">Click to play</p>
   </div>
 </div>
@@ -1378,7 +1378,8 @@ const MHP = { cx: 93, cz: -85, F: 14, R: 9, D: 4, B: 7, W: 230 };
   // railings along the back edge of both decks (grindable, like the arena's); the west one stops either side of the extension
   [-1, 1].forEach(sd => {
     const x = MHP.cx + sd * (MHP.deckOut - 0.4);
-    const runs = sd > 0 ? [[z0 + 2, z1 - 2]] : [[z0 + 2, X.z0 - 1.5], [X.z1 + 1.5, z1 - 2]];
+    // with gaps where the loop-de-loop rail runs through them (z -100 on the west, -97.6 on the east)
+    const runs = sd > 0 ? [[z0 + 2, -99.8], [-95.4, z1 - 2]] : [[z0 + 2, X.z0 - 1.5], [X.z1 + 1.5, -102.2], [-97.8, z1 - 2]];
     runs.forEach(([a, b]) => { const pts = [], n = Math.max(1, Math.round((b - a) / 8)); for (let i = 0; i <= n; i++) pts.push([x, Hl + 1.0, a + (b - a) * i / n]); addRailPath(pts); });
   });
   // floating sky rails high above both lips: boost, go vert, and hold R to catch one
@@ -1390,26 +1391,34 @@ const MHP = { cx: 93, cz: -85, F: 14, R: 9, D: 4, B: 7, W: 230 };
   // boosters down the flat so you can get up there
   for (let z = -175; z <= 15; z += 38) { boostPad(MHP.cx - 2.6, z, Math.PI / 2); boostPad(MHP.cx + 2.6, z + 19, -Math.PI / 2); }
   boostPad(MHP.cx + 3.5, X.z + 6, -Math.PI / 2);   // one lined up with the extension
-  // the loop-de-loop: from the west deck, out over the pipe, round a full loop, and down onto the east deck
-  const y0 = Hl + 0.7, zc = -100, LR = 5.5, shift = 2.4, pts = [], loopIdx = [];
-  for (let x = MHP.cx - MHP.lipOff - 2.4; x < MHP.cx; x += 0.5) pts.push([x, y0, zc]);
-  const nL = 96, loopStart = pts.length;
-  for (let k = 0; k <= nL; k++) { const th = k / nL * TAU; pts.push([MHP.cx + LR * Math.sin(th), y0 + LR * (1 - Math.cos(th)), zc + shift * smoothT(k / nL)]); }
-  const loopEnd = pts.length - 1;
-  for (let x = MHP.cx + 0.5; x <= MHP.cx + MHP.lipOff + 2.4; x += 0.5) pts.push([x, y0, zc + shift]);
+  // the loop-de-loop: from the top of the launch ramp out west, a long climb over the park to the west deck, out over the pipe,
+  // round a full loop, across the east deck, then curving up to point straight at the sky: it fires you up and catches you coming back
+  const y0 = Hl + 0.7, zc = -100, LR = 5.5, shift = 2.4, pts = [], ctr = [];   // ctr: the centre a curved bit bends round (y null = level with it)
+  const xr = 10.5, yr = 6.45, xw = MHP.cx - MHP.lipOff - 2.4;
+  for (let x = xr; x < MHP.cx; x += 0.5) { pts.push([x, x < xw ? yr + (y0 - yr) * smoothT((x - xr) / (xw - xr)) : y0, zc]); ctr.push(null); }
+  for (let k = 0; k <= 96; k++) { const th = k / 96 * TAU; pts.push([MHP.cx + LR * Math.sin(th), y0 + LR * (1 - Math.cos(th)), zc + shift * smoothT(k / 96)]); ctr.push({ x: MHP.cx, y: y0 + LR }); }
+  const xu = 114, RU = 3, HV = 6;   // where it starts to curve up, how tight, and how far it then runs straight up
+  for (let x = MHP.cx + 0.5; x < xu; x += 0.5) { pts.push([x, y0, zc + shift]); ctr.push(null); }
+  for (let k = 0; k <= 24; k++) { const th = k / 24 * Math.PI / 2; pts.push([xu + RU * Math.sin(th), y0 + RU * (1 - Math.cos(th)), zc + shift]); ctr.push({ x: xu, y: y0 + RU }); }
+  for (let k = 1; k <= 12; k++) { pts.push([xu + RU, y0 + RU + HV * k / 12, zc + shift]); ctr.push({ x: xu, y: null }); }
   const segs = addRailPath(pts, { hidden: true });
-  const center = new V3(MHP.cx, y0 + LR, zc);
   segs.forEach((r, i) => {
     r.yaw = Math.PI / 2;   // the camera keeps looking along the run, even upside down
-    if (i >= segs.length - 10) r.brake = true;   // ease off before the east deck
-    if (i >= loopStart && i < loopEnd) { r.loop = true; const m = r.a.clone().add(r.b).multiplyScalar(0.5); r.center = new V3(center.x, center.y, m.z); }
+    if (ctr[i] && ctr[i + 1]) { r.loop = true; const m = r.a.clone().add(r.b).multiplyScalar(0.5); r.center = new V3(ctr[i].x, ctr[i].y ?? m.y, m.z); }
   });
-  // drawn as one tube that sits just outside the line you ride (on a loop that's away from its centre)
+  segs[segs.length - 1].launch = true;
+  // the upturn is only ridden into, never locked onto from the air (a straight-up segment has no direction across the ground)
+  { const up = new Set(segs.filter(r => r.loop && r.a.x > MHP.cx + LR + 1)); for (let i = rails.length - 1; i >= 0; i--) if (up.has(rails[i])) rails.splice(i, 1); }
+  // drawn as one tube that sits just outside the line you ride (on a curve that's away from its centre)
   const tp = pts.map((p, i) => {
-    const v = new V3(p[0], p[1], p[2]);
-    if (i > loopStart && i < loopEnd) { const c = new V3(MHP.cx, y0 + LR, p[2]); return v.add(v.clone().sub(c).setLength(0.07)); }
+    const v = new V3(p[0], p[1], p[2]), cc = ctr[i];
+    if (cc && ctr[i - 1] && ctr[i + 1]) { const c = new V3(cc.x, cc.y ?? p[1], p[2]); return v.add(v.clone().sub(c).setLength(0.07)); }
     return v.add(new V3(0, -0.07, 0));
   });
+  // posts hold the long run up from the ground, and the upturn stands on a strut
+  for (let x = 16; x < xw - 6; x += 6) { const y = yr + (y0 - yr) * smoothT((x - xr) / (xw - xr)); cylBetween(new V3(x, 0, zc), new V3(x, y - 0.12, zc), 0.06, mats.steel); }
+  cylBetween(new V3(xu + RU, 0, zc + shift), new V3(xu + RU, y0 + RU - 0.1, zc + shift), 0.09, mats.steel);
+  cylBetween(new V3(xu + RU + 0.07, y0 + RU + HV - 0.3, zc + shift), new V3(xu + RU + 6, 0, zc + shift), 0.025, mats.steel);
   const tube = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(tp), tp.length * 2, 0.07, 10), mats.rail); tube.castShadow = true; scene.add(tube);
   // steel cables hold it up from both decks
   const cableM = new THREE.MeshStandardMaterial({ color: 0x2c3036, roughness: 0.5, metalness: 0.7 });
@@ -1418,7 +1427,7 @@ const MHP = { cx: 93, cz: -85, F: 14, R: 9, D: 4, B: 7, W: 230 };
     cylBetween(new V3(x, Hl + 2.2, z), new V3(MHP.cx, y0 + 2 * LR, zc + shift / 2), 0.025, cableM);
     cylBetween(new V3(x, Hl + 2.2, z), new V3(x < MHP.cx ? MHP.cx - 6 : MHP.cx + 6, y0, zc + (x < MHP.cx ? 0 : shift)), 0.02, cableM);
   });
-  MHP.loopStart = pts[0];
+  MHP.loopStart = [xw];
 }
 
 // 2) West wing: vert quarter pipes with floating sky rails, the pool, a snake rail, a corkscrew, and a car between two rails
@@ -2603,14 +2612,14 @@ const CONTROLS = () => {
       [[k('push')], 'Go. Hold to build speed; he tucks low once he is moving.'],
       [[k('brake')], 'Brake. Hold with a carve key at speed to powerslide.'],
       [[k('left'), k('right')], 'Carve. In the air: spin.'],
-      [[k('jump')], 'Hold to crouch (pumps on ramps), release to ollie. In the air off a vert, tap it for free air: steer anywhere with W A S D, over the coping, across to the other wall, or along it.'],
+      [[k('jump')], 'Hold to crouch (pumps on ramps), release to ollie. In the air off a vert, tap it (or W) for free air: steer anywhere with W A S D, over the coping, across to the other wall, or along it. Popping up the wall of the floating bowl carries you out over its lip.'],
     ]],
     ['Tricks: ' + k('trick') + ' right side, ' + k('trick2') + ' left side', [
       [[k('trick')], 'Right-side flips: kickflip, FS shove-it, impossible, anti-bigspin, inward heelflip and more. Also left click.'],
       [[k('trick2')], 'Left-side flips: heelflip, BS shove-it, hardflip, 360 shove-it, tre flip and more. Also right click.'],
       [['Air'], 'The game picks a flip from that side that fits your hang time. Tap again for a double, hold to keep it spinning.'],
       [[k('grind')], 'Lock onto grind: press near a rail, ledge or coping (up to about 4 m away) and he jumps onto it and locks in. Works in the air too. With no rail nearby on the ground, it starts a manual or nose manual; press again or press W to roll out and push. Press S to revert and keep manualing.'],
-      [['Grinds'], 'Hold a direction as you land on a rail: nothing = 50-50, W = Nosegrind, S = 5-0, A = Boardslide, D = Lipslide, W+A = Crooked, W+D = Noseslide, S+A = Smith, S+D = Tailslide. FS or BS comes from the side you approach. Press R on the rail to flip into a Darkslide, R again to switch to the next grind.'],
+      [['Grinds'], 'Hold a direction as you land on a rail: nothing = a random grind, W = Nosegrind, S = 5-0, A = Boardslide, D = Lipslide, W+A = Crooked, W+D = Noseslide, S+A = Smith, S+D = Tailslide. FS or BS comes from the side you approach. Press R on the rail to flip into a Darkslide, R again to flip back into a random grind, and so on.'],
       [['Landing'], 'Tap just before you land: manual on flat, revert on a ramp. Keeps the combo going.'],
       [['Ground'], 'Pops a flip straight off the ground.'],
       [['Rail'], 'On a rail: pop off into a flip. Grinds last as long as the rail; Space, a trick, or left / right gets you off.'],
@@ -2824,6 +2833,7 @@ const GRINDS = {
 const GRIND_KEYS = { none: 'fifty', up: 'nose', down: 'five', left: 'board', right: 'lip',
   upleft: 'crook', upright: 'noseslide', downleft: 'smith', downright: 'tailslide' };
 const GRIND_CYCLE = ['fifty', 'nose', 'five', 'board', 'lip', 'noseslide', 'tailslide', 'smith', 'crook'];
+const randomGrind = not => { const o = GRIND_CYCLE.filter(t => t !== not); return o[Math.floor(Math.random() * o.length)]; };
 const GRIND_HOP = 0.34;
 const RAIL_POP = 4.6;     // pop speed for a flip off a rail (lower than an ollie, so you're back on it quickly)   // how long the little hop between grinds takes
 const grindName = g => (g.fs ? 'FS ' : 'BS ') + GRINDS[g.type].name;
@@ -2887,7 +2897,7 @@ function groundVel(out) {
   const m = clamp((P.pos.y - heightAt(P.pos.x - fx * back, P.pos.z - fz * back)) / back, -4.5, 4.5), inv = 1 / Math.sqrt(1 + m * m);
   return out.set(fx * P.s * inv, P.s * m * inv, fz * P.s * inv);
 }
-function ollie(vy, spacePop) {
+function ollie(vy, spacePop, escape) {
   groundVel(P.vel);
   const [gx, gz] = grad(P.pos.x, P.pos.z), gl = Math.hypot(gx, gz);
   let vert = false, xfer = false;
@@ -2906,6 +2916,7 @@ function ollie(vy, spacePop) {
   } else P.vel.y = Math.max(P.vel.y, 0) + vy;
   P.pos.y += 0.02; enterAir(vert); sfx.pop();
   if (xfer) { P.air.xfer = true; P.air.transfer = true; P.air.free = true; P.air.freeCap = Math.hypot(P.vel.x, P.vel.z); }
+  if (escape && inSky && along > 0.5 && gl > 0.3) bowlOut(P.air);   // a Space pop while climbing the floating bowl's wall takes you out of it (flips stay in)
   P.anim.ollieT = 0; P.anim.takeoff = 'ollie';
 }
 
@@ -3235,6 +3246,23 @@ function freeAir() {
   if (A.auto) { A.spin += A.auto.done; A.auto = null; }
   A.freeCap = Math.hypot(P.vel.x, P.vel.z);
   P.vel.y = Math.max(P.vel.y, 0) + 1.2; sfx.pop();
+  bowlOut(A);
+}
+// a transfer up the floating bowl's wall always carries up over the lip and far enough out to clear its deck, dropping down into the park.
+// The bowl is 9 m deep (deeper than you can pump), so this is the way out: pop on its wall, or Space / W in the air up there
+function bowlOut(A) {
+  const dx = P.pos.x - BOWL.x, dz = P.pos.z - BOWL.z, r = Math.hypot(dx, dz) || 1;
+  if (!inSky || r < 4 || r > BOWL.rimR + 0.5) return false;
+  const ux = dx / r, uz = dz / r, out = P.vel.x * ux + P.vel.z * uz;
+  P.vel.y = Math.max(P.vel.y, Math.sqrt(2 * AIR_G * Math.max(0.5, BOWL.top + 1.6 - P.pos.y)));   // high enough to clear the lip
+  const T = (P.vel.y + Math.sqrt(P.vel.y * P.vel.y + 2 * AIR_G * (P.pos.y - BOWL.top))) / AIR_G;   // until you're back down at deck height
+  const want = Math.max(4, (BOWL.deckR + 2.5 - r) / T);
+  P.vel.x += ux * (want - out); P.vel.z += uz * (want - out);   // outward exactly that fast; sideways speed is kept
+  A.free = true; A.vert = false; A.vertN = null; A.auto = null; A.xfer = true; A.transfer = true; A.bowlOut = true;
+  A.freeCap = Math.max(A.freeCap || 0, Math.hypot(P.vel.x, P.vel.z));
+  P.heading = Math.atan2(P.vel.x, P.vel.z) + (P.s < -0.5 ? Math.PI : 0);
+  addTrick('Bowl Drop', 300);
+  return true;
 }
 // Which way the wall is (works for curved and angled walls): the directions around you where the ground rises up high
 function wallDir(x, z, y) {
@@ -3309,6 +3337,11 @@ function stepAir(dt, st) {
   const A = P.air; A.time += dt; P.anim.airT += dt;
   if (P.anim.ollieT >= 0) P.anim.ollieT += dt;
   P.vel.y -= airGrav(P.vel.y) * dt;
+  if (A.railVert && !A.free && P.vel.y < 0 && P.pos.y + P.vel.y * dt <= A.railVert.b.y) {
+    // coming back down onto the top of the straight-up rail: catch it and ride it back down
+    const r = A.railVert; P.pos.copy(r.b); P.vel.set(0, Math.min(P.vel.y, -9), 0); A.lockOn = false;
+    startGrind(r, 0.995, -1); return;
+  }
   const rate = 6.6;
   if (A.free) {
     // free air: W/S fly you toward / away from where the camera looks, A/D left / right (diagonals too).
@@ -3316,7 +3349,8 @@ function stepAir(dt, st) {
     const fx = Math.sin(camYaw), fz = Math.cos(camYaw), rx = -fz, rz = fx;
     const ix = (held(K.up) ? 1 : 0) - (held(K.down) ? 1 : 0), iy = (held(K.right) ? 1 : 0) - (held(K.left) ? 1 : 0);
     const cruise = clamp(Math.max(8, A.freeCap || 0), 8, 15);
-    if (ix || iy) {
+    const leavingBowl = A.bowlOut && Math.hypot(P.pos.x - BOWL.x, P.pos.z - BOWL.z) < BOWL.deckR + 1.5;   // no steering back in until you're clear of the deck
+    if ((ix || iy) && !leavingBowl) {
       let ax = fx * ix + rx * iy, az = fz * ix + rz * iy; const al = Math.hypot(ax, az); ax /= al; az /= al;
       const k = damp(4.5, dt); P.vel.x += (ax * cruise - P.vel.x) * k; P.vel.z += (az * cruise - P.vel.z) * k;
     }
@@ -3607,8 +3641,9 @@ function grindTrick() {
     const g = P.grind;
     if (g.hopT !== undefined && g.hopT < GRIND_HOP) return;   // already mid-hop
     // a tiny hop: the feet come up, the board turns over underneath, and he lands back on it in the new grind
+    // back and forth: any grind -> Darkslide -> a random different grind -> Darkslide -> ...
     if (g.type !== 'dark') { g.prev = g.type; g.nextType = 'dark'; }
-    else g.nextType = GRIND_CYCLE[(GRIND_CYCLE.indexOf(g.prev) + 1) % GRIND_CYCLE.length] || 'fifty';
+    else g.nextType = randomGrind(g.prev);
     g.hopT = 0; sfx.pop();
     return;
   }
@@ -3667,13 +3702,13 @@ function startGrind(r, u, along) {
   } else if (Math.abs(vr) < 3) vr = (Math.sign(along) || 1) * 3;
   vr = Math.sign(vr) * Math.min(17, Math.max(Math.abs(vr) * 1.1, 9));   // lock on with a small push (capped so re-locking can't stack it up)
   // face along the travel direction on the rail; flip to switch if we arrived backwards
-  const ty = Math.atan2(r.dir.x * Math.sign(vr), r.dir.z * Math.sign(vr));
+  const ty = r.loop ? r.yaw + (vr < 0 ? Math.PI : 0) : Math.atan2(r.dir.x * Math.sign(vr), r.dir.z * Math.sign(vr));   // a loop's own heading (its upright bits have none across the ground)
   const c = Math.abs(Math.cos(angDiff(P.heading, ty)));
   if (Math.abs(angDiff(P.heading, ty)) > Math.PI / 2 + 0.3) { P.switchSt = !P.switchSt; P.snapYaw = true; }
   P.heading = ty;
   const d = dirKey2();
-  // the keys you hold pick the grind; with none held, lined up with the rail is a 50-50 and coming in crossways is a boardslide
-  const type = d === 'none' && c < 0.45 ? 'board' : GRIND_KEYS[d] || 'fifty';
+  // the keys you hold pick the grind; with none held, coming in crossways is a boardslide and lined up is a random grind
+  const type = d !== 'none' ? GRIND_KEYS[d] || 'fifty' : c < 0.45 ? 'board' : randomGrind();
   // frontside or backside: which side of the rail you came from, against the way your chest faces
   const fx = r.dir.x * Math.sign(vr), fz = r.dir.z * Math.sign(vr), hl = Math.hypot(fx, fz) || 1, rx = fz / hl, rz = -fx / hl;
   const vLat = P.vel.x * rx + P.vel.z * rz;
@@ -3694,10 +3729,22 @@ function exitGrind(vy, sideKick, straight) {
   P.vel.copy(r.dir).multiplyScalar(g.vr); P.vel.y += vy;
   if (sideKick) { P.vel.x += -r.dh.y * sideKick; P.vel.z += r.dh.x * sideKick; }
   if (r.inward && !straight) { P.vel.x += r.inward[0] * 2.4; P.vel.z += r.inward[1] * 2.4; } // drop back in without losing speed
-  P.heading = r.inward && !straight ? Math.atan2(P.vel.x, P.vel.z) : Math.atan2(r.dir.x * Math.sign(g.vr), r.dir.z * Math.sign(g.vr));
+  P.heading = r.inward && !straight ? Math.atan2(P.vel.x, P.vel.z) : r.loop ? r.yaw + (g.vr < 0 ? Math.PI : 0) : Math.atan2(r.dir.x * Math.sign(g.vr), r.dir.z * Math.sign(g.vr));
   P.grind = null; P.grindCD = 0.3; P.pos.y += 0.03; P.rArmT = -9;
   enterAir(false);
   P.anim.ollieT = vy > 2 ? 0 : -1; P.anim.takeoff = vy > 2 ? 'ollie' : 'roll';
+}
+// off the top of a rail that points straight up: fly up like a vert air, turn round, and drop back onto it
+function railLaunch() {
+  const r = P.grind.r, v = Math.max(12, Math.abs(P.grind.vr));
+  sfx.grindOff();
+  P.grind = null; P.grindCD = 0.3; P.rArmT = -9;
+  P.pos.copy(r.b); P.pos.y += 0.03; P.vel.set(0, v, 0); P.heading = r.yaw;
+  enterAir(true);
+  const nx = r.center.x - r.b.x, nz = r.center.z - r.b.z, nl = Math.hypot(nx, nz) || 1;
+  P.air.vertN = [nx / nl, nz / nl]; P.air.railVert = r;   // laid back toward the side he rode up on
+  addTrick('Rail Launch', 300);
+  P.anim.ollieT = -1; P.anim.takeoff = 'vert';
 }
 function stepGrind(dt, st) {
   const g = P.grind, r = g.r;
@@ -3722,6 +3769,7 @@ function stepGrind(dt, st) {
   // rails are chains of segments: roll straight onto the next one
   if (g.u > 1 && r.next) { const over = (g.u - 1) * r.len; g.r = r.next; g.u = over / g.r.len; }
   else if (g.u < 0 && r.prev) { const over = -g.u * r.len; g.r = r.prev; g.u = 1 - over / g.r.len; }
+  if (g.u > 1 && g.r.launch) { railLaunch(); return; }
   if (g.u < 0 || g.u > 1) { exitGrind(0.8); return; }
   P.pos.copy(g.r.a).addScaledVector(g.r.dir, g.u * g.r.len);
   P.heading = g.r.loop ? g.r.yaw + (g.vr < 0 ? Math.PI : 0) : Math.atan2(g.r.dir.x * Math.sign(g.vr), g.r.dir.z * Math.sign(g.vr));
@@ -3778,6 +3826,7 @@ function physics(dt) {
     // spin the way you're steering (A + S turns left, D + S right; no steer picks one), showing the whole half-turn at a readable pace
     const dir = P.steer ? Math.sign(P.steer) : (Math.random() < 0.5 ? -1 : 1);
     P.recover = { t: 0, off: -dir * Math.PI, dur: 0.42 }; pose.yaw = pose.charYaw = P.recover.off;
+    P.manual.nose = !P.manual.nose;   // it pivots on the wheels that are down, so that end leads afterwards (manual <-> nose manual)
   }
   else if (P.state === 'ground' && P.manual && tapped(K.up)) {
     // W out of a manual: drop the wheels and push straight away; the combo stays open a moment to link into something else
@@ -3803,7 +3852,7 @@ function physics(dt) {
       }
     }
   }
-  if (P.state === 'air' && P.air.vert && !P.air.free && tapped(K.jump)) freeAir();   // only a fresh Space press while already in the air
+  if (P.state === 'air' && P.air.vert && !P.air.free && (tapped(K.jump) || tapped(K.up))) freeAir();   // only a fresh Space or W press while already in the air
   if (P.state === 'air') airInput();
   else if (P.state === 'ground') groundInput();
   else if (P.state === 'grind') grindTrick();
@@ -3819,7 +3868,7 @@ function physics(dt) {
       const vy = 5.0 + 2.4 * Math.min(1, P.charge / 0.35); P.charge = 0;
       if (P.state === 'pipe') pipeOllie(vy);
       else if (P.state === 'dome') domeOllie(vy);
-      else if (P.state === 'ground') { P.manual = null; P.pending = 0; P.push.phase = -1; ollie(vy); }
+      else if (P.state === 'ground') { P.manual = null; P.pending = 0; P.push.phase = -1; ollie(vy, false, true); }
       else { exitGrind(vy); sfx.pop(); }
     }
   } else if (!spaceHeld) P.charge = 0;
@@ -4117,6 +4166,9 @@ function animate(dt) {
   c0.x += sox; c0.z += soz;
   boardRoot.position.copy(c0);
   boardRoot.position.x += pose.boardOff * 0.9 * c;
+  // on the ground the pitch is in the board's own frame (matching the axle pivot above), so a manual revert spins it round
+  // tipped the same way instead of rolling it onto its side halfway through
+  boardRoot.rotation.order = st === 'ground' ? 'YXZ' : 'XYZ';
   boardRoot.rotation.set(pose.pitch, pose.yaw, pose.roll + pose.boardOff * P.bailT * 6);
   // on a sloping rail the board tips to lie along it (his body stays upright); without this the nose dug into rising rails
   { const tgtT = st === 'grind' && g && !g.r.loop ? Math.asin(clamp(g.r.dir.y * (Math.sign(g.vr) || 1), -0.95, 0.95)) : 0;
@@ -4394,9 +4446,10 @@ function fxTick(dt) {
 // ---------- Camera ----------
 let camYaw = 0, camY = 3, shake = 0, camMode = 'high';
 try { camMode = localStorage.getItem('concrete-lines-cam') || 'high'; } catch (e) {}
-const camPos = new V3(), lookAt = new V3(), _cn = new V3(), _cf = new V3(1, 0, 0);
+const camPos = new V3(), lookAt = new V3(), _cn = new V3(), _cf = new V3(1, 0, 0), camWall = { x: 0, z: 0 };
 function travelYaw() {
   if (P.state === 'grind') { const g = P.grind; if (g.r.loop) return g.r.yaw + (g.vr < 0 ? Math.PI : 0); return Math.atan2(g.r.dir.x * Math.sign(g.vr), g.r.dir.z * Math.sign(g.vr)); }
+  if (P.state === 'wall' && Math.hypot(P.vel.x, P.vel.z) > 1) return Math.atan2(P.vel.x, P.vel.z);   // along the wall the way you're actually rolling
   return P.heading + (P.s < 0 ? Math.PI : 0);
 }
 function updateCamera(dt) {
@@ -4435,12 +4488,15 @@ function updateCamera(dt) {
   const moving = (P.state === 'ground' && Math.abs(P.s) > 0.6) || P.state === 'grind' || P.state === 'wall';
   // on a rail the camera tucks in closer and swings round with you quickly, so curving rails like the spiral don't leave it dragging behind
   const grinding = P.state === 'grind';
-  if (moving) camYaw += angDiff(camYaw, travelYaw()) * damp(grinding ? 9 : 2.6, dt);
+  if (moving) camYaw += angDiff(camYaw, travelYaw()) * damp(grinding ? 9 : P.state === 'wall' ? 5 : 2.6, dt);
   const sp = P.state === 'ground' ? Math.abs(P.s) : grinding ? Math.abs(P.grind.vr) : Math.hypot(P.vel.x, P.vel.z);
   const low = camMode === 'low';
   const dist = grinding ? (low ? 3.8 : 4.6) + sp * 0.03 : (low ? 4.3 : 6.0) + sp * (low ? 0.04 : 0.06);
   const hgt = (low ? 1.3 : grinding ? 2.0 : 2.3) + (P.air && P.air.vert ? (low ? 0.6 : 1.0) : 0);
-  const cx = P.pos.x - Math.sin(camYaw) * dist, cz = P.pos.z - Math.cos(camYaw) * dist;
+  // on a wallride the camera eases out away from the wall, so it looks along it at you instead of swinging into it
+  { const wx = P.state === 'wall' ? -P.wall.nx * 2.8 : 0, wz = P.state === 'wall' ? -P.wall.nz * 2.8 : 0, kw = damp(P.state === 'wall' ? 6 : 2.5, dt);
+    camWall.x += (wx - camWall.x) * kw; camWall.z += (wz - camWall.z) * kw; }
+  const cx = P.pos.x - Math.sin(camYaw) * dist + camWall.x, cz = P.pos.z - Math.cos(camYaw) * dist + camWall.z;
   camY += (P.pos.y + hgt - camY) * damp(P.state === 'air' ? 2.6 : grinding ? 8 : 4, dt);
   let floor = heightAt(clamp(cx, -PX, PX), clamp(cz, PZS, PZN)) + 0.9;
   // trailing behind you inside the tunnel: stay in the pipe (the ground there would otherwise count as the top of the tower)

@@ -7028,7 +7028,13 @@ kicker(RV.xc - 6.2, -22, Math.PI / 2, 3.2, 3.0, 1.0);
   rvSweep([-0.31, -0.16, -0.08, 0.08, 0.16, 0.31].map(d => [bx + d, prof(d)]), bz - len / 2, bz + len / 2, RM.wall);
   [-1, 1].forEach(e => { const cap = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.8, 0.02), RM.wall); cap.position.set(bx, 0.4, bz + e * len / 2); scene.add(cap); });
   addRailPath([[bx, 0.85, bz - len / 2 + 0.1], [bx, 0.85, bz + len / 2 - 0.1]], { hidden: true, ledge: true });
-  rvPiece(bx + 0.31 + 0.8, bz, 0, 0.8, len / 2 - 0.4, (lx, lz) => 0.86 * Math.pow(clamp((0.8 - lx) / 1.6, 0, 1), 1.5) * taper(len / 2 - 0.4 - Math.abs(lz), 0.8), RM.diy, 0.08);
+  // the bank: a smooth concave run up to the barrier's top, the full length of the barrier, its ends rolling down in rounded hips
+  // (ridable from the sides too) so nothing sticks out past the barrier as a thin sliver
+  { const run = 2.6, half = len / 2 - 0.05, hip = 1.5;
+    rvPiece(bx + 0.31 + run / 2, bz, 0, run / 2, half, (lx, lz) => {
+      const u = clamp((run / 2 - lx) / run, 0, 1), e = clamp((half - Math.abs(lz)) / hip, 0, 1);
+      return 0.84 * Math.pow(u, 1.7) * (e * (2 - e)) - 0.004;   // the hips ease down rather than pinching off
+    }, RM.diy, 0.08); }
 }
 // a long low manual pad
 funbox(RV.xc + 8.5, -138, 0, 1.6, 7, 0.28, 0.65);
@@ -7224,7 +7230,7 @@ if (typeof junkLitter === 'function') {
   put(P_(junkMattress, { lean: true }), -6.55, -12.5, 1.384, null);   // leaning on the side wall of the maintenance ramp
   put(P_(junkCouch), -1, 74, Math.PI, [1.05, 0.47, 0.9]);                       // front-row seats for the pier quarters
   rvKnock(put(P_(junkCone, { knocked: true }), 23.2, -37.5, 0.4, null), 'cone', true); rvKnock(put(P_(junkCone, { knocked: false }), 24.6, -12, 0, null), 'cone', false);
-  put(P_(junkBarrel), -2, -116, 0, [0.3, 0.3, 0.88]); put(P_(junkBarrel, { tipped: true }), -4.4, -133, 1.1, null);
+  put(P_(junkBarrel), -2, -116, 0, [0.3, 0.3, 0.88]);
   put(P_(junkPallet), RV.xc + 8, -184.5, 0.2, null);
   put(P_(junkShoppingBags), 6, -196, 0, null); put(P_(junkShoppingBags), -2, 40, 0, null);
   put(junkBags(3, { seed: seed++ }), RV.xc - 14, -100, 0.5, null);
@@ -7268,7 +7274,7 @@ if (typeof junkLitter === 'function') {
   ], litterGround, 777));
 }
 // ---- the cop: on a bench on the east bike path with a donut, his cruiser parked by the fence ----
-const COP = { benchX: 45.6, benchZ: 101, benchYaw: -Math.PI / 2, carX: 46.8, carZ: 84, carYaw: Math.PI - 0.35, carHW: 0.93, carHL: 2.45,   // parked out on the open path, room all round
+const COP = { benchX: 44.25, benchZ: 62.45, benchYaw: 0, carX: 46.3, carZ: 68.2, carYaw: 0.35, carHW: 0.93, carHL: 2.45,   // his bench backed up against the north end of bridge 1's wall by the tall quarter, watching the path; the car parked just past it, angled out, so you can wallride the wall and drop onto it
   state: 'idle', hasDonut: true, nextThrow: 0, lightsT: 0, refillAt: 0 };
 if (typeof makeCop === 'function') {
   const bench = makeBench(); bench.position.set(COP.benchX, RV.deck, COP.benchZ); bench.rotation.y = COP.benchYaw; scene.add(bench);
@@ -9036,7 +9042,9 @@ function stepGround(dt, st) {
   const slide = !man && !P.revertBrakeHold && held(K.down) && st !== 0 && sp > 4;
   if (slide && !P.sliding) P.slideDir = st;
   P.sliding = slide;
-  P.heading += st * (1.5 + 1.3 * Math.min(1, sp / 5)) * (slide ? 1.7 : 1) * (man ? 0.8 : 1) * dt;
+  // standing still you can spin round quickly to line something up; once rolling it settles into the usual carving rate
+  const turnRate = sp < 3 ? lerp(3.4, 2.28, sp / 3) : 1.5 + 1.3 * Math.min(1, sp / 5);
+  P.heading += st * turnRate * (slide ? 1.7 : 1) * (man ? 0.8 : 1) * dt;
   const fx = Math.sin(P.heading), fz = Math.cos(P.heading);
   const [gx, gz] = grad(P.pos.x, P.pos.z);
   // slope along the heading, sampled just behind the board so drops ahead don't bleed in

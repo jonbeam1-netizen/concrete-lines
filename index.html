@@ -4031,145 +4031,287 @@ function makeHomelessGuy() {
 
 /*__END_homeless__*/
 /*__LIB_graffiti__*/
-/* graffiti.js - procedural graffiti textures for the LA River map (THREE r128, global THREE).
+/* graffiti.js - procedural spray-paint graffiti for the LA River map (THREE r128, global THREE).
  *
- *   makeGraffitiTexture(seed, size = 1024) -> THREE.CanvasTexture   concrete wall/bank covered in graffiti, RepeatWrapping (tiles seamlessly)
- *   makeGraffitiDecal(seed, w = 512, h = 256) -> THREE.CanvasTexture  transparent background, ONE big piece (use with transparent:true / alphaTest)
- *   makeTagsOnlyTexture(seed, size = 512) -> THREE.CanvasTexture     transparent background, sparse thin tags, RepeatWrapping (tiles seamlessly)
- *
- * seed may be a number or a string; output is fully deterministic from it (own seeded RNG, no Math.random).
- * Every word is made up (see WORDS). All helpers live inside _grafLib() so nothing leaks into the enclosing scope
- * except these four function names; the function declarations hoist, so call order inside the IIFE does not matter.
+ * Decals: transparent CanvasTextures uploaded with premultiplied alpha (draw them with graffitiDecalMaterial, below).
+ * Everything stays inside the canvas with a margin, and the outer few percent fade out, so nothing is ever cut by an edge.
+ *   makeGraffitiDecal(seed, w, h, opts)    opts.style: 'blockbuster' | 'rollertag' | 'throwup' | 'piece' | 'tags' | 'character' |
+ *                                          'strip' (long low row for barriers) | 'buff' (rolled-over patches) | 'heart';
+ *                                          opts.wear: 0 fresh .. 1 very worn (sun-bleached, chalky, eroded down to the concrete)
+ *   makeTagsOnlyTexture(seed, size, opts)  a 'tags' cluster, size x size/2
+ *   graffitiDecalMaterial(tex, opts)       Lambert, premultiplied blending, fog that stays correct on see-through texels
+ * Opaque concrete (RepeatWrapping):
+ *   makeGraffitiTexture(seed, size, opts)  DIY pours for ramps (opts.kind 'diy' | 'diyside'), tiles both ways, ~8 m across
+ *   makeStructureTexture(seed, w, h, opts) piers / columns / headwalls: tiles across (opts.mu metres wide), the bottom row is the
+ *                                          ground, opts.mv metres tall; formwork, tie holes, streaks, a dirt line, and old worn tags
+ *                                          and buff patches at street level (opts.graf 0..1)
+ * Any of the makers take opts.lazy: they return a texture with a 1x1 stand-in at once and queue the painting; grafPump(ms) paints
+ * queued ones for up to ms (call it in idle time), grafFlush() paints the rest before the textures are needed.
+ * Deterministic from the seed (own RNG). Every word is made up; no numbers, no crowns or other gang marks.
  */
 function _grafLib() {
   if (_grafLib._lib) return _grafLib._lib;
   const TAU = Math.PI * 2, PI = Math.PI;
+  const clamp = (v, a, b) => (v < a ? a : v > b ? b : v), lerp = (a, b, t) => a + (b - a) * t;
+  const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 
-  // ---------- seeded RNG ----------
+  // ---------- seeded randomness ----------
   function hashSeed(s) {
-    if (typeof s === 'number' && isFinite(s)) return (Math.floor(s * 1000) ^ 0x5bd1e995) >>> 0;
-    const str = String(s); let h = 2166136261;
-    for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
-    return h >>> 0;
+    let h;
+    if (typeof s === 'number' && isFinite(s)) h = (Math.floor(s * 1000) ^ 0x5bd1e995) | 0;
+    else { h = -2128831035; const str = String(s); for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } }
+    h = Math.imul(h ^ (h >>> 16), 0x85ebca6b); h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+    return (h ^ (h >>> 16)) >>> 0;
   }
-  function makeRng(seed) {   // mulberry32
+  function makeRng(seed) {
     let a = seed >>> 0;
-    return function () {
-      a = (a + 0x6D2B79F5) | 0;
-      let t = Math.imul(a ^ (a >>> 15), 1 | a);
-      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
+    return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   }
-  const rr = (rng, a, b) => a + (b - a) * rng();
-  const pick = (rng, arr) => arr[Math.floor(rng() * arr.length) % arr.length];
-  const chance = (rng, p) => rng() < p;
-  const subSeed = rng => (rng() * 4294967296) >>> 0;
+  const rr = (rng, a, b) => a + (b - a) * rng(), ri = (rng, a, b) => Math.floor(a + (b - a + 1) * rng());
+  const pick = (rng, arr) => arr[Math.floor(rng() * arr.length) % arr.length], chance = (rng, p) => rng() < p;
+  const sub = rng => (rng() * 4294967296) >>> 0;
+  const shuffle = (rng, a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; } return a; };
 
-  // ---------- palette & words ----------
-  const WORDS = ['SUNK', 'KRAM', 'OPE', 'VEXA', 'DRIP', 'ZOOT', 'BLIP', 'ZUKA', 'MOKE', 'RUZO', 'YOPE', 'GLIM', 'KEZ', 'FLUX',
-    'ZAP', 'BOKA', 'VEMO', 'JUKO', 'QUIX', 'WOMP', 'DUKA', 'ROXI', 'PEKO', 'ZIBA', 'KLOP', 'TAZE', 'YIKE', 'ZONK', 'FOZ',
-    'LUMO', 'ORBO', 'SKEE', 'NUMO', 'GRAV', 'PUFE', 'WEKS', 'TOMZ', 'BREX', 'ZEVO', 'MIPO', 'KOVE'];
-  const FILLS = ['#ff4fa3', '#ff2e7e', '#e83fd0', '#ff9ad5', '#9b4dff', '#6a3cff', '#2f7bff', '#1fb6ff', '#7cf3ff', '#14d4c4',
-    '#2ee86b', '#9be22d', '#c3ff3a', '#ffe12e', '#ffb21f', '#ff7a1a', '#ff3b2f', '#e0102a'];
-  const TAGCOL = ['#111111', '#111111', '#161616', '#1d1d1d', '#e0102a', '#2f7bff', '#9b4dff', '#14a34a', '#ff4fa3', '#f2f2f2', '#ffe12e', '#ff7a1a'];
-  const BUFFS = ['#a9a7a0', '#c4c0b6', '#9c9a94', '#b3aea3', '#c2b49a', '#8f8d88'];
-  function hexRgb(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
-  function shade(h, f) {   // f < 0 darkens toward black, f > 0 lightens toward white
-    const [r, g, b] = hexRgb(h);
-    const k = v => Math.max(0, Math.min(255, Math.round(f < 0 ? v * (1 + f) : v + (255 - v) * f)));
-    return 'rgb(' + k(r) + ',' + k(g) + ',' + k(b) + ')';
+  // ---------- shared noise (built once): a tileable fbm table equalised to 0..1, and a vertical-streak profile ----------
+  const NS = 512, NM = 511;
+  let NT = null, NF = null, ST = null, EQ = null;
+  function fbm(rng, oct) {   // tileable value-noise octaves [lattice period, weight], equalised to a uniform 0..1
+    const T = new Float32Array(NS * NS), sx = new Float32Array(NS), i0 = new Int32Array(NS), i1 = new Int32Array(NS);
+    oct.forEach(([P, wt]) => {
+      const lat = new Float32Array(P * P); for (let i = 0; i < lat.length; i++) lat[i] = rng();
+      const cell = NS / P;
+      for (let x = 0; x < NS; x++) { const f = x / cell, ix = Math.floor(f), t = f - ix; sx[x] = t * t * (3 - 2 * t); i0[x] = ix % P; i1[x] = (ix + 1) % P; }
+      for (let y = 0; y < NS; y++) {
+        const sy = sx[y], r0 = i0[y] * P, r1 = i1[y] * P, row = y * NS;
+        for (let x = 0; x < NS; x++) {
+          const a = lat[r0 + i0[x]], b = lat[r0 + i1[x]], c = lat[r1 + i0[x]], d = lat[r1 + i1[x]], s = sx[x];
+          T[row + x] += wt * (a + (b - a) * s + (c - a) * sy + (a - b - c + d) * s * sy);
+        }
+      }
+    });
+    const B = 2048, hist = new Uint32Array(B); let mn = Infinity, mx = -Infinity;
+    for (let i = 0; i < T.length; i++) { const v = T[i]; if (v < mn) mn = v; if (v > mx) mx = v; }
+    const k = (B - 1) / (mx - mn); for (let i = 0; i < T.length; i++) hist[((T[i] - mn) * k) | 0]++;
+    const cdf = new Float32Array(B); let acc = 0; for (let i = 0; i < B; i++) { acc += hist[i]; cdf[i] = acc / T.length; }
+    for (let i = 0; i < T.length; i++) T[i] = cdf[((T[i] - mn) * k) | 0];
+    return T;
+  }
+  function tables() {
+    if (NT) return;
+    const rng = makeRng(0x2f6b1d3a);
+    NT = fbm(rng, [[4, 0.3], [8, 0.25], [16, 0.18], [32, 0.12], [64, 0.08], [128, 0.05], [256, 0.03]]);   // broad mottling
+    NF = fbm(rng, [[32, 0.3], [64, 0.3], [128, 0.24], [256, 0.16]]);                                  // the concrete's tooth: 2-16 px
+    ST = new Float32Array(NS);
+    for (let n = 0; n < 80; n++) { const c = Math.round(rng() * NS), w = 0.6 + rng() * rng() * 6, s = 0.2 + rng() * rng(); for (let dx = -Math.ceil(w * 3); dx <= Math.ceil(w * 3); dx++) ST[((c + dx) % NS + NS) % NS] += s * Math.exp(-(dx * dx) / (2 * w * w)); }
+    let smx = 0; for (let i = 0; i < NS; i++) smx = Math.max(smx, ST[i]); for (let i = 0; i < NS; i++) ST[i] = Math.min(1, ST[i] / smx * 1.7);
+    // quantiles of weather()'s erosion mix, so "gone" really is the fraction of the film that's gone
+    const q = new Float32Array(4096), rq = makeRng(77), N2 = NS * NS;
+    for (let i = 0; i < 4096; i++) q[i] = NF[(rq() * N2) | 0] * 0.7 + NF[(rq() * N2) | 0] * 0.3;
+    q.sort(); EQ = f => q[clamp(Math.round(f * 4095), 0, 4095)];
   }
 
-  // ---------- letter skeletons (unit box, y down) ----------
-  const ell = (cx, cy, rx, ry, n, a0, a1) => { const p = []; for (let i = 0; i <= n; i++) { const a = a0 + (a1 - a0) * i / n; p.push([cx + Math.cos(a) * rx, cy + Math.sin(a) * ry]); } return p; };
-  const G = {
+  // ---------- canvases & colours ----------
+  function canvas(w, h, readable) { const c = document.createElement('canvas'); c.width = Math.max(1, Math.ceil(w)); c.height = Math.max(1, Math.ceil(h)); if (readable) c.getContext('2d', { willReadFrequently: true }); return c; }
+  const ctx = c => c.getContext('2d');
+  const TMP = [];
+  function tmp(i, w, h) {
+    let c = TMP[i]; if (!c || c.width !== w || c.height !== h) c = TMP[i] = canvas(w, h, i === 1 || i === 2);   // the layers get read back by weather()
+    const g = ctx(c); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; g.clearRect(0, 0, w, h);
+    return c;
+  }
+  const hexRgb = h => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+  const rgbOf = c => (typeof c === 'string' ? hexRgb(c) : c);
+  const rgba = (c, a = 1) => { const v = rgbOf(c); return 'rgba(' + (v[0] | 0) + ',' + (v[1] | 0) + ',' + (v[2] | 0) + ',' + a + ')'; };
+  const shade = (c, f) => rgbOf(c).map(v => clamp(Math.round(f < 0 ? v * (1 + f) : v + (255 - v) * f), 0, 255));
+  const mixc = (a, b, t) => { const A = rgbOf(a), B = rgbOf(b); return A.map((v, i) => Math.round(v + (B[i] - v) * t)); };
+  const lum = c => { const v = rgbOf(c); return v[0] * 0.3 + v[1] * 0.59 + v[2] * 0.11; };
+
+  // ---------- palettes & words (all invented) ----------
+  const BLK = '#161616', WHT = '#f2f0ea', SILV = '#c3c6c9';
+  const WORDS = ['ZOKE', 'VEMO', 'KADO', 'BLOM', 'RUZE', 'YOSK', 'DEBO', 'FUME', 'KRIB', 'TOVA', 'SNEK', 'GOZY', 'MAVE', 'PLUB', 'WEKO', 'JUZA',
+    'TAKO', 'ROMB', 'ZUBE', 'HEFS', 'KLEM', 'QUAZ', 'DOKE', 'SPEV', 'VUNK', 'BIFE', 'MOKS', 'NUKO', 'LUFE', 'OBEK', 'TUZO', 'YEMS', 'FLIB',
+    'KORV', 'SUPE', 'DRAK', 'MEPO', 'GUZE', 'KEMS', 'ZORB', 'VEKA', 'BRAZ', 'MOTE', 'SOKE', 'WUFE', 'JOKA', 'DUVE', 'SKEB', 'OMER', 'FAYK'];
+  const BB_WORDS = ['ZORB', 'KEMS', 'VEKA', 'BLOM', 'RUZE', 'MOTE', 'ZOKE', 'TOVA', 'KADO', 'DEBO', 'SNEK', 'BRAZ', 'HEFS', 'VUNK', 'MOKS',
+    'YEMS', 'OBEK', 'KORV', 'DOKE', 'SKEB', 'FUME', 'NUKO'];
+  const TU_WORDS = ['OBE', 'ZEK', 'KAM', 'DUZ', 'MOK', 'VEP', 'YOS', 'SKO', 'BAZ', 'TUK', 'ROZ', 'NEP', 'GOB', 'WUZ', 'KEB', 'OKS', 'DEK',
+    'SEB', 'MUK', 'BEOK', 'ZOKE', 'TOVA', 'KEMS', 'YEMS', 'MOKS', 'BLOM', 'SNEK', 'VEKA', 'DUVE', 'OMER'];
+  const crew = rng => { let s; do { s = pick(rng, 'BDFGKMPRSTVZ') + pick(rng, 'BCDGKMNPRTVZ') + pick(rng, 'BDKRSVZ'); } while (/MTA|MSK|AWR|CBS|KGB|WCA|TKO|DTS|SKR|VLT|BKS/.test(s)); return s; };
+  const TAGC = [BLK, BLK, BLK, BLK, '#1d1d24', SILV, WHT, '#d42a2a', '#c11d38', '#2a57d4', '#3b7be8', '#7a3cc8', '#ff4f9a', '#1f9e55',
+    '#e0b42e', '#f07a1a', '#58b8f0', '#9b5de5'];
+  const TU_FILL = [SILV, SILV, SILV, '#d0d3d6', WHT, WHT, '#7fd6c2', '#f2a3c7', '#8fc4f2', '#f5d04a', '#f08a3c', '#e2463c', '#b39ce8',
+    '#c9e86a', '#ffd9a8', BLK];
+  const TU_LINE = [BLK, BLK, BLK, BLK, BLK, '#1d2b6b', '#5a1420', '#123d2a', '#3a1a5a', '#0e3550'];
+  const PIECE_PALS = [
+    { f: ['#ffe066', '#ff9f1c', '#ff4b1f'], d: '#3a1c5c', o: WHT, a: '#7cf3ff' },
+    { f: ['#7cf3ff', '#2fa8ff', '#3d4bff'], d: '#141a4a', o: '#ffe066', a: '#ff6fd8' },
+    { f: ['#ffd1ea', '#ff7ac2', '#e5277a'], d: '#3b1030', o: WHT, a: '#6ff7d0' },
+    { f: ['#c8ff6a', '#3fd16a', '#0e8a5f'], d: '#0c2e2e', o: '#ffe9a0', a: '#ff7a3c' },
+    { f: ['#fff3b0', '#ffb347', '#e8432d'], d: '#2a1a12', o: '#9fe8ff', a: '#3d7bff' },
+    { f: ['#e0c3ff', '#a46bff', '#5b2fd6'], d: '#1a1033', o: '#ffd166', a: '#ffe066' },
+    { f: ['#a8fff0', '#2ee8c4', '#1386a8'], d: '#0b2233', o: '#ff8fc8', a: '#ffffff' },
+    { f: ['#ff8f8f', '#ff2e4d', '#a3123a'], d: '#1c0f14', o: '#fff1c1', a: '#ffd166' },
+  ];
+  const BB_SCHEMES = [   // fill, outline, drop shadow
+    [WHT, BLK, BLK], [WHT, BLK, BLK], [WHT, BLK, BLK], ['#c5c8cb', '#141414', '#141414'], ['#d2e3f4', '#1d2d78', '#1d2d78'],
+    ['#f2e6a6', '#a8202a', BLK], [BLK, WHT, '#8f8f8f'], [WHT, '#b8242c', BLK], ['#dad3f0', '#2d1b5c', BLK], ['#f4c9d8', BLK, BLK],
+  ];
+  const BUFFS = ['#b9b1a1', '#b0a99c', '#c2b9a7', '#aaa59c', '#bcb6aa', '#c6bca8', '#a7a196', '#b5ae9f', '#9f9a90', '#c9c3b6'];   // county beige and grey: near the concrete, never quite it
+  const TOON = [
+    { fill: '#f5c542', dark: '#c98a1c', light: '#fff2b8' }, { fill: '#7fd6c2', dark: '#2f8f86', light: '#d9fff6' },
+    { fill: '#ff7ab6', dark: '#c23a7a', light: '#ffd6ea' }, { fill: '#8fc4f2', dark: '#3e6fb8', light: '#e2f1ff' },
+    { fill: '#f08a3c', dark: '#b4501a', light: '#ffd9b0' }, { fill: '#b39ce8', dark: '#6b4fb8', light: '#ece4ff' },
+    { fill: '#c9e86a', dark: '#6f9a22', light: '#f2ffc9' }, { fill: '#e2463c', dark: '#8f1d1a', light: '#ffc4b8' },
+    { fill: '#d0d3d6', dark: '#7c8288', light: '#ffffff' }, { fill: '#9aa3ad', dark: '#5b636b', light: '#e6ebef' },
+  ];
+
+  // ---------- letter skeletons: a unit box per letter, y down ----------
+  const arc = (cx, cy, rx, ry, n, a0, a1) => { const p = []; for (let i = 0; i <= n; i++) { const a = a0 + (a1 - a0) * i / n; p.push([cx + Math.cos(a) * rx, cy + Math.sin(a) * ry]); } return p; };
+  const G = {   // round strokes: throw-ups, tags, hand lettering
     A: [[[0, 1], [0.5, 0], [1, 1]], [[0.22, 0.62], [0.78, 0.62]]],
-    B: [[[0, 1], [0, 0], [0.5, 0]].concat(ell(0.5, 0.25, 0.38, 0.25, 6, -PI / 2, PI / 2), [[0.5, 0.5], [0, 0.5]]),
-        [[0.5, 0.5]].concat(ell(0.55, 0.75, 0.42, 0.25, 6, -PI / 2, PI / 2), [[0.55, 1], [0, 1]])],
-    C: [ell(0.5, 0.5, 0.5, 0.5, 10, -PI * 0.25, -PI * 1.75)],
-    D: [[[0, 1], [0, 0], [0.42, 0]].concat(ell(0.42, 0.5, 0.56, 0.5, 8, -PI / 2, PI / 2), [[0.42, 1], [0, 1]])],
+    B: [[[0, 1], [0, 0], [0.5, 0]].concat(arc(0.5, 0.25, 0.38, 0.25, 6, -PI / 2, PI / 2), [[0.5, 0.5], [0, 0.5]]),
+        [[0.5, 0.5]].concat(arc(0.55, 0.75, 0.42, 0.25, 6, -PI / 2, PI / 2), [[0.55, 1], [0, 1]])],
+    C: [arc(0.5, 0.5, 0.5, 0.5, 10, -PI * 0.25, -PI * 1.75)],
+    D: [[[0, 1], [0, 0], [0.42, 0]].concat(arc(0.42, 0.5, 0.56, 0.5, 8, -PI / 2, PI / 2), [[0.42, 1], [0, 1]])],
     E: [[[1, 0], [0, 0], [0, 1], [1, 1]], [[0, 0.5], [0.75, 0.5]]],
     F: [[[1, 0], [0, 0], [0, 1]], [[0, 0.5], [0.72, 0.5]]],
-    G: [ell(0.5, 0.5, 0.5, 0.5, 10, -PI * 0.25, -PI * 1.75).concat([[0.95, 0.58], [0.55, 0.58]])],
+    G: [arc(0.5, 0.5, 0.5, 0.5, 10, -PI * 0.25, -PI * 1.75).concat([[0.95, 0.58], [0.55, 0.58]])],
     H: [[[0, 0], [0, 1]], [[1, 0], [1, 1]], [[0, 0.5], [1, 0.5]]],
-    I: [[[0.5, 0], [0.5, 1]], [[0.1, 0], [0.9, 0]], [[0.1, 1], [0.9, 1]]],
-    J: [[[0.25, 0], [1, 0]], [[0.75, 0], [0.75, 0.65]].concat(ell(0.4, 0.65, 0.35, 0.35, 6, 0, PI))],
+    I: [[[0.5, 0], [0.5, 1]]],
+    J: [[[0.25, 0], [1, 0]], [[0.75, 0], [0.75, 0.65]].concat(arc(0.4, 0.65, 0.35, 0.35, 6, 0, PI))],
     K: [[[0, 0], [0, 1]], [[0.95, 0], [0, 0.58]], [[0.32, 0.4], [1, 1]]],
     L: [[[0, 0], [0, 1], [0.9, 1]]],
     M: [[[0, 1], [0, 0], [0.5, 0.6], [1, 0], [1, 1]]],
     N: [[[0, 1], [0, 0], [1, 1], [1, 0]]],
-    O: [ell(0.5, 0.5, 0.5, 0.5, 12, 0, TAU)],
-    P: [[[0, 1], [0, 0], [0.5, 0]].concat(ell(0.5, 0.27, 0.45, 0.27, 6, -PI / 2, PI / 2), [[0.5, 0.54], [0, 0.54]])],
-    Q: [ell(0.5, 0.5, 0.5, 0.5, 12, 0, TAU), [[0.6, 0.72], [1.02, 1.05]]],
+    O: [arc(0.5, 0.5, 0.5, 0.5, 14, -PI / 2, PI * 1.5)],
+    P: [[[0, 1], [0, 0], [0.5, 0]].concat(arc(0.5, 0.27, 0.45, 0.27, 6, -PI / 2, PI / 2), [[0.5, 0.54], [0, 0.54]])],
+    Q: [arc(0.5, 0.5, 0.5, 0.5, 14, -PI / 2, PI * 1.5), [[0.6, 0.72], [1.02, 1.05]]],
     S: [[[0.95, 0.12], [0.62, 0], [0.25, 0.02], [0.04, 0.22], [0.2, 0.44], [0.55, 0.52], [0.9, 0.64], [0.96, 0.84], [0.7, 1], [0.3, 1], [0.03, 0.86]]],
     T: [[[0, 0], [1, 0]], [[0.5, 0], [0.5, 1]]],
-    U: [[[0, 0], [0, 0.6]].concat(ell(0.5, 0.6, 0.5, 0.4, 8, PI, 0), [[1, 0]])],
+    U: [[[0, 0], [0, 0.6]].concat(arc(0.5, 0.6, 0.5, 0.4, 8, PI, 0), [[1, 0]])],
     V: [[[0, 0], [0.5, 1], [1, 0]]],
     W: [[[0, 0], [0.22, 1], [0.5, 0.35], [0.78, 1], [1, 0]]],
     X: [[[0, 0], [1, 1]], [[1, 0], [0, 1]]],
     Y: [[[0, 0], [0.5, 0.5], [1, 0]], [[0.5, 0.5], [0.5, 1]]],
     Z: [[[0, 0], [1, 0], [0, 1], [1, 1]]],
+    '+': [[[0.5, 0.16], [0.5, 0.88]], [[0.12, 0.54], [0.88, 0.54]]],
   };
   G.R = [G.P[0], [[0.42, 0.54], [1, 1]]];
-  const WM = { I: 0.5, M: 1.25, W: 1.3, J: 0.85, L: 0.8, E: 0.85, F: 0.8, T: 0.95, S: 0.9 };
-
-  const STYLE = {
-    bubble: { wk: 0.30, jit: 0.035, rotJ: 0.28, bounce: 0.14, scaleJ: 0.2, slant: [0.0, 0.15], gap: 0.55, smooth: true, bw: 0.74 },
-    chrome: { wk: 0.28, jit: 0.03, rotJ: 0.22, bounce: 0.1, scaleJ: 0.15, slant: [0.05, 0.18], gap: 0.6, smooth: true, bw: 0.72 },
-    block:  { wk: 0.24, jit: 0.0, rotJ: 0.05, bounce: 0.04, scaleJ: 0.06, slant: [-0.05, 0.12], gap: 1.25, smooth: false, bw: 0.7 },
-    tag:    { wk: 0.065, jit: 0.07, rotJ: 0.22, bounce: 0.18, scaleJ: 0.35, slant: [0.25, 0.6], gap: 3.0, smooth: true, bw: 0.42 },
+  const WM = { I: 0.35, M: 1.25, W: 1.3, J: 0.85, L: 0.8, E: 0.85, F: 0.8, T: 0.95, S: 0.9, '+': 0.85 };
+  const BK = {  // straight blocky strokes: roller blockbusters, sharp pieces
+    A: [[[0, 1], [0, 0.2], [0.2, 0], [1, 0], [1, 1]], [[0, 0.56], [1, 0.56]]],
+    B: [[[0, 1], [0, 0], [0.8, 0], [0.94, 0.12], [0.94, 0.38], [0.8, 0.5], [0, 0.5]], [[0.8, 0.5], [1, 0.62], [1, 0.88], [0.86, 1], [0, 1]]],
+    C: [[[1, 0], [0, 0], [0, 1], [1, 1]]],
+    D: [[[0, 0], [0, 1], [0.76, 1], [1, 0.78], [1, 0.22], [0.76, 0], [0, 0]]],
+    E: [[[1, 0], [0, 0], [0, 1], [1, 1]], [[0, 0.5], [0.8, 0.5]]],
+    F: [[[1, 0], [0, 0], [0, 1]], [[0, 0.5], [0.78, 0.5]]],
+    G: [[[1, 0], [0, 0], [0, 1], [1, 1], [1, 0.52], [0.55, 0.52]]],
+    H: [[[0, 0], [0, 1]], [[1, 0], [1, 1]], [[0, 0.5], [1, 0.5]]],
+    I: [[[0.5, 0], [0.5, 1]]],
+    J: [[[1, 0], [1, 1], [0, 1], [0, 0.66]]],
+    K: [[[0, 0], [0, 1]], [[0, 0.52], [0.52, 0.52], [1, 0]], [[0.52, 0.52], [1, 1]]],
+    L: [[[0, 0], [0, 1], [1, 1]]],
+    M: [[[0, 1], [0, 0], [1, 0], [1, 1]], [[0.5, 0], [0.5, 0.72]]],
+    N: [[[0, 1], [0, 0], [1, 1], [1, 0]]],
+    O: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+    P: [[[0, 1], [0, 0], [1, 0], [1, 0.56], [0, 0.56]]],
+    Q: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]], [[0.62, 0.72], [1.08, 1.12]]],
+    R: [[[0, 1], [0, 0], [1, 0], [1, 0.52], [0, 0.52]], [[0.52, 0.52], [1, 1]]],
+    S: [[[1, 0], [0, 0], [0, 0.5], [1, 0.5], [1, 1], [0, 1]]],
+    T: [[[0, 0], [1, 0]], [[0.5, 0], [0.5, 1]]],
+    U: [[[0, 0], [0, 1], [1, 1], [1, 0]]],
+    V: [[[0, 0], [0, 0.55], [0.5, 1], [1, 0.55], [1, 0]]],
+    W: [[[0, 0], [0, 1], [1, 1], [1, 0]], [[0.5, 1], [0.5, 0.3]]],
+    X: [[[0, 0], [1, 1]], [[1, 0], [0, 1]]],
+    Y: [[[0, 0], [0, 0.5], [1, 0.5]], [[1, 0], [1, 1], [0.1, 1]]],
+    Z: [[[0, 0], [1, 0], [0, 1], [1, 1]]],
   };
+  const BKW = { I: 0.15, M: 1.22, W: 1.22 };
 
-  // Lay a word out around (0,0): letters advance along +x, the letter centre line is y = 0. Everything scales linearly with h.
-  function layout(rng, word, h, st) {
-    const slant = rr(rng, st.slant[0], st.slant[1]), S = h * st.wk, letters = [];
-    let cx = 0, minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  // Lay a word out in letter heights (a letter spans y -0.5..0.5); x advances to the right.
+  function layout(rng, word, set, o) {
+    const slant = Array.isArray(o.slant) ? rr(rng, o.slant[0], o.slant[1]) : (o.slant || 0), J = o.jit || 0;
+    const letters = []; let cx = 0;
     for (const ch of word) {
-      const gl = G[ch], bw = h * st.bw * (WM[ch] || 1);
-      if (!gl) { cx += bw * 0.6; continue; }
-      const sc = 1 + (rng() - 0.5) * st.scaleJ, rot = (rng() - 0.5) * st.rotJ, oy = (rng() - 0.5) * st.bounce * h;
-      const ox = cx + bw * sc / 2, cs = Math.cos(rot), sn = Math.sin(rot);
+      const gl = set[ch], bw = (o.wk || 0.75) * ((o.wmap && o.wmap[ch]) || 1);
+      if (!gl) { cx += bw * 0.6 + (o.gap || 0); continue; }
+      const sc = 1 + (rng() - 0.5) * (o.scaleJ || 0), rot = (rng() - 0.5) * (o.rotJ || 0), oy = (rng() - 0.5) * (o.bounce || 0);
+      const cs = Math.cos(rot), sn = Math.sin(rot), w = bw * sc, ox = cx + w / 2;
       const paths = gl.map(path => path.map(([u, v]) => {
-        const x = ((u - 0.5) * bw + (rng() - 0.5) * st.jit * h) * sc, y = ((v - 0.5) * h + (rng() - 0.5) * st.jit * h) * sc;
-        const rx = x * cs - y * sn, ry = x * sn + y * cs, px = ox + rx - ry * slant, py = oy + ry;
-        if (px < minX) minX = px; if (px > maxX) maxX = px; if (py < minY) minY = py; if (py > maxY) maxY = py;
-        return [px, py];
+        const x = ((u - 0.5) * bw + (rng() - 0.5) * J) * sc, y = ((v - 0.5) + (rng() - 0.5) * J) * sc;
+        const rx = x * cs - y * sn, ry = x * sn + y * cs;
+        return [ox + rx - ry * slant, oy + ry];
       }));
-      letters.push({ paths, cx: ox - h * 0.5 * sc * slant, by: oy + h * 0.5 * sc, bw: bw * sc });
-      cx += bw * sc + S * st.gap;
+      letters.push({ paths, polys: [], cx: ox, w, oy, sc });
+      cx += w + (o.gap || 0);
     }
-    if (!letters.length) { minX = minY = 0; maxX = maxY = 1; }
-    const pad = S * 0.5;
-    return { letters, all: [].concat(...letters.map(l => l.paths)), S, h, slant, x0: minX - pad, x1: maxX + pad, y0: minY - pad, y1: maxY + pad };
+    const lay = { letters, slant };
+    return bounds(lay);
+  }
+  function bounds(lay) {
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    lay.letters.forEach(L => L.paths.concat(L.polys || []).forEach(p => p.forEach(([x, y]) => { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; })));
+    if (!lay.letters.length) { x0 = y0 = 0; x1 = y1 = 1; }
+    lay.x0 = x0; lay.x1 = x1; lay.y0 = y0; lay.y1 = y1;
+    return lay;
+  }
+  // scale a layout into a box; ext = [left, top, right, bottom] extra room in letter heights (stroke, outlines, 3D, drips)
+  function fitBox(lay, ext, box) {
+    const bw = lay.x1 - lay.x0 + ext[0] + ext[2], bh = lay.y1 - lay.y0 + ext[1] + ext[3];
+    const S = Math.min(box.w / bw, box.h / bh);
+    const ox = box.x + (box.w - bw * S) / 2 + (ext[0] - lay.x0) * S, oy = box.y + (box.h - bh * S) / 2 + (ext[1] - lay.y0) * S;
+    return { S, ox, oy, x0: ox + (lay.x0 - ext[0]) * S, y0: oy + (lay.y0 - ext[1]) * S, x1: ox + (lay.x1 + ext[2]) * S, y1: oy + (lay.y1 + ext[3]) * S };
+  }
+  function place(lay, f) {
+    const m = ([x, y]) => [f.ox + x * f.S, f.oy + y * f.S];
+    return lay.letters.map(L => {
+      const paths = L.paths.map(p => p.map(m)), polys = (L.polys || []).map(p => p.map(m));
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      paths.concat(polys).forEach(p => p.forEach(([x, y]) => { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }));
+      return { paths, polys, x0, y0, x1, y1 };
+    });
+  }
+  // wildstyle: arrows shooting off the ends of strokes
+  function wildify(rng, lay, sw, amt) {
+    lay.letters.forEach(L => {
+      if (!chance(rng, amt)) return;
+      const p = pick(rng, L.paths); if (p.length < 2) return;
+      const end = chance(rng, 0.6), a = end ? p[p.length - 1] : p[0], b = end ? p[p.length - 2] : p[1];
+      let dx = a[0] - b[0], dy = a[1] - b[1]; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
+      const turn = rr(rng, -0.8, 0.8), c = Math.cos(turn), s = Math.sin(turn), ux = dx * c - dy * s, uy = dx * s + dy * c;
+      const len = rr(rng, 0.22, 0.45), tip = [a[0] + ux * len, a[1] + uy * len], hs = sw * rr(rng, 1.0, 1.35), px = -uy, py = ux;
+      L.paths.push([a.slice(), tip]);
+      L.polys.push([[tip[0] + ux * hs * 0.95, tip[1] + uy * hs * 0.95], [tip[0] + px * hs * 0.8, tip[1] + py * hs * 0.8], [tip[0] - px * hs * 0.8, tip[1] - py * hs * 0.8]]);
+    });
+    return bounds(lay);
   }
 
-  // ---------- path helpers ----------
-  function trace(g, P, smooth) {
-    g.beginPath();
-    for (const p of P) {
-      if (p.length < 2) continue;
-      g.moveTo(p[0][0], p[0][1]);
-      if (!smooth || p.length < 3) { for (let i = 1; i < p.length; i++) g.lineTo(p[i][0], p[i][1]); }
-      else {
-        for (let i = 1; i < p.length - 1; i++) g.quadraticCurveTo(p[i][0], p[i][1], (p[i][0] + p[i + 1][0]) / 2, (p[i][1] + p[i + 1][1]) / 2);
-        const l = p[p.length - 1]; g.lineTo(l[0], l[1]);
-      }
+  // ---------- path & paint helpers ----------
+  function chaikin(p, it) {
+    for (let k = 0; k < it; k++) {
+      if (p.length < 3) return p;
+      const q = [p[0]];
+      for (let i = 0; i < p.length - 1; i++) { const a = p[i], b = p[i + 1]; q.push([a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25], [a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75]); }
+      q.push(p[p.length - 1]); p = q;
     }
+    return p;
   }
-  function strokeAll(g, P, lw, style, smooth, cap, join) {
-    g.lineWidth = lw; g.strokeStyle = style; g.lineCap = cap || 'round'; g.lineJoin = join || 'round'; g.miterLimit = 2.5;
-    trace(g, P, smooth); g.stroke();
+  function resample(p, step) {
+    const out = [[p[0][0], p[0][1]]]; let carry = 0;
+    for (let i = 1; i < p.length; i++) {
+      const ax = p[i - 1][0], ay = p[i - 1][1], bx = p[i][0], by = p[i][1], d = Math.hypot(bx - ax, by - ay);
+      if (d < 1e-6) continue;
+      let t = step - carry;
+      while (t <= d) { out.push([ax + (bx - ax) * t / d, ay + (by - ay) * t / d]); t += step; }
+      carry = d - (t - step);
+    }
+    const l = p[p.length - 1], q = out[out.length - 1];
+    if (Math.hypot(l[0] - q[0], l[1] - q[1]) > 0.3) out.push([l[0], l[1]]);
+    if (out.length === 1) out.push([l[0] + 0.01, l[1]]);
+    return out;
   }
-  function closedPath(g, p) {
-    const n = p.length, m = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-    g.beginPath(); const s = m(p[n - 1], p[0]); g.moveTo(s[0], s[1]);
-    for (let i = 0; i < n; i++) { const q = p[i], e = m(p[i], p[(i + 1) % n]); g.quadraticCurveTo(q[0], q[1], e[0], e[1]); }
-    g.closePath();
-  }
-  function partial(p, f) {   // the first fraction f (by length) of a polyline
-    let L = 0; for (let i = 1; i < p.length; i++) L += Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]);
-    const want = L * f, out = [p[0]]; let acc = 0;
+  function plen(p) { let L = 0; for (let i = 1; i < p.length; i++) L += Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]); return L; }
+  function partial(p, f) {
+    const want = plen(p) * f, out = [p[0]]; let acc = 0;
     for (let i = 1; i < p.length; i++) {
       const d = Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]);
       if (acc + d >= want) { const k = d > 0 ? (want - acc) / d : 0; out.push([p[i - 1][0] + (p[i][0] - p[i - 1][0]) * k, p[i - 1][1] + (p[i][1] - p[i - 1][1]) * k]); return out; }
@@ -4177,323 +4319,844 @@ function _grafLib() {
     }
     return out;
   }
-  function star(g, x, y, r, col) {
+  // a hand's wobble: resample and push each line around by a slow, smooth offset (amp px)
+  function wobble(rng, paths, amp, step) {
+    if (amp <= 0) return paths;
+    return paths.map(p => {
+      if (p.length < 2) return p;
+      const q = resample(p, step), ph = [rng() * TAU, rng() * TAU, rng() * TAU, rng() * TAU];
+      let f1 = TAU / (step * rr(rng, 14, 24)), f2 = TAU / (step * rr(rng, 4, 8));
+      const a = p[0], b = p[p.length - 1], L = plen(q);
+      if (Math.hypot(a[0] - b[0], a[1] - b[1]) < step * 0.5 && L > 0) { f1 = TAU * Math.max(1, Math.round(L * f1 / TAU)) / L; f2 = TAU * Math.max(1, Math.round(L * f2 / TAU)) / L; }   // closed loops stay closed
+      let acc = 0;
+      return q.map((pt, i) => { if (i) acc += Math.hypot(pt[0] - q[i - 1][0], pt[1] - q[i - 1][1]); return [pt[0] + (Math.sin(ph[0] + acc * f1) * 0.75 + Math.sin(ph[1] + acc * f2) * 0.25) * amp, pt[1] + (Math.sin(ph[2] + acc * f1) * 0.75 + Math.sin(ph[3] + acc * f2) * 0.25) * amp]; });
+    });
+  }
+  const wobbleLetters = (rng, Ls, amp, step) => Ls.forEach(L => { L.paths = wobble(rng, L.paths, amp, step); });
+  function trace(g, paths, smooth) {
     g.beginPath();
-    for (let i = 0; i < 8; i++) { const a = i * PI / 4 - PI / 2, d = i % 2 ? r * 0.22 : r; g.lineTo(x + Math.cos(a) * d, y + Math.sin(a) * d); }
-    g.closePath(); g.fillStyle = col; g.fill();
+    for (const p of paths) {
+      if (!p.length) continue;
+      g.moveTo(p[0][0], p[0][1]);
+      if (p.length === 1) { g.lineTo(p[0][0] + 0.01, p[0][1]); continue; }
+      if (!smooth || p.length < 3) for (let i = 1; i < p.length; i++) g.lineTo(p[i][0], p[i][1]);
+      else { for (let i = 1; i < p.length - 1; i++) g.quadraticCurveTo(p[i][0], p[i][1], (p[i][0] + p[i + 1][0]) / 2, (p[i][1] + p[i + 1][1]) / 2); const l = p[p.length - 1]; g.lineTo(l[0], l[1]); }
+    }
   }
-  function drawDrips(g, rng, lay, fill, line) {
-    const S = lay.S;
-    for (const L of lay.letters) {
-      if (rng() > 0.45) continue;
-      const n = rng() < 0.3 ? 2 : 1;
+  function polyPath(g, p) { g.moveTo(p[0][0], p[0][1]); for (let i = 1; i < p.length; i++) g.lineTo(p[i][0], p[i][1]); g.closePath(); }
+  // the area one letter covers, grown by e (for outlines)
+  function body(g, L, w, e, col, st) {
+    g.strokeStyle = g.fillStyle = col; g.lineCap = st.cap || 'round'; g.lineJoin = st.join || 'round'; g.miterLimit = st.miter || 4;
+    g.lineWidth = Math.max(0.5, w + 2 * e); trace(g, L.paths, st.smooth); g.stroke();
+    if (L.polys && L.polys.length) {
+      g.beginPath(); L.polys.forEach(p => polyPath(g, p)); g.fill();
+      if (e > 0) { g.lineWidth = 2 * e; g.lineJoin = 'miter'; g.stroke(); }
+    }
+  }
+  // paint something into a scratch canvas, keep only what falls inside the letter body, put it down
+  function masked(g, W, H, L, w, st, paintFn, alpha) {
+    const t = tmp(0, W, H), tg = ctx(t), mk = tmp(3, W, H);
+    paintFn(tg);
+    body(ctx(mk), L, w, 0, '#000', st);   // the whole mask first: destination-in per stroke/fill call would wipe the other parts
+    tg.setTransform(1, 0, 0, 1, 0, 0); tg.globalCompositeOperation = 'destination-in'; tg.globalAlpha = 1; tg.drawImage(mk, 0, 0); tg.globalCompositeOperation = 'source-over';
+    const ga = g.globalAlpha; g.globalAlpha = ga * (alpha == null ? 1 : alpha); g.drawImage(t, 0, 0); g.globalAlpha = ga;
+  }
+  // a run of paint straight down, with a bead at the end
+  function drip(g, x, y, w, len, col) {
+    if (len < w) return;
+    g.strokeStyle = g.fillStyle = col; g.lineCap = 'round';
+    g.lineWidth = w; g.beginPath(); g.moveTo(x, y); g.lineTo(x + w * 0.15, y + len * 0.55); g.lineWidth = w * 0.75; g.lineTo(x + w * 0.1, y + len); g.stroke();
+    g.beginPath(); g.ellipse(x + w * 0.1, y + len, w * 0.62, w * 0.82, 0, 0, TAU); g.fill();
+  }
+  // fine droplets around a sprayed line
+  function speckle(g, rng, paths, w, col, dens) {
+    g.fillStyle = col; const ga = g.globalAlpha;
+    for (const p of paths) for (let i = 1; i < p.length; i++) {
+      const ax = p[i - 1][0], ay = p[i - 1][1], bx = p[i][0], by = p[i][1], d = Math.hypot(bx - ax, by - ay); if (d < 0.01) continue;
+      const nx = -(by - ay) / d, ny = (bx - ax) / d, n = Math.round(d * dens * rr(rng, 0.6, 1.4));
       for (let k = 0; k < n; k++) {
-        const x = L.cx + (rng() - 0.5) * L.bw * 0.7, y0 = L.by, len = S * 0.6 + rng() * lay.h * 0.65, w = S * rr(rng, 0.1, 0.2);
-        const x1 = x + (rng() - 0.5) * S * 0.1, y1 = y0 + len;
-        const run = (lw, col) => { g.lineCap = 'round'; g.strokeStyle = col; g.lineWidth = lw; g.beginPath(); g.moveTo(x, y0); g.lineTo(x1, y1); g.stroke(); };
-        run(w + S * 0.12, line); run(w, fill);
-        g.fillStyle = line; g.beginPath(); g.arc(x1, y1, w * 0.62 + S * 0.06, 0, TAU); g.fill();
-        g.fillStyle = fill; g.beginPath(); g.arc(x1, y1, w * 0.62, 0, TAU); g.fill();
+        const t = rng(), off = (w * 0.5 + Math.abs((rng() + rng() + rng() - 1.5)) * w * 0.9) * (rng() < 0.5 ? -1 : 1), s = rr(rng, 0.6, 1.6);
+        g.globalAlpha = ga * rr(rng, 0.25, 0.7); g.fillRect(ax + (bx - ax) * t + nx * off, ay + (by - ay) * t + ny * off, s, s);
       }
     }
+    g.globalAlpha = ga;
+  }
+  // a can-control line: width breathes with hand speed, blobs where the can started, soft overspray, optional drips
+  function pen(g, rng, paths, w, col, o = {}) {
+    const c = rgba(col), soft = o.soft != null ? o.soft : (w >= 4 ? w * 0.26 : 0.5), cap = o.cap || 'round';
+    const runs = [];
+    for (const p0 of paths) {
+      if (!p0 || p0.length < 2) continue;
+      const p = resample(p0, Math.max(1, w * 0.35)), L = plen(p) || 1;
+      const ph = rng() * TAU, fq = TAU * rr(rng, 0.8, 2.6) / Math.max(L, w * 5), pr = o.pressure != null ? o.pressure : 0.22;
+      let acc = 0;
+      runs.push(p.map((q, i) => {
+        if (i) acc += Math.hypot(q[0] - p[i - 1][0], q[1] - p[i - 1][1]);
+        const u = acc / L; let k = 1 - pr + pr * Math.sin(ph + acc * fq);
+        if (o.blob !== false && u < 0.05) k *= 1 + 0.3 * (1 - u / 0.05);
+        if (u > 0.88) k *= lerp(1, o.taper != null ? o.taper : 0.55, (u - 0.88) / 0.12);
+        return [q[0], q[1], Math.max(0.6, w * k)];
+      }));
+    }
+    const ga = g.globalAlpha;
+    g.strokeStyle = c; g.lineCap = cap; g.lineJoin = 'round';
+    if (soft > 0.7) for (const [extra, a] of [[soft * 2.6, 0.1], [soft * 1.2, 0.2]]) {
+      g.globalAlpha = ga * a; g.lineWidth = w + extra; g.beginPath();
+      for (const r of runs) { g.moveTo(r[0][0], r[0][1]); for (let k = 1; k < r.length; k++) g.lineTo(r[k][0], r[k][1]); }
+      g.stroke();
+    }
+    g.globalAlpha = ga;
+    for (const r of runs) {
+      let i = 0;
+      while (i < r.length - 1) {
+        const wq = r[i][2], tol = Math.max(0.3, wq * 0.06); let j = i + 1;
+        while (j < r.length - 1 && Math.abs(r[j][2] - wq) < tol) j++;
+        g.lineWidth = wq; g.beginPath(); g.moveTo(r[i][0], r[i][1]); for (let k = i + 1; k <= j; k++) g.lineTo(r[k][0], r[k][1]); g.stroke();
+        i = j;
+      }
+    }
+    if (o.speck && w >= 3) speckle(g, rng, runs, w, c, o.speck);
+    if (o.drips) for (const r of runs) {
+      if (r.length < 4 || !chance(rng, o.drips)) continue;
+      const nd = chance(rng, 0.3) ? 2 : 1;
+      for (let k = 0; k < nd; k++) {
+        const q = r[Math.floor(rng() * r.length)], room = (o.maxY || 1e9) - q[1] - w;
+        const len = Math.min(room, w * rr(rng, 1.5, o.dripLen || 7));
+        drip(g, q[0], q[1] + q[2] * 0.2, Math.max(1, q[2] * rr(rng, 0.3, 0.45)), len, c);
+      }
+    }
+    return runs;
   }
 
-  // ---------- piece painters (all draw around the layout origin) ----------
-  function chromeGrad(g, lay) {
-    const gr = g.createLinearGradient(0, lay.y0, 0, lay.y1);
-    gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.35, '#d7dade'); gr.addColorStop(0.5, '#7d828a');
-    gr.addColorStop(0.56, '#c9ccd1'); gr.addColorStop(0.8, '#f4f5f6'); gr.addColorStop(1, '#9aa0a8');
-    return gr;
-  }
-  function drawBubble(g, rng, lay, sp) {   // also used for chrome (sp.chrome)
-    const P = lay.all, S = lay.S, o1 = S * 0.15, o2 = S * 0.17;
-    if (sp.shadow) { g.save(); g.translate(S * 0.22, S * 0.18); strokeAll(g, P, S + 2 * (o1 + o2), sp.shadowCol, true); g.restore(); }
-    g.save(); g.shadowColor = sp.outer; g.shadowBlur = S * 0.25; strokeAll(g, P, S + 2 * (o1 + o2), sp.outer, true); g.restore();
-    strokeAll(g, P, S + 2 * o1, sp.line, true);
-    if (sp.drips) drawDrips(g, rng, lay, sp.chrome ? '#b9bdc3' : (sp.fill2 || sp.fill), sp.line);
-    let fs = sp.fill;
-    if (sp.chrome) fs = chromeGrad(g, lay);
-    else if (sp.fill2) { const gr = g.createLinearGradient(0, lay.y0, 0, lay.y1); gr.addColorStop(0, sp.fill); gr.addColorStop(0.5, sp.fill); gr.addColorStop(1, sp.fill2); fs = gr; }
-    strokeAll(g, P, S, fs, true);
-    if (sp.chrome) { g.save(); g.translate(0, S * 0.04); strokeAll(g, P, S * 0.06, 'rgba(40,44,52,0.55)', true); g.restore(); }
-    // glossy highlights along the first part of each stroke, plus a few shine dots
-    g.save(); g.translate(-S * 0.18, -S * 0.2); strokeAll(g, P.map(p => partial(p, 0.38)), S * 0.13, 'rgba(255,255,255,0.85)', true); g.restore();
-    for (const L of lay.letters) if (rng() < 0.5) {
-      g.fillStyle = 'rgba(255,255,255,0.9)'; g.beginPath();
-      g.ellipse(L.cx + L.bw * rr(rng, -0.1, 0.25), L.by - lay.h * rr(rng, 0.6, 0.9), S * 0.1, S * 0.06, -0.6, 0, TAU); g.fill();
-    }
-    if (sp.chrome) { const n = 2 + Math.floor(rng() * 3); for (let i = 0; i < n; i++) { const L = pick(rng, lay.letters); star(g, L.cx + L.bw * 0.3, L.by - lay.h * rr(rng, 0.7, 1.0), S * rr(rng, 0.35, 0.6), '#ffffff'); } }
-  }
-  function drawBlock(g, rng, lay, sp) {
-    const P = lay.all, S = lay.S, o1 = S * 0.14, o2 = S * 0.16, steps = 7, dx = S * 0.06 * sp.dir, dy = S * 0.06;
-    const at = (i, fn) => { g.save(); g.translate(i * dx, i * dy); fn(); g.restore(); };
-    at(0, () => strokeAll(g, P, S + 2 * (o1 + o2), sp.outer, false, 'square', 'miter'));
-    at(steps, () => strokeAll(g, P, S + 2 * (o1 + o2), sp.outer, false, 'square', 'miter'));
-    for (let i = steps; i >= 0; i--) at(i, () => strokeAll(g, P, S + 2 * o1, sp.line, false, 'square', 'miter'));
-    for (let i = steps; i >= 1; i--) at(i, () => strokeAll(g, P, S, sp.ext, false, 'square', 'miter'));
-    strokeAll(g, P, S + 2 * o1, sp.line, false, 'square', 'miter');
-    if (sp.drips) drawDrips(g, rng, lay, sp.fill2 || sp.fill, sp.line);
-    let fs = sp.fill;
-    if (sp.fill2) { const gr = g.createLinearGradient(0, lay.y0, 0, lay.y1); gr.addColorStop(0, sp.fill); gr.addColorStop(1, sp.fill2); fs = gr; }
-    strokeAll(g, P, S, fs, false, 'square', 'miter');
-    g.save(); g.translate(-S * 0.13, -S * 0.13); strokeAll(g, P, S * 0.1, 'rgba(255,255,255,0.8)', false, 'butt', 'miter'); g.restore();
-  }
-  function drawTag(g, rng, lay, sp) {
-    const P = lay.all, S = lay.S, h = lay.h;
-    g.save();
-    if (sp.spray) { g.shadowColor = sp.col; g.shadowBlur = S * 1.2; }
-    if (sp.outline) strokeAll(g, P, S * 2.6, sp.outline, true);
-    strokeAll(g, P, S, sp.col, true);
-    if (rng() < 0.7) {   // underline swoosh
-      const y = lay.y1 + S * 0.5, x0 = lay.x0 - S * 2, x1 = lay.x1 + h * 0.4;
-      g.beginPath(); g.moveTo(x0, y + h * 0.08);
-      g.bezierCurveTo(x0 + (x1 - x0) * 0.3, y + h * 0.25, x0 + (x1 - x0) * 0.7, y - h * 0.05, x1, y - h * 0.3);
-      g.lineWidth = S * 0.9; g.strokeStyle = sp.col; g.lineCap = 'round'; g.stroke();
-    }
-    if (rng() < 0.4) { g.fillStyle = sp.col; for (let i = 0, n = 1 + Math.floor(rng() * 3); i < n; i++) { g.beginPath(); g.arc(lay.x1 + S * (2 + i * 2.5), lay.y1 - h * 0.2, S * 0.7, 0, TAU); g.fill(); } }
-    if (sp.spray) for (const L of lay.letters) if (rng() < 0.25) {
-      const x = L.cx + (rng() - 0.5) * L.bw * 0.5, len = h * rr(rng, 0.1, 0.5);
-      g.beginPath(); g.moveTo(x, L.by - S); g.lineTo(x, L.by + len); g.lineWidth = S * 0.45; g.strokeStyle = sp.col; g.stroke();
-      g.beginPath(); g.arc(x, L.by + len, S * 0.35, 0, TAU); g.fillStyle = sp.col; g.fill();
-    }
-    g.restore();
-  }
-  function drawCharacter(g, rng, sp) {
-    const r = sp.r, n = 12, sq = rr(rng, 0.85, 1.1), pts = [];
-    for (let i = 0; i < n; i++) { const a = i / n * TAU, k = 1 + (rng() - 0.5) * 0.16; pts.push([Math.cos(a) * r * k, Math.sin(a) * r * k * sq]); }
-    g.lineJoin = 'round'; g.lineCap = 'round';
-    closedPath(g, pts); g.lineWidth = r * 0.34; g.strokeStyle = sp.outer; g.stroke();
-    g.lineWidth = r * 0.14; g.strokeStyle = sp.line; g.stroke(); g.fillStyle = sp.fill; g.fill();
-    g.save(); closedPath(g, pts); g.clip();
-    g.fillStyle = 'rgba(0,0,0,0.2)'; g.beginPath(); g.ellipse(r * 0.4, r * 0.45, r * 0.9, r * 0.7, 0, 0, TAU); g.fill();
-    g.fillStyle = 'rgba(255,255,255,0.4)'; g.beginPath(); g.ellipse(-r * 0.42, -r * 0.48 * sq, r * 0.25, r * 0.13, -0.6, 0, TAU); g.fill();
-    g.restore();
-    closedPath(g, pts); g.lineWidth = r * 0.14; g.strokeStyle = sp.line; g.stroke();
-    const top = -r * sq, hair = Math.floor(rng() * 3);
-    if (hair === 0) {   // three spikes
-      g.fillStyle = sp.line;
-      for (let i = -1; i <= 1; i++) { g.beginPath(); g.moveTo(i * r * 0.4 - r * 0.18, top + r * 0.12); g.lineTo(i * r * 0.5, top - r * 0.45); g.lineTo(i * r * 0.4 + r * 0.18, top + r * 0.12); g.closePath(); g.fill(); }
-    } else if (hair === 1) {   // a little cap
-      g.fillStyle = sp.fill2; g.strokeStyle = sp.line; g.lineWidth = r * 0.1;
-      g.beginPath(); g.ellipse(0, top + r * 0.3, r * 0.8, r * 0.5, 0, PI, TAU); g.closePath(); g.fill(); g.stroke();
-      g.beginPath(); g.ellipse(r * 0.75, top + r * 0.3, r * 0.45, r * 0.1, 0, 0, TAU); g.fill(); g.stroke();
-    }
-    const lx = (rng() - 0.5) * r * 0.14, ly = (rng() - 0.5) * r * 0.12;
-    for (const s of [-1, 1]) {
-      const ex = s * r * 0.33, ey = -r * 0.1;
-      g.fillStyle = '#ffffff'; g.strokeStyle = sp.line; g.lineWidth = r * 0.06;
-      g.beginPath(); g.ellipse(ex, ey, r * 0.22, r * 0.28, 0, 0, TAU); g.fill(); g.stroke();
-      g.fillStyle = sp.line; g.beginPath(); g.arc(ex + lx, ey + ly, r * 0.09, 0, TAU); g.fill();
-      g.fillStyle = '#ffffff'; g.beginPath(); g.arc(ex + lx - r * 0.03, ey + ly - r * 0.03, r * 0.025, 0, TAU); g.fill();
-    }
-    const mouth = Math.floor(rng() * 3);
-    g.strokeStyle = sp.line; g.lineWidth = r * 0.08;
-    if (mouth === 1) { g.fillStyle = sp.line; g.beginPath(); g.ellipse(0, r * 0.45, r * 0.12, r * 0.15, 0, 0, TAU); g.fill(); }
-    else {
-      g.beginPath(); g.arc(0, r * 0.18, r * 0.42, PI * 0.15, PI * 0.85); g.stroke();
-      if (mouth === 2) { g.fillStyle = '#ff7aa8'; g.lineWidth = r * 0.05; g.beginPath(); g.ellipse(r * 0.1, r * 0.62, r * 0.12, r * 0.14, 0, 0, TAU); g.fill(); g.stroke(); }
-    }
-  }
-  function drawBuff(g, rng, sp) {   // a rollered-over rectangle of mismatched grey paint, origin top-left
-    g.fillStyle = sp.col;
-    for (let k = 0; k < 4; k++) g.fillRect(rr(rng, 0, 8), rr(rng, 0, 8), sp.w - rr(rng, 0, 16), sp.h - rr(rng, 0, 16));
-    for (let y = 0; y < sp.h; y += rr(rng, 3, 8)) {
-      g.fillStyle = rng() < 0.5 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
-      g.fillRect(rr(rng, 2, 10), y, sp.w - rr(rng, 4, 20), rr(rng, 2, 5));
-    }
-  }
-
-  function drawPiece(g, sp, ax, ay) {
-    const rng = makeRng(sp.seed);
-    g.save(); g.translate(ax, ay);
-    if (sp.kind === 'char') drawCharacter(g, rng, sp);
-    else if (sp.kind === 'buff') drawBuff(g, rng, sp);
-    else {
-      const lay = layout(rng, sp.word, sp.h, STYLE[sp.kind]);
-      if (sp.kind === 'tag') drawTag(g, rng, lay, sp);
-      else if (sp.kind === 'block') drawBlock(g, rng, lay, sp);
-      else drawBubble(g, rng, lay, sp);
-    }
-    g.restore();
-  }
-  function pieceBox(sp) {   // generous bounds of everything drawPiece paints, relative to its anchor
-    if (sp.kind === 'char') { const r = sp.r; return { x0: -r * 1.6, x1: r * 1.6, y0: -r * 1.8, y1: r * 1.5 }; }
-    if (sp.kind === 'buff') return { x0: -2, y0: -2, x1: sp.w + 2, y1: sp.h + 2 };
-    const lay = layout(makeRng(sp.seed), sp.word, sp.h, STYLE[sp.kind]), S = lay.S, h = sp.h;
-    if (sp.kind === 'tag') return { x0: lay.x0 - S * 4 - h * 0.05, x1: lay.x1 + h * 0.55, y0: lay.y0 - S * 3, y1: lay.y1 + h * 0.6 };
-    const e = S * 0.75 + h * 0.04;
-    return { x0: lay.x0 - e - S * 0.6, x1: lay.x1 + e + S * 0.6, y0: lay.y0 - e, y1: lay.y1 + e + S * 0.6 + (sp.drips ? h * 0.95 : 0) };
-  }
-  function newCanvas(w, h) { const c = document.createElement('canvas'); c.width = Math.max(1, Math.ceil(w)); c.height = Math.max(1, Math.ceil(h)); return c; }
-  function renderPiece(sp) {
-    const b = pieceBox(sp), c = newCanvas(b.x1 - b.x0 + 4, b.y1 - b.y0 + 4);
-    drawPiece(c.getContext('2d'), sp, -b.x0 + 2, -b.y0 + 2);
-    return c;
-  }
-  function wrapped(S, x, y, w, h, fn) {   // call fn(ox, oy) for every tile offset at which the box shows inside [0,S)^2
-    for (let ox = -S; ox <= S; ox += S) for (let oy = -S; oy <= S; oy += S)
-      if (x + ox < S && x + ox + w > 0 && y + oy < S && y + oy + h > 0) fn(ox, oy);
-  }
-  function blitWrapped(g, S, img, x, y, alpha) {
-    g.save(); g.globalAlpha = alpha;
-    wrapped(S, x, y, img.width, img.height, (ox, oy) => g.drawImage(img, x + ox, y + oy));
-    g.restore();
-  }
-
-  // ---------- specs ----------
-  function throwSpec(rng, h, kind) {
-    const fill = pick(rng, FILLS); let fill2 = chance(rng, 0.55) ? pick(rng, FILLS) : null; if (fill2 === fill) fill2 = null;
-    const short = WORDS.filter(w => w.length <= 4);
-    return {
-      kind, seed: subSeed(rng), word: pick(rng, kind === 'bubble' ? short : WORDS), h, fill, fill2,
-      line: chance(rng, 0.85) ? '#121212' : shade(fill, -0.75),
-      outer: kind === 'chrome' ? (chance(rng, 0.75) ? pick(rng, FILLS) : '#121212') : (chance(rng, 0.6) ? '#f6f4ee' : pick(rng, FILLS)),
-      shadow: kind === 'chrome' ? true : chance(rng, 0.5), shadowCol: chance(rng, 0.6) ? '#141414' : shade(pick(rng, FILLS), -0.55),
-      drips: chance(rng, kind === 'block' ? 0.3 : 0.55), ext: shade(fill2 || pick(rng, FILLS), -0.5), dir: chance(rng, 0.5) ? 1 : -1,
-      chrome: kind === 'chrome',
-    };
-  }
-  function tagSpec(rng, h) {
-    const col = pick(rng, TAGCOL);
-    return { kind: 'tag', seed: subSeed(rng), word: pick(rng, WORDS), h, col, spray: chance(rng, 0.5), outline: chance(rng, 0.15) ? pick(rng, FILLS) : null };
-  }
-  function charSpec(rng, r) {
-    return { kind: 'char', seed: subSeed(rng), r, fill: pick(rng, FILLS), fill2: pick(rng, FILLS), line: '#121212', outer: chance(rng, 0.7) ? '#f6f4ee' : pick(rng, FILLS) };
-  }
-
-  // ---------- concrete ----------
-  function tileNoise(rng, period) {
-    const v = new Float32Array(period * period); for (let i = 0; i < v.length; i++) v[i] = rng();
-    return (u, w) => {
-      const x = u * period, y = w * period, ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy;
-      const x0 = ((ix % period) + period) % period, y0 = ((iy % period) + period) % period, x1 = (x0 + 1) % period, y1 = (y0 + 1) % period;
-      const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
-      const a = v[y0 * period + x0], b = v[y0 * period + x1], c = v[y1 * period + x0], d = v[y1 * period + x1];
-      return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
-    };
-  }
-  function paintConcrete(g, S, rng) {
-    const img = g.createImageData(S, S), d = img.data;
-    const nA = tileNoise(rng, 3), nB = tileNoise(rng, 7), nC = tileNoise(rng, 19), nD = tileNoise(rng, 61);
-    const base = [186, 183, 176];
-    for (let y = 0; y < S; y++) {
-      const v = y / S;
-      for (let x = 0; x < S; x++) {
-        const u = x / S, i = (y * S + x) * 4;
-        const low = nA(u, v), mid = nB(u, v) * 0.55 + nC(u, v) * 0.45, fine = nD(u, v);
-        let s = (mid - 0.5) * 26 + (fine - 0.5) * 16 + (rng() - 0.5) * 22;
-        const stain = Math.max(0, low - 0.58) * 2.4;
-        if (rng() < 0.003) s -= 35 + rng() * 30;
-        d[i] = base[0] + s - stain * 30; d[i + 1] = base[1] + s - stain * 33; d[i + 2] = base[2] + s - stain * 42; d[i + 3] = 255;
+  // ---------- ageing ----------
+  // Age a transparent paint layer in place. wear 0 = fresh (rich colour, just pores and spray grain) .. 1 = very worn
+  // (sun-bleached and chalky, the film eroded in patches and water streaks so the concrete shows through).
+  function weather(cv, o) {
+    tables();
+    const W = cv.width, H = cv.height, g = ctx(cv), img = g.getImageData(0, 0, W, H), d = img.data;
+    const rng = makeRng((o.seed || 7) >>> 0), wear = clamp(o.wear || 0, 0, 1), k = o.grain || 1;
+    const off = () => (rng() * NS) | 0, ox1 = off(), oy1 = off(), ox2 = off(), oy2 = off(), ox3 = off(), oy3 = off(), osx = off();
+    // fine (1:1, the concrete's own tooth), mid (~3 px) and broad (~9 px per texel) noise, and the water streaks
+    const cF = new Int32Array(W), cM = new Int32Array(W), cB = new Int32Array(W), cs = new Float32Array(W);
+    for (let x = 0; x < W; x++) { cF[x] = (((x / k) | 0) + ox2) & NM; cM[x] = (((x / (3.2 * k)) | 0) + ox1) & NM; cB[x] = (((x / (9 * k)) | 0) + ox3) & NM; cs[x] = ST[(((x / (2.2 * k)) | 0) + osx) & NM]; }
+    const gone = o.gone != null ? o.gone : 0.55 * Math.pow(wear, 1.5);   // the film flaked off down to bare concrete
+    const thr = gone > 0.004 ? EQ(gone) : -1, soft = 0.05 + 0.04 * wear, resid = o.resid != null ? o.resid : 0.16;   // pigment left in the pores where it flaked
+    const fadeBig = (o.fade != null ? o.fade : 0.55) * wear;                // some areas bleach out much more than others
+    const streak = (o.streak != null ? o.streak : 0.6) * wear;
+    const des = clamp((o.des != null ? o.des : 0.82) * wear, 0, 0.92), chalk = (o.chalk != null ? o.chalk : 0.42) * wear;
+    const CH = o.chalkCol || [218, 211, 198];
+    const cov = o.cov != null ? o.cov : 0.1 + 0.08 * (1 - wear);
+    const pore = o.pore != null ? o.pore : 0.03 + 0.07 * wear;
+    const thin = 1 - (o.thin != null ? o.thin : 0.22) * wear;
+    const edge = o.edge != null ? o.edge : Math.max(3, Math.round(Math.min(W, H) * 0.02));
+    const grain = o.grainAmt != null ? o.grainAmt : 0.08;
+    let s = sub(rng) | 1;
+    for (let y = 0; y < H; y++) {
+      const rF = ((((y / k) | 0) + oy2) & NM) * NS, rM = ((((y / (3.2 * k)) | 0) + oy1) & NM) * NS, rB = ((((y / (9 * k)) | 0) + oy3) & NM) * NS;
+      const ey = edge > 0 ? Math.min(1, Math.min(y, H - 1 - y) / edge) : 1, yr = y / H;
+      for (let x = 0; x < W; x++) {
+        const i = (y * W + x) << 2, a0 = d[i + 3];
+        if (!a0) continue;
+        const nF = NF[rF + cF[x]], nM = NF[rM + cM[x]], nB = NT[rB + cB[x]];
+        let a = a0 / 255;
+        if (thr >= 0) {
+          const e = nF * 0.7 + nM * 0.3 + (nB - 0.5) * 0.3 * wear - cs[x] * streak * (0.12 + 0.2 * yr);
+          a *= resid + (1 - resid) * sstep(thr - soft, thr + soft, e);
+          if (a < 0.004) { d[i + 3] = 0; continue; }
+        }
+        if (fadeBig > 0) a *= 1 - fadeBig * sstep(0.3, 0.9, nB) - streak * 0.35 * cs[x];
+        s = (Math.imul(s, 1664525) + 1013904223) | 0; const q = (s >>> 8) / 16777216;
+        if (q < pore) a *= 0.12 + (q / pore) * 0.6;
+        a *= (1 - cov + cov * (nM * 0.6 + nF * 0.4)) * thin;
+        if (edge > 0) a *= ey * Math.min(1, Math.min(x, W - 1 - x) / edge);
+        if (a <= 0.004) { d[i + 3] = 0; continue; }
+        const n2 = nM;
+        let r = d[i], gg = d[i + 1], b = d[i + 2];
+        if (des > 0) { const L = r * 0.299 + gg * 0.587 + b * 0.114; r = L + (r - L) * (1 - des); gg = L + (gg - L) * (1 - des); b = L + (b - L) * (1 - des); }
+        if (chalk > 0) { const k = chalk * (0.7 + 0.6 * n2); r += (CH[0] - r) * k; gg += (CH[1] - gg) * k; b += (CH[2] - b) * k; }
+        const gn = 1 + (((s >>> 16) & 255) / 255 - 0.5) * grain;
+        d[i] = r * gn; d[i + 1] = gg * gn; d[i + 2] = b * gn; d[i + 3] = a * 255;
       }
     }
     g.putImageData(img, 0, 0);
-    const n = Math.max(2, Math.round(rr(rng, 6, 12) * S / 1024));   // vertical water / rust streaks
-    for (let k = 0; k < n; k++) {
-      const x = rng() * S, y0 = rng() * S, len = S * rr(rng, 0.15, 0.5), w = rr(rng, 3, 22) * S / 1024, a = rr(rng, 0.05, 0.14);
-      const col = chance(rng, 0.3) ? '120,80,45' : '60,58,52';
-      wrapped(S, x - w / 2, y0, w, len, (ox, oy) => {
-        const gr = g.createLinearGradient(0, y0 + oy, 0, y0 + oy + len);
-        gr.addColorStop(0, 'rgba(' + col + ',' + a + ')'); gr.addColorStop(1, 'rgba(' + col + ',0)');
-        g.fillStyle = gr; g.fillRect(x - w / 2 + ox, y0 + oy, w, len);
+    return cv;
+  }
+  // paint fn into a fresh layer, age it, lay it over g
+  function layer(g, W, H, wear, seed, fn, idx = 1, wo) {
+    const L = tmp(idx, W, H), lg = ctx(L);
+    fn(lg);
+    weather(L, Object.assign({ wear, seed }, wo || {}));
+    g.drawImage(L, 0, 0);
+  }
+  function scrapes(g, rng, W, H, n, k) {
+    g.save(); g.globalCompositeOperation = 'destination-out'; g.lineCap = 'round';
+    for (let i = 0; i < n; i++) {
+      const x = rr(rng, 0, W), y = rr(rng, 0, H), L = rr(rng, 0.04, 0.25) * W, a = rr(rng, -0.35, 0.35) + (chance(rng, 0.3) ? PI / 2 : 0), m = ri(rng, 1, 4);
+      for (let j = 0; j < m; j++) { g.globalAlpha = rr(rng, 0.25, 0.85) * k; g.lineWidth = rr(rng, 0.6, 2.4); const o = j * rr(rng, 2, 5); g.beginPath(); g.moveTo(x - Math.sin(a) * o, y + Math.cos(a) * o); g.lineTo(x + Math.cos(a) * L - Math.sin(a) * o, y + Math.sin(a) * L + Math.cos(a) * o); g.stroke(); }
+    }
+    g.restore();
+  }
+  // mismatched flat paint rolled over old writing: overlapping roller passes, lap marks, ragged ends
+  function buffPatch(g, rng, x, y, w, h, col) {
+    const c = rgbOf(col), vert = chance(rng, 0.65), span = vert ? w : h, len = vert ? h : w, rw = Math.max(5, span / Math.max(2, Math.round(span / rr(rng, 26, 70))));
+    g.fillStyle = rgba(c); g.fillRect(x + (vert ? 0 : len * 0.03), y + (vert ? len * 0.03 : 0), vert ? w : w * 0.94, vert ? h * 0.94 : h);
+    for (let p = -rw * 0.2; p < span; p += rw * rr(rng, 0.82, 0.95)) {   // the passes: ragged ends, faint lap marks
+      const t = shade(c, rr(rng, -0.018, 0.018)), j0 = rr(rng, -0.01, 0.045) * len, j1 = rr(rng, -0.01, 0.045) * len;
+      g.fillStyle = rgba(t, rr(rng, 0.85, 1)); g.beginPath();
+      if (vert) { const a = x + Math.max(0, p), b = x + Math.min(w, p + rw); g.moveTo(a, y + j0); g.lineTo(b, y + j0 + rr(rng, -3, 3)); g.lineTo(b, y + h - j1); g.lineTo(a, y + h - j1 + rr(rng, -3, 3)); }
+      else { const a = y + Math.max(0, p), b = y + Math.min(h, p + rw); g.moveTo(x + j0, a); g.lineTo(x + w - j1, a + rr(rng, -3, 3)); g.lineTo(x + w - j1, b); g.lineTo(x + j0 + rr(rng, -3, 3), b); }
+      g.closePath(); g.fill();
+      g.fillStyle = rgba(shade(c, -0.05), 0.25); if (vert) g.fillRect(x + clamp(p + rw, 0, w) - 1, y + j0, 1.5, h - j0 - j1); else g.fillRect(x + j0, y + clamp(p + rw, 0, h) - 1, w - j0 - j1, 1.5);
+    }
+  }
+
+  // ---------- tags & hand lettering ----------
+  // a handstyle: slanted, bouncing, connected letters with an exaggerated first letter, tails, underlines and dots
+  function tagGeom(rng, word, o = {}) {
+    const lay = layout(rng, word, G, { wk: o.wk || rr(rng, 0.4, 0.64), wmap: WM, gap: o.gap != null ? o.gap : rr(rng, -0.16, 0.05), slant: o.slant || [0.18, 0.6], rotJ: o.rotJ != null ? o.rotJ : 0.3, bounce: o.bounce != null ? o.bounce : 0.2, scaleJ: o.scaleJ != null ? o.scaleJ : 0.3, jit: o.jit != null ? o.jit : 0.045 });
+    const paths = [], Ls = lay.letters, sm = o.smooth != null ? o.smooth : 2;
+    Ls.forEach((L, i) => {
+      let ps = L.paths.map(p => chaikin(p, sm));
+      if (i === 0 && chance(rng, o.bigFirst != null ? o.bigFirst : 0.45)) { const k = rr(rng, 1.2, 1.55); ps = ps.map(p => p.map(([x, y]) => [L.cx + (x - L.cx) * k, 0.5 + (y - 0.5) * k])); }
+      L.hp = ps; paths.push(...ps);
+    });
+    if (!o.plain) {
+      for (let i = 0; i < Ls.length - 1; i++) if (chance(rng, 0.5)) {   // cursive joins
+        const a = Ls[i].hp[Ls[i].hp.length - 1], b = Ls[i + 1].hp[0], A = a[a.length - 1], Bp = b[0];
+        paths.push(chaikin([A, [(A[0] + Bp[0]) / 2, Math.max(A[1], Bp[1]) + rr(rng, 0.05, 0.2)], Bp], 2));
+      }
+      let lx0 = Infinity, lx1 = -Infinity, ly1 = -Infinity; paths.forEach(p => p.forEach(([x, y]) => { lx0 = Math.min(lx0, x); lx1 = Math.max(lx1, x); ly1 = Math.max(ly1, y); }));
+      const last = Ls[Ls.length - 1].hp, lp = last[last.length - 1], P0 = lp[lp.length - 1], P1 = lp[Math.max(0, lp.length - 3)];
+      const r = rng();
+      if (r < 0.35) {   // a tail off the last letter, swinging back under the word
+        let dx = P0[0] - P1[0], dy = P0[1] - P1[1]; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
+        const tail = chaikin([P0, [P0[0] + dx * 0.25, P0[1] + dy * 0.25 + 0.2], [lx1 + 0.05, ly1 + 0.3], [(lx0 + lx1) / 2, ly1 + 0.36], [lx0 - rr(rng, 0, 0.25), ly1 + rr(rng, 0.15, 0.3)]], 3);
+        paths.push(tail);
+        if (chance(rng, 0.45)) { const e = tail[tail.length - 1], f = tail[tail.length - 4]; arrowHead(paths, e, f, 0.18); }
+      } else if (r < 0.62) {   // an underline swoosh
+        const y = ly1 + rr(rng, 0.12, 0.25), u = chaikin([[lx0 - rr(rng, 0, 0.2), y + rr(rng, 0, 0.12)], [(lx0 + lx1) / 2, y + rr(rng, -0.06, 0.08)], [lx1 + rr(rng, 0.1, 0.35), y - rr(rng, 0.05, 0.3)]], 3);
+        paths.push(u); if (chance(rng, 0.5)) arrowHead(paths, u[u.length - 1], u[u.length - 4], 0.17);
+      }
+      if (!o.noHalo && chance(rng, 0.12)) { const L = Ls[0], hy = -0.5 - (L.sc || 1) * 0.3; paths.push(arc(L.cx + 0.1, hy, 0.32, 0.09, 18, 0, TAU)); }   // a halo
+      if (chance(rng, 0.25)) for (let k = 0, n = ri(rng, 1, 3); k < n; k++) { const x = lx1 + 0.15 + k * 0.17, y = 0.3 + rr(rng, -0.05, 0.05); paths.push([[x, y], [x + 0.01, y + 0.01]]); }
+    }
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    paths.forEach(p => p.forEach(([x, y]) => { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }));
+    return { paths, x0, x1, y0, y1 };
+  }
+  function arrowHead(paths, e, f, s) {
+    let dx = e[0] - f[0], dy = e[1] - f[1]; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
+    const px = -dy, py = dx;
+    paths.push([[e[0] - dx * s + px * s * 0.7, e[1] - dy * s + py * s * 0.7], [e[0], e[1]], [e[0] - dx * s - px * s * 0.7, e[1] - dy * s - py * s * 0.7]]);
+  }
+  // draw a tag geometry scaled to S px per letter height with its top-left bbox corner at (x, y)
+  function drawTag(g, rng, T, x, y, S, col, o = {}) {
+    const ox = x - (T.x0 - (o.pad || 0)) * S, oy = y - (T.y0 - (o.pad || 0)) * S;
+    const P = T.paths.map(p => p.map(([u, v]) => [ox + u * S, oy + v * S]));
+    pen(g, rng, P, Math.max(1, (o.w || 0.08) * S), col, o);
+  }
+  // a crew name in small blocky caps under / over a tag
+  function crewGeom(rng) { return tagGeom(rng, crew(rng), { wk: 0.5, gap: 0.1, slant: [0.05, 0.2], rotJ: 0.1, bounce: 0.06, scaleJ: 0.1, jit: 0.03, plain: true, bigFirst: 0, smooth: 1 }); }
+
+  // ---------- cartoons & doodles: fat outline round the merged shape, flat fills, soft spray shading, white shines ----------
+  const E = (cx, cy, rx, ry, a) => g => g.ellipse(cx, cy, rx, ry, a || 0, 0, TAU);
+  const PL = pts => g => polyPath(g, pts);
+  const SM = pts => g => {   // smooth closed curve through points
+    const n = pts.length, m = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], s = m(pts[n - 1], pts[0]);
+    g.moveTo(s[0], s[1]); for (let i = 0; i < n; i++) { const q = pts[i], e = m(q, pts[(i + 1) % n]); g.quadraticCurveTo(q[0], q[1], e[0], e[1]); } g.closePath();
+  };
+  const RR = (x0, y0, x1, y1, r) => g => { g.moveTo(x0 + r, y0); g.arcTo(x1, y0, x1, y1, r); g.arcTo(x1, y1, x0, y1, r); g.arcTo(x0, y1, x0, y0, r); g.arcTo(x0, y0, x1, y0, r); g.closePath(); };
+  const HEART = (cx, cy, s) => g => { g.moveTo(cx, cy + s * 0.95); g.bezierCurveTo(cx - s * 1.25, cy + s * 0.05, cx - s * 0.85, cy - s * 1.05, cx, cy - s * 0.45); g.bezierCurveTo(cx + s * 0.85, cy - s * 1.05, cx + s * 1.25, cy + s * 0.05, cx, cy + s * 0.95); g.closePath(); };
+  function F(g, p, col) { g.beginPath(); p(g); g.fillStyle = col; g.fill(); }
+  function S_(g, p, w, col) { g.beginPath(); p(g); g.lineWidth = w; g.strokeStyle = col; g.lineCap = 'round'; g.lineJoin = 'round'; g.stroke(); }
+  function Ln(g, pts, w, col, smooth) { g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); if (smooth) for (let i = 1; i < pts.length - 1; i++) g.quadraticCurveTo(pts[i][0], pts[i][1], (pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2); else for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]); if (smooth) { const l = pts[pts.length - 1]; g.lineTo(l[0], l[1]); } g.lineWidth = w; g.strokeStyle = col; g.lineCap = 'round'; g.lineJoin = 'round'; g.stroke(); }
+  function shine(g, x, y, r) { Ln(g, arc(x, y, r, r, 6, PI * 1.05, PI * 1.45), r * 0.45, 'rgba(255,255,255,0.92)'); F(g, E(x + r * 0.55, y - r * 0.85, r * 0.16, r * 0.16), 'rgba(255,255,255,0.9)'); }
+  function eye(g, x, y, rx, ry, look, line, lid) {
+    F(g, E(x, y, rx, ry), '#f7f5ef'); S_(g, E(x, y, rx, ry), 0.05, line);
+    F(g, E(x + look[0] * rx * 0.35, y + look[1] * ry * 0.3, rx * 0.5, ry * 0.5), line);
+    F(g, E(x + look[0] * rx * 0.35 - rx * 0.18, y + look[1] * ry * 0.3 - ry * 0.2, rx * 0.16, rx * 0.16), '#ffffff');
+    if (lid) { g.save(); g.beginPath(); E(x, y, rx, ry)(g); g.clip(); F(g, g2 => g2.rect(x - rx * 1.2, y - ry * 1.2, rx * 2.4, ry * (0.9 + lid)), lid > 0.5 ? line : 'rgba(0,0,0,0.0)'); g.restore(); S_(g, g2 => { g2.moveTo(x - rx, y - ry + ry * (0.9 + lid) * 0.9); g2.lineTo(x + rx, y - ry + ry * (0.9 + lid) * 0.9); }, 0.05, line); }
+  }
+  function toon(g, cx, cy, s, rot, build, o = {}) {
+    const parts = [], details = [];
+    build({ part: (p, fill, c) => parts.push({ p, fill, c }), detail: f => details.push(f) });
+    const line = o.line || BLK, OW = o.ow || 0.075, rj = o.rng || Math.random;
+    g.save(); g.translate(cx, cy); g.rotate(rot || 0); g.scale(s, s); g.lineJoin = 'round'; g.lineCap = 'round';
+    const outline = (w, col, a, jx, jy) => { g.globalAlpha = a; g.strokeStyle = col; g.lineWidth = w; g.save(); g.translate(jx || 0, jy || 0); for (const P of parts) { g.beginPath(); P.p(g); g.stroke(); } g.restore(); };
+    if (o.outer) { outline(OW * 2 + 0.2, o.outer, 0.25); outline(OW * 2 + 0.13, o.outer, 1); }
+    // overspray, then the line sprayed in two not-quite-matching passes
+    outline(OW * 2 + 0.12, line, 0.1); outline(OW * 2 + 0.05, line, 0.22);
+    outline(OW * 2 * (0.85 + rj() * 0.15), line, 1, (rj() - 0.5) * 0.025, (rj() - 0.5) * 0.025);
+    outline(OW * 2 * (0.85 + rj() * 0.15), line, 1, (rj() - 0.5) * 0.025, (rj() - 0.5) * 0.025);
+    g.globalAlpha = 1;
+    for (const P of parts) {
+      g.beginPath(); P.p(g); g.fillStyle = P.fill; g.fill();
+      if (P.c) {
+        const [x, y, r] = P.c; g.save(); g.beginPath(); P.p(g); g.clip();
+        const gr = g.createRadialGradient(x - r * 0.4, y - r * 0.45, r * 0.05, x - r * 0.15, y - r * 0.15, r * 1.45);
+        gr.addColorStop(0, 'rgba(255,255,255,0.3)'); gr.addColorStop(0.35, 'rgba(255,255,255,0)'); gr.addColorStop(0.72, 'rgba(0,0,0,0.08)'); gr.addColorStop(1, 'rgba(0,0,0,0.42)');
+        g.fillStyle = gr; g.fillRect(x - r * 2.2, y - r * 2.2, r * 4.4, r * 4.4); g.restore();
+      }
+    }
+    for (const f of details) { g.save(); f(g); g.restore(); }
+    g.restore();
+  }
+  const DOODLES = {
+    smiley(T, rng, P, L) {
+      const sad = chance(rng, 0.25), xs = chance(rng, 0.3);
+      T.part(E(0, 0, 0.9, 0.88), P.fill, [0, 0, 0.9]);
+      T.detail(g => {
+        if (xs) [-0.33, 0.33].forEach(ex => { Ln(g, [[ex - 0.13, -0.4], [ex + 0.13, -0.14]], 0.1, L); Ln(g, [[ex + 0.13, -0.4], [ex - 0.13, -0.14]], 0.1, L); });
+        else { F(g, E(-0.3, -0.26, 0.1, 0.17), L); F(g, E(0.3, -0.26, 0.1, 0.17), L); }
+        g.beginPath(); if (sad) g.arc(0, 0.68, 0.42, PI * 1.2, PI * 1.8); else g.arc(0, 0.02, 0.55, PI * 0.15, PI * 0.85); g.lineWidth = 0.1; g.strokeStyle = L; g.lineCap = 'round'; g.stroke();
+        if (!sad && chance(rng, 0.45)) { F(g, E(0.14, 0.62, 0.15, 0.13), '#ff6f8f'); S_(g, E(0.14, 0.62, 0.15, 0.13), 0.05, L); }
+        shine(g, -0.5, -0.5, 0.17);
       });
+    },
+    eyeball(T, rng, P, L) {
+      T.part(E(0, 0, 0.92, 0.84), '#f5f2ea', [0, 0, 0.9]);
+      T.detail(g => {
+        g.strokeStyle = 'rgba(205,45,45,0.85)'; g.lineWidth = 0.028; g.lineCap = 'round';
+        for (let k = 0; k < 8; k++) { const a = rng() * TAU; let x = Math.cos(a) * 0.86, y = Math.sin(a) * 0.78; g.beginPath(); g.moveTo(x, y); for (let j = 0; j < 4; j++) { x = x * 0.86 + (rng() - 0.5) * 0.12; y = y * 0.86 + (rng() - 0.5) * 0.12; g.lineTo(x, y); } g.stroke(); }
+        const ix = rr(rng, -0.25, 0.25), iy = rr(rng, -0.16, 0.16);
+        F(g, E(ix, iy, 0.42, 0.42), P.fill); for (let k = 0; k < 14; k++) { const a = k / 14 * TAU; Ln(g, [[ix + Math.cos(a) * 0.22, iy + Math.sin(a) * 0.22], [ix + Math.cos(a) * 0.38, iy + Math.sin(a) * 0.38]], 0.025, rgba(P.dark)); }
+        F(g, E(ix, iy, 0.2, 0.2), L); S_(g, E(ix, iy, 0.42, 0.42), 0.05, L);
+        F(g, E(ix - 0.13, iy - 0.13, 0.08, 0.08), '#ffffff'); shine(g, -0.5, -0.45, 0.16);
+      });
+    },
+    cat(T, rng, P, L) {
+      T.part(PL([[-0.74, -0.1], [-0.64, -0.98], [-0.16, -0.52]]), P.fill);
+      T.part(PL([[0.74, -0.1], [0.64, -0.98], [0.16, -0.52]]), P.fill);
+      T.part(E(0, 0.1, 0.82, 0.66), P.fill, [0, 0.1, 0.8]);
+      const look = [rr(rng, -0.6, 0.6), rr(rng, -0.3, 0.4)], lid = chance(rng, 0.4) ? 0.5 : 0;
+      T.detail(g => {
+        F(g, PL([[-0.6, -0.28], [-0.57, -0.76], [-0.3, -0.5]]), '#ff9fb8'); F(g, PL([[0.6, -0.28], [0.57, -0.76], [0.3, -0.5]]), '#ff9fb8');
+        eye(g, -0.31, 0.0, 0.17, 0.22, look, L, lid); eye(g, 0.31, 0.0, 0.17, 0.22, look, L, lid);
+        F(g, PL([[-0.09, 0.24], [0.09, 0.24], [0, 0.34]]), '#ff7a9a'); S_(g, PL([[-0.09, 0.24], [0.09, 0.24], [0, 0.34]]), 0.035, L);
+        Ln(g, [[0, 0.34], [0, 0.42]], 0.04, L); Ln(g, arc(-0.1, 0.42, 0.1, 0.08, 6, 0, PI), 0.04, L); Ln(g, arc(0.1, 0.42, 0.1, 0.08, 6, 0, PI), 0.04, L);
+        [[-1, 0.3], [-1, 0.42], [1, 0.3], [1, 0.42]].forEach(([sd, y]) => Ln(g, [[sd * 0.42, y], [sd * 0.98, y + (y - 0.36) * 1.6]], 0.03, L));
+        shine(g, -0.5, -0.18, 0.13);
+      });
+    },
+    dog(T, rng, P, L) {
+      T.part(E(-0.72, -0.02, 0.24, 0.5, 0.35), P.dark); T.part(E(0.72, -0.02, 0.24, 0.5, -0.35), P.dark);
+      T.part(E(0, 0, 0.72, 0.7), P.fill, [0, 0, 0.72]);
+      const look = [rr(rng, -0.5, 0.5), rr(rng, -0.3, 0.3)];
+      T.detail(g => {
+        F(g, E(0, 0.34, 0.4, 0.29), P.light); S_(g, E(0, 0.34, 0.4, 0.29), 0.045, L);
+        eye(g, -0.27, -0.12, 0.14, 0.17, look, L); eye(g, 0.27, -0.12, 0.14, 0.17, look, L);
+        F(g, E(0, 0.2, 0.15, 0.1), L); F(g, E(-0.04, 0.17, 0.05, 0.03), '#ffffff');
+        Ln(g, [[0, 0.3], [0, 0.44]], 0.04, L); Ln(g, arc(0, 0.38, 0.2, 0.12, 8, 0.1, PI - 0.1), 0.045, L);
+        if (chance(rng, 0.7)) { F(g, RR(-0.1, 0.46, 0.1, 0.78, 0.09), '#ff7a9a'); S_(g, RR(-0.1, 0.46, 0.1, 0.78, 0.09), 0.04, L); Ln(g, [[0, 0.5], [0, 0.66]], 0.025, L); }
+        shine(g, -0.42, -0.42, 0.13);
+      });
+    },
+    bird(T, rng, P, L) {
+      T.part(PL([[-0.62, 0.2], [-1.02, -0.1], [-0.95, 0.42]]), P.dark);
+      T.part(E(-0.1, 0.22, 0.68, 0.5), P.fill, [-0.1, 0.22, 0.65]);
+      T.part(E(0.44, -0.32, 0.36, 0.34), P.fill, [0.44, -0.32, 0.34]);
+      T.part(PL([[0.74, -0.4], [1.04, -0.29], [0.74, -0.19]]), '#f5b33a');
+      const look = [rr(rng, 0, 0.7), rr(rng, -0.3, 0.3)];
+      T.detail(g => {
+        Ln(g, [[-0.25, 0.68], [-0.28, 0.9], [-0.4, 0.95]], 0.05, '#e08a2a'); Ln(g, [[0.05, 0.7], [0.05, 0.92], [-0.08, 0.96]], 0.05, '#e08a2a');
+        F(g, E(-0.18, 0.18, 0.4, 0.25, -0.35), P.dark); S_(g, E(-0.18, 0.18, 0.4, 0.25, -0.35), 0.045, L);
+        eye(g, 0.5, -0.38, 0.12, 0.14, look, L);
+        shine(g, 0.32, -0.5, 0.1);
+      });
+    },
+    fish(T, rng, P, L) {
+      T.part(PL([[-0.6, 0], [-1.0, -0.42], [-0.9, 0], [-1.0, 0.42]]), P.dark);
+      T.part(PL([[-0.28, -0.36], [0.06, -0.72], [0.3, -0.36]]), P.dark);
+      T.part(E(0, 0, 0.72, 0.46), P.fill, [0, 0, 0.7]);
+      T.detail(g => {
+        for (let r = 0; r < 2; r++) for (let k = 0; k < 4; k++) Ln(g, arc(-0.3 + k * 0.17, -0.12 + r * 0.22, 0.08, 0.1, 5, -PI / 2, PI / 2), 0.025, rgba(P.dark));
+        Ln(g, arc(0.28, 0.0, 0.12, 0.3, 8, -PI / 2, PI / 2), 0.035, L);
+        eye(g, 0.42, -0.1, 0.12, 0.13, [0.4, 0], L);
+        Ln(g, [[0.66, 0.12], [0.56, 0.16]], 0.04, L);
+        [[0.92, -0.42, 0.07], [1.0, -0.68, 0.05], [0.9, -0.88, 0.035]].forEach(([x, y, r]) => S_(g, E(x, y, r, r), 0.03, L));
+        shine(g, -0.3, -0.22, 0.12);
+      });
+    },
+    skull(T, rng, P, L) {
+      const bone = pick(rng, ['#efe9dc', '#f4f1e8', P.light]);
+      T.part(E(0, -0.2, 0.74, 0.66), bone, [0, -0.2, 0.7]);
+      T.part(RR(-0.44, 0.2, 0.44, 0.76, 0.16), bone, [0, 0.45, 0.45]);
+      const goofy = chance(rng, 0.6);
+      T.detail(g => {
+        F(g, E(-0.29, -0.12, 0.2, 0.24), L); F(g, E(0.29, -0.12, 0.2, 0.24), L);
+        if (goofy) { F(g, E(-0.26, -0.1, 0.07, 0.07), '#ffffff'); F(g, E(0.33, -0.15, 0.07, 0.07), '#ffffff'); }
+        F(g, PL([[0, 0.12], [-0.09, 0.3], [0.09, 0.3]]), L);
+        Ln(g, [[-0.32, 0.5], [0.32, 0.5]], 0.04, L); for (let k = -2; k <= 2; k++) Ln(g, [[k * 0.13, 0.4], [k * 0.13, 0.62]], 0.035, L);
+        Ln(g, [[0.2, -0.82], [0.12, -0.66], [0.22, -0.56], [0.14, -0.46]], 0.03, L);
+        shine(g, -0.42, -0.55, 0.14);
+      });
+    },
+    lowrider(T, rng, P, L) {   // long, low, wheels tucked up under the fenders, chrome and whitewalls; the front's up off a hop
+      T.part(E(-0.62, 0.2, 0.17, 0.17), '#1b1b1b'); T.part(E(0.64, 0.2, 0.17, 0.17), '#1b1b1b');
+      T.part(PL([[-1.08, 0.0], [-1.05, -0.1], [-0.42, -0.13], [-0.24, -0.36], [0.2, -0.36], [0.36, -0.14], [1.0, -0.11], [1.08, -0.02], [1.06, 0.12], [-1.06, 0.12]]), P.fill, [0, -0.05, 1.0]);
+      T.detail(g => {
+        const win = [[-0.2, -0.31], [0.0, -0.31], [0.0, -0.15], [-0.34, -0.15]], win2 = [[0.05, -0.31], [0.18, -0.31], [0.3, -0.15], [0.05, -0.15]];
+        F(g, PL(win), '#9fd6f2'); F(g, PL(win2), '#9fd6f2'); S_(g, PL(win), 0.03, L); S_(g, PL(win2), 0.03, L); Ln(g, [[-0.16, -0.27], [-0.05, -0.27]], 0.025, 'rgba(255,255,255,0.8)');
+        Ln(g, [[-1.0, -0.02], [1.02, -0.01]], 0.03, '#e3e6e8'); Ln(g, [[-1.0, 0.045], [1.02, 0.045]], 0.018, pick(rng, ['#ffd166', '#ff6fd8', '#ffffff', '#6ff7d0']));
+        Ln(g, [[0.02, -0.12], [0.02, 0.1]], 0.022, L); Ln(g, [[0.12, -0.06], [0.2, -0.06]], 0.025, '#e3e6e8');
+        Ln(g, [[0.98, 0.1], [1.12, 0.1]], 0.055, '#dfe2e5'); Ln(g, [[-1.12, 0.1], [-0.98, 0.1]], 0.055, '#dfe2e5');
+        F(g, E(1.04, -0.05, 0.035, 0.025), '#fff3b0'); F(g, E(-1.05, -0.04, 0.03, 0.03), '#ff4b4b');
+        [[-0.62, 0.2], [0.64, 0.2]].forEach(([x, y]) => { g.save(); g.beginPath(); g.rect(x - 0.3, 0.12, 0.6, 0.4); g.clip(); F(g, E(x, y, 0.13, 0.13), '#f4f2ec'); F(g, E(x, y, 0.095, 0.095), '#d4c08a'); for (let k = 0; k < 12; k++) { const a = k / 12 * PI; Ln(g, [[x + Math.cos(a) * 0.09, y + Math.sin(a) * 0.09], [x - Math.cos(a) * 0.09, y - Math.sin(a) * 0.09]], 0.01, '#8a7a4a'); } F(g, E(x, y, 0.028, 0.028), '#f4f2ec'); g.restore(); });
+        Ln(g, [[-0.95, -0.08], [0.0, -0.1]], 0.03, 'rgba(255,255,255,0.65)');
+      });
+    },
+    boombox(T, rng, P, L) {
+      T.part(RR(-0.95, -0.36, 0.95, 0.5, 0.12), P.fill, [0, 0.07, 0.9]);
+      T.detail(g => {
+        Ln(g, [[-0.52, -0.36], [-0.48, -0.62], [0.48, -0.62], [0.52, -0.36]], 0.12, L); Ln(g, [[-0.48, -0.56], [0.48, -0.56]], 0.04, rgba(P.light));
+        Ln(g, [[0.78, -0.36], [1.0, -0.92]], 0.03, '#b9bec4');
+        [-0.53, 0.53].forEach(x => { F(g, E(x, 0.1, 0.3, 0.3), L); F(g, E(x, 0.1, 0.22, 0.22), '#3a3a3e'); F(g, E(x, 0.1, 0.1, 0.1), rgba(P.dark)); F(g, E(x - 0.04, 0.06, 0.035, 0.035), '#ffffff'); });
+        F(g, RR(-0.18, -0.2, 0.18, 0.14, 0.03), '#2a2a2e'); F(g, RR(-0.12, -0.14, 0.12, 0.02, 0.02), '#7fb6d6');
+        for (let k = 0; k < 4; k++) F(g, RR(-0.16 + k * 0.085, -0.31, -0.1 + k * 0.085, -0.24, 0.01), L);
+        Ln(g, [[-0.88, 0.42], [0.88, 0.42]], 0.03, rgba(P.dark));
+      });
+    },
+    cassette(T, rng, P, L) {
+      T.part(RR(-0.95, -0.62, 0.95, 0.62, 0.08), P.fill, [0, 0, 0.95]);
+      T.detail(g => {
+        F(g, RR(-0.8, -0.5, 0.8, 0.16, 0.04), '#f3eedf'); F(g, g2 => g2.rect(-0.8, -0.38, 1.6, 0.08), rgba(P.dark));
+        F(g, RR(-0.45, -0.24, 0.45, 0.08, 0.05), '#2b2b2e');
+        [-0.27, 0.27].forEach(x => { F(g, E(x, -0.08, 0.12, 0.12), '#f4f2ec'); for (let k = 0; k < 6; k++) { const a = k / 6 * TAU; F(g, E(x + Math.cos(a) * 0.06, -0.08 + Math.sin(a) * 0.06, 0.022, 0.022), '#2b2b2e'); } });
+        F(g, PL([[-0.6, 0.62], [-0.5, 0.32], [0.5, 0.32], [0.6, 0.62]]), rgba(shade(P.fill, -0.15))); S_(g, PL([[-0.6, 0.62], [-0.5, 0.32], [0.5, 0.32], [0.6, 0.62]]), 0.03, L);
+        [[-0.85, -0.52], [0.85, -0.52], [-0.85, 0.52], [0.85, 0.52]].forEach(([x, y]) => F(g, E(x, y, 0.035, 0.035), L));
+      });
+    },
+    headphones(T, rng, P, L) {
+      T.part(g => { g.arc(0, 0.12, 0.86, PI, 0); g.arc(0, 0.12, 0.7, 0, PI, true); g.closePath(); }, P.dark);
+      T.part(RR(-1.0, -0.02, -0.6, 0.76, 0.16), P.fill, [-0.8, 0.37, 0.4]); T.part(RR(0.6, -0.02, 1.0, 0.76, 0.16), P.fill, [0.8, 0.37, 0.4]);
+      T.detail(g => { F(g, RR(-0.62, 0.08, -0.5, 0.66, 0.05), '#2b2b2e'); F(g, RR(0.5, 0.08, 0.62, 0.66, 0.05), '#2b2b2e'); shine(g, -0.88, 0.1, 0.1); shine(g, 0.72, 0.1, 0.1); });
+    },
+    blobby(T, rng, P, L) {
+      const n = ri(rng, 7, 10), pts = []; for (let k = 0; k < n; k++) { const a = k / n * TAU, r = rr(rng, 0.72, 0.92); pts.push([Math.cos(a) * r, Math.sin(a) * r * 0.9]); }
+      T.part(E(-0.55, 0.8, 0.16, 0.12), P.dark); T.part(E(0.4, 0.82, 0.16, 0.12), P.dark);
+      T.part(SM(pts), P.fill, [0, 0, 0.85]);
+      const ne = ri(rng, 1, 3);
+      T.detail(g => {
+        const ex = ne === 1 ? [[0, -0.25, 0.26]] : ne === 2 ? [[-0.27, -0.25, 0.18], [0.27, -0.25, 0.18]] : [[-0.34, -0.2, 0.15], [0.05, -0.38, 0.18], [0.36, -0.15, 0.13]];
+        ex.forEach(([x, y, r]) => eye(g, x, y, r, r * 1.1, [rr(rng, -0.6, 0.6), rr(rng, -0.4, 0.4)], L));
+        g.beginPath(); g.arc(0, 0.12, 0.4, PI * 0.12, PI * 0.88); g.closePath(); g.fillStyle = '#3a1520'; g.fill(); g.lineWidth = 0.05; g.strokeStyle = L; g.stroke();
+        for (let k = 0; k < 4; k++) F(g, PL([[-0.26 + k * 0.17, 0.24], [-0.18 + k * 0.17, 0.24], [-0.22 + k * 0.17, 0.36]]), '#ffffff');
+        shine(g, -0.45, -0.5, 0.15);
+      });
+    },
+    flames(T, rng, P, L) {
+      const tongue = (x, w, h) => [[x - w, 0.8], [x - w * 0.9, 0.2], [x - w * 0.2, -h * 0.5], [x + w * 0.1, -h], [x + w * 0.35, -h * 0.35], [x + w * 0.95, 0.2], [x + w, 0.8]];
+      const pts = [[-0.9, 0.85], ...tongue(-0.5, 0.42, rr(rng, 0.5, 0.8)), ...tongue(0.02, 0.45, rr(rng, 0.85, 1.0)), ...tongue(0.52, 0.4, rr(rng, 0.45, 0.75)), [0.9, 0.85]];
+      T.part(g => { const p = chaikin(pts, 2); polyPath(g, p); }, '#f2541e', [0, 0.2, 0.9]);
+      T.detail(g => { const inner = chaikin(pts.map(([x, y]) => [x * 0.68, 0.85 - (0.85 - y) * 0.7]), 2); F(g, PL(inner), '#ffb02e'); const core = chaikin(pts.map(([x, y]) => [x * 0.4, 0.85 - (0.85 - y) * 0.42]), 2); F(g, PL(core), '#fff1a0'); });
+    },
+    notes(T, rng, P, L) {
+      T.part(E(-0.48, 0.55, 0.27, 0.19, -0.4), P.fill, [-0.48, 0.55, 0.27]); T.part(E(0.46, 0.38, 0.27, 0.19, -0.4), P.fill, [0.46, 0.38, 0.27]);
+      T.part(g => g.rect(-0.28, -0.62, 0.09, 1.15), P.fill); T.part(g => g.rect(0.66, -0.8, 0.09, 1.15), P.fill);
+      T.part(PL([[-0.28, -0.62], [0.75, -0.82], [0.75, -0.6], [-0.28, -0.4]]), P.fill);
+      T.detail(g => { shine(g, -0.55, 0.48, 0.1); shine(g, 0.4, 0.31, 0.1); });
+    },
+    heart(T, rng, P, L) {
+      T.part(HEART(0, 0.05, 0.9), pick(rng, ['#e8202e', '#ff4f8b', '#ff7ab6']), [0, -0.1, 0.9]);
+      T.detail(g => { shine(g, -0.45, -0.38, 0.17); });
+    },
+    sparkle(T, rng, P, L) {
+      const k = 0.2; T.part(PL([[0, -1], [k, -k], [1, 0], [k, k], [0, 1], [-k, k], [-1, 0], [-k, -k]]), pick(rng, ['#ffffff', '#fff1a0', '#bff3ff']));
+    },
+  };
+  const CHAR_KINDS = ['cat', 'dog', 'bird', 'fish', 'skull', 'lowrider', 'boombox', 'cassette', 'headphones', 'eyeball', 'smiley', 'blobby', 'flames', 'notes'];
+  const BOTTOM = { smiley: 0.86, eyeball: 0.82, cat: 0.74, dog: 0.7, bird: 0.68, fish: 0.44, skull: 0.74, lowrider: 0.12, boombox: 0.48, cassette: 0.6, headphones: 0.74, blobby: 0.82, flames: 0.84, notes: 0.7, heart: 0.9, sparkle: 0.9 };
+  const SMALL_DOODLES = ['smiley', 'eyeball', 'sparkle', 'heart', 'notes', 'flames', 'fish', 'cat', 'blobby', 'cassette', 'bird', 'headphones', 'smiley'];
+  // a doodle centred at (cx, cy), radius r px; returns its rough extent
+  function doodle(g, rng, kind, cx, cy, r, o = {}) {
+    const P = o.pal || pick(rng, TOON), L = o.line || BLK, rot = o.rot != null ? o.rot : rr(rng, -0.25, 0.25);
+    const fn = DOODLES[kind] || DOODLES.smiley;
+    toon(g, cx, cy, r, kind === 'lowrider' ? rr(rng, -0.14, -0.04) : rot, T => fn(T, rng, P, L), { line: L, ow: kind === 'sparkle' ? 0.05 : 0.075, outer: o.outer, rng });
+  }
+  const sparkle = (g, rng, x, y, r, col) => toon(g, x, y, r, rr(rng, -0.3, 0.3), T => DOODLES.sparkle(T, rng, null, BLK), { ow: 0.04, line: col || BLK, rng });
+
+  // ---------- styles (each paints one decal canvas) ----------
+  const margin = cv => Math.round(Math.min(cv.width, cv.height) * 0.07);
+  // a few old worn tags under whatever goes on top
+  function oldTags(g, rng, W, H, n, wear, hr) {
+    layer(g, W, H, wear, sub(rng), lg => {
+      for (let k = 0; k < n; k++) {
+        const T = tagGeom(rng, pick(rng, WORDS)), hh = H * rr(rng, hr[0], hr[1]), sc = hh / (T.y1 - T.y0 + 0.4), tw = (T.x1 - T.x0 + 0.4) * sc;
+        if (tw > W * 0.9) continue;
+        drawTag(lg, rng, T, rr(rng, W * 0.05, W * 0.95 - tw), rr(rng, H * 0.07, H * 0.93 - hh), sc, pick(rng, TAGC), { w: rr(rng, 0.07, 0.14), pad: 0.2 });
+      }
+    });
+  }
+
+  // huge rolled straight letters, black drop shadow, rolled outline, roller texture, long thin roller drips
+  function blockbuster(cv, rng, o) {
+    const W = cv.width, H = cv.height, g = ctx(cv), wear = o.wear;
+    const word = o.word || pick(rng, BB_WORDS), [fill, line, shadow] = o.scheme || pick(rng, BB_SCHEMES);
+    const sw = rr(rng, 0.32, 0.4), noLine = chance(rng, 0.2), ow = noLine ? 0 : rr(rng, 0.035, 0.06);
+    const dx = rr(rng, 0.03, 0.09) * (chance(rng, 0.7) ? 1 : -1), dy = rr(rng, 0.07, 0.13);
+    const st = { cap: 'square', join: 'miter', miter: 6 };
+    const lay = layout(rng, word, BK, { wk: rr(rng, 0.62, 0.8), wmap: BKW, gap: sw + ow * 2 + rr(rng, -0.01, 0.05), slant: [-0.03, 0.09], rotJ: 0.035, bounce: 0.04, scaleJ: 0.05, jit: 0.015 });
+    const e = sw / 2 + ow + 0.01, f = fitBox(lay, [e + Math.max(0, -dx), e, e + Math.max(0, dx), e + dy + 0.12], { x: W * 0.03, y: H * 0.07, w: W * 0.94, h: H * 0.86 });
+    const Ls = place(lay, f), S = f.S, Wp = sw * S, Op = ow * S;
+    wobbleLetters(rng, Ls, S * 0.006, S * 0.05);
+    if (chance(rng, 0.6)) oldTags(g, rng, W, H, ri(rng, 2, 4), clamp(wear + 0.25, 0.65, 0.95), [0.2, 0.35]);
+    layer(g, W, H, wear, sub(rng), lg => {
+      const n = Math.max(6, Math.ceil(Math.hypot(dx, dy) * S / 3));   // drop shadow: the letters dragged down and across
+      for (let i = n; i >= 1; i--) { lg.save(); lg.translate(dx * S * i / n, dy * S * i / n); Ls.forEach(L => body(lg, L, Wp, Op, rgba(shadow), st)); lg.restore(); }
+      if (!noLine) Ls.forEach(L => body(lg, L, Wp, Op, rgba(line), st));
+      const c = rgbOf(fill), vertical = chance(rng, 0.72), rw = Math.max(6, S * rr(rng, 0.12, 0.2));
+      Ls.forEach(L => masked(lg, W, H, L, Wp, st, tg => {   // roller passes, lap marks, dry skips
+        const x0 = L.x0 - Wp, y0 = L.y0 - Wp, w = L.x1 - L.x0 + 2 * Wp, h = L.y1 - L.y0 + 2 * Wp;
+        tg.fillStyle = rgba(c); tg.fillRect(x0, y0, w, h);
+        for (let p = (vertical ? x0 : y0) - rw * rng(); p < (vertical ? x0 + w : y0 + h); p += rw * rr(rng, 0.8, 0.95)) {
+          tg.fillStyle = rgba(shade(c, rr(rng, -0.06, 0.04)), rr(rng, 0.25, 0.55)); if (vertical) tg.fillRect(p, y0, rw, h); else tg.fillRect(x0, p, w, rw);
+          tg.fillStyle = rgba(shade(c, -0.12), rr(rng, 0.08, 0.22)); if (vertical) tg.fillRect(p + rw - 2, y0, 2, h); else tg.fillRect(x0, p + rw - 2, w, 2);
+        }
+        tg.globalCompositeOperation = 'destination-out';
+        for (let k = 0; k < 26; k++) { tg.globalAlpha = rr(rng, 0.12, 0.45); const px = rr(rng, x0, x0 + w), py = rr(rng, y0, y0 + h); if (vertical) tg.fillRect(px, py, rr(rng, 2, rw * 0.5), rr(rng, h * 0.05, h * 0.35)); else tg.fillRect(px, py, rr(rng, w * 0.05, w * 0.35), rr(rng, 2, rw * 0.5)); }
+        tg.globalCompositeOperation = 'source-over'; tg.globalAlpha = 1;
+      }));
+      if (!noLine && chance(rng, 0.2)) Ls.forEach(L => masked(lg, W, H, L, Wp, st, tg => { tg.translate(-Wp * 0.24, -Wp * 0.24); body(tg, { paths: L.paths.map(p => partial(p, 0.5)), polys: [] }, Wp * 0.09, 0, rgba(line, 0.8), { cap: 'butt', join: 'miter' }); }));
+      const maxY = H * 0.95;   // roller drips off the bottoms
+      Ls.forEach(L => { for (let k = 0, nd = ri(rng, 0, 3); k < nd; k++) { const x = rr(rng, L.x0, L.x1) + dx * S, y = L.y1 + Wp / 2 + dy * S * 0.6; drip(lg, x, y, Math.max(1.2, S * rr(rng, 0.007, 0.014)), Math.min(maxY - y, S * rr(rng, 0.04, 0.14)), rgba(chance(rng, 0.7) ? shadow : fill)); } });
+    }, 2, { chalk: 0.2, des: 0.55, thin: 0.1, fade: 0.3, resid: 0.3 });
+    if (chance(rng, o.buff != null ? o.buff : 0.3)) layer(g, W, H, 0.1, sub(rng), lg => { const bw = W * rr(rng, 0.12, 0.3), bh = H * rr(rng, 0.5, 0.85); buffPatch(lg, rng, rr(rng, W * 0.04, W * 0.96 - bw), rr(rng, H * 0.06, H * 0.94 - bh), bw, bh, pick(rng, BUFFS)); });
+    if (chance(rng, 0.6)) layer(g, W, H, clamp(wear - 0.3, 0.05, 0.7), sub(rng), lg => { for (let k = 0, n = ri(rng, 1, 2); k < n; k++) { const T = tagGeom(rng, pick(rng, WORDS)), hh = H * rr(rng, 0.14, 0.24), sc = hh / (T.y1 - T.y0 + 0.4), tw = (T.x1 - T.x0 + 0.4) * sc; drawTag(lg, rng, T, rr(rng, W * 0.05, W * 0.95 - tw), rr(rng, H * 0.08, H * 0.92 - hh), sc, pick(rng, [BLK, '#d42a2a', SILV, '#2a57d4']), { w: rr(rng, 0.08, 0.13), pad: 0.2, drips: 0.3, maxY: H * 0.95 }); } });
+  }
+
+  // a giant handstyle rolled with a pole roller: constant thick line, square ends, lots of drips
+  function rollertag(cv, rng, o) {
+    const W = cv.width, H = cv.height, g = ctx(cv);
+    const T = tagGeom(rng, o.word || pick(rng, WORDS), { wk: rr(rng, 0.72, 1.0), gap: rr(rng, 0.0, 0.16), slant: [0.05, 0.32], rotJ: 0.2, bounce: 0.12, scaleJ: 0.15, jit: 0.035, bigFirst: 0.3, smooth: 1, noHalo: true });
+    const col = o.color || pick(rng, [WHT, WHT, WHT, BLK, '#d42a2a', '#8fc4f2']), lw = rr(rng, 0.13, 0.17);
+    const bw = T.x1 - T.x0 + 0.3 + lw, bh = T.y1 - T.y0 + 0.5 + lw, S = Math.min(W * 0.92 / bw, H * 0.8 / bh);
+    const x = (W - bw * S) / 2, y = H * 0.07 + (H * 0.8 - bh * S) / 2;
+    if (chance(rng, 0.5)) oldTags(g, rng, W, H, ri(rng, 1, 3), clamp(o.wear + 0.25, 0.65, 0.95), [0.18, 0.3]);
+    layer(g, W, H, o.wear, sub(rng), lg => drawTag(lg, rng, T, x, y, S, col, { w: lw, pad: 0.15 + lw / 2, cap: 'butt', soft: 0.8, pressure: 0.07, blob: false, taper: 0.92, drips: 0.6, dripLen: 10, maxY: H * 0.95 }), 2, { chalk: 0.25, thin: 0.08, resid: 0.3 });
+  }
+
+  // bubble / angular throw-up: fat outline, quick scribbled fill, shines, maybe a second outline, plus the writer's tag
+  function throwup(cv, rng, o) {
+    const W = cv.width, H = cv.height, g = ctx(cv), wear = o.wear;
+    const word = o.word || pick(rng, TU_WORDS), round = chance(rng, 0.75), set = round ? G : BK;
+    const sw = rr(rng, 0.36, 0.46), ow = rr(rng, 0.045, 0.07), outer = chance(rng, 0.35) ? rr(rng, 0.035, 0.06) : 0;
+    const st = round ? { cap: 'round', join: 'round', smooth: true } : { cap: 'round', join: 'round' };
+    const lay = layout(rng, word, set, { wk: rr(rng, 0.6, 0.78), wmap: round ? WM : BKW, gap: sw * rr(rng, 0.15, 0.5) - 0.04, slant: [-0.03, 0.16], rotJ: 0.3, bounce: 0.2, scaleJ: 0.22, jit: round ? 0.03 : 0.015 });
+    let fill = o.fill || pick(rng, TU_FILL), line = o.line || pick(rng, TU_LINE); if (fill === BLK) line = pick(rng, [SILV, WHT, '#e2463c', '#8fc4f2']);
+    const outerCol = pick(rng, [WHT, WHT, '#f2a3c7', '#8fc4f2', '#f5d04a', BLK]), tagOn = o.tagOn != null ? o.tagOn : chance(rng, 0.65);
+    const e = sw / 2 + ow + outer + 0.04, box = tagOn ? { x: W * 0.05, y: H * 0.07, w: W * 0.78, h: H * 0.8 } : { x: W * 0.06, y: H * 0.08, w: W * 0.88, h: H * 0.8 };
+    const f = fitBox(lay, [e, e, e, e + 0.1], box), Ls = place(lay, f), S = f.S, Wp = sw * S, Op = ow * S, Xp = outer * S;
+    wobbleLetters(rng, Ls, S * 0.012, S * 0.04);
+    if (o.old !== false && chance(rng, 0.45)) oldTags(g, rng, W, H, ri(rng, 1, 3), clamp(wear + 0.3, 0.65, 0.95), [0.16, 0.3]);
+    layer(g, W, H, wear, sub(rng), lg => {
+      if (outer) Ls.forEach(L => { lg.save(); lg.globalAlpha = 0.25; body(lg, L, Wp, Op + Xp + S * 0.03, rgba(outerCol), st); lg.restore(); body(lg, L, Wp, Op + Xp, rgba(outerCol), st); });
+      const c = rgbOf(fill), silver = fill === SILV || fill === '#d0d3d6';
+      Ls.forEach(L => {
+        lg.save(); lg.globalAlpha = 0.12; body(lg, L, Wp, Op + S * 0.06, rgba(line), st); lg.globalAlpha = 0.22; body(lg, L, Wp, Op + S * 0.025, rgba(line), st); lg.restore();
+        body(lg, L, Wp, Op * rr(rng, 0.9, 1.1), rgba(line), st);
+        speckle(lg, rng, L.paths, Wp + 2 * Op, rgba(line), 0.12);
+        masked(lg, W, H, L, Wp, st, tg => {
+          const x0 = L.x0 - Wp, y0 = L.y0 - Wp, w = L.x1 - L.x0 + 2 * Wp, h = L.y1 - L.y0 + 2 * Wp;
+          if (silver) { const gr = tg.createLinearGradient(0, y0, 0, y0 + h); gr.addColorStop(0, '#dfe2e5'); gr.addColorStop(0.5, '#c2c6ca'); gr.addColorStop(1, '#a2a7ad'); tg.fillStyle = gr; }
+          else tg.fillStyle = rgba(c, 0.92);
+          tg.fillRect(x0, y0, w, h);
+          tg.strokeStyle = rgba(silver ? [238, 240, 242] : shade(c, lum(c) > 140 ? -0.1 : 0.12), 0.5); tg.lineWidth = Math.max(2, Wp * 0.3); tg.lineJoin = 'round'; tg.beginPath();
+          let x = x0, down = true; tg.moveTo(x, y0); while (x < x0 + w) { x += Wp * rr(rng, 0.25, 0.5); tg.lineTo(x, down ? y0 + h : y0); down = !down; } tg.stroke();
+        });
+        if (chance(rng, 0.6)) masked(lg, W, H, L, Wp, st, tg => { tg.translate(-Wp * 0.2, -Wp * 0.22); tg.strokeStyle = 'rgba(255,255,255,0.85)'; tg.lineWidth = Wp * 0.1; tg.lineCap = 'round'; trace(tg, [partial(L.paths[0], rr(rng, 0.12, 0.3))], st.smooth); tg.stroke(); });
+      });
+      Ls.forEach(L => { if (chance(rng, 0.35)) { lg.fillStyle = 'rgba(255,255,255,0.9)'; lg.beginPath(); lg.arc(L.x0 + (L.x1 - L.x0) * 0.3, L.y0 + Wp * 0.1, Wp * 0.08, 0, TAU); lg.fill(); } });
+      if (chance(rng, 0.3)) sparkle(lg, rng, rr(rng, f.x0 + S * 0.2, f.x1 - S * 0.2), f.y0 + S * 0.2, S * rr(rng, 0.1, 0.15), BLK);
+      if (chance(rng, 0.35)) { const maxY = H * 0.95; Ls.forEach(L => { if (chance(rng, 0.5)) { const y = L.y1 + Wp / 2; drip(lg, rr(rng, L.x0, L.x1), y, Math.max(1.2, Op * rr(rng, 0.35, 0.55)), Math.min(maxY - y, S * rr(rng, 0.06, 0.22)), rgba(line)); } }); }
+      if (tagOn) {   // the writer's own tag riding along
+        const T = tagGeom(rng, pick(rng, WORDS)), hh = H * rr(rng, 0.16, 0.22), sc = hh / (T.y1 - T.y0 + 0.4), tw = (T.x1 - T.x0 + 0.4) * sc;
+        const tx = clamp(f.x1 - tw * 0.35, W * 0.04, W * 0.96 - tw), ty = clamp(chance(rng, 0.6) ? f.y1 - hh * 0.55 : f.y0 - hh * 0.35, H * 0.05, H * 0.95 - hh);
+        drawTag(lg, rng, T, tx, ty, sc, pick(rng, lum(fill) > 120 ? [BLK, BLK, '#d42a2a', '#2a57d4'] : [WHT, SILV, '#f5d04a']), { w: rr(rng, 0.08, 0.12), pad: 0.2 });
+      }
+    }, 2);
+  }
+
+  // colourful wildstyle: fades, outlined 3D, highlights, a cloud outline, spray mist, sparkles, maybe a character
+  function piece(cv, rng, o) {
+    const W = cv.width, H = cv.height, g = ctx(cv), wear = o.wear, pal = typeof o.pal === 'number' ? PIECE_PALS[o.pal % PIECE_PALS.length] : o.pal || pick(rng, PIECE_PALS);
+    const sharp = chance(rng, 0.55), set = sharp ? BK : G, word = o.word || pick(rng, WORDS);
+    const sw = rr(rng, 0.2, 0.27), ow = rr(rng, 0.035, 0.05), outer = rr(rng, 0.05, 0.08), dx = rr(rng, 0.06, 0.11) * (chance(rng, 0.5) ? 1 : -1), dy = rr(rng, 0.06, 0.1);
+    const st = sharp ? { cap: 'butt', join: 'miter', miter: 5 } : { cap: 'round', join: 'round', smooth: true };
+    let lay = layout(rng, word, set, { wk: rr(rng, 0.58, 0.74), wmap: sharp ? BKW : WM, gap: sw * rr(rng, 0.35, 0.8), slant: [0.0, 0.18], rotJ: 0.36, bounce: 0.22, scaleJ: 0.2, jit: sharp ? 0.03 : 0.04 });
+    lay = wildify(rng, lay, sw, sharp ? 0.6 : 0.4);
+    const withChar = o.character != null ? o.character : chance(rng, 0.4), cw = withChar ? Math.min(W * 0.28, H * 0.85) : 0, cLeft = chance(rng, 0.5);
+    const e = sw / 2 + ow + outer + 0.04;
+    const box = { x: W * 0.04 + (withChar && cLeft ? cw : 0), y: H * 0.07, w: W * 0.92 - cw, h: H * 0.84 };
+    const f = fitBox(lay, [e + Math.max(0, -dx), e, e + Math.max(0, dx), e + dy], box), Ls = place(lay, f), S = f.S, Wp = sw * S, Op = ow * S, Xp = outer * S;
+    wobbleLetters(rng, Ls, S * 0.008, S * 0.04);
+    if (chance(rng, 0.4)) oldTags(g, rng, W, H, ri(rng, 1, 3), clamp(wear + 0.35, 0.7, 0.95), [0.15, 0.28]);
+    const d3 = mixc(pal.d, pal.f[2], 0.3), d3b = mixc(pal.d, BLK, 0.25);
+    layer(g, W, H, wear, sub(rng), lg => {
+      if (chance(rng, 0.6)) { const ac = rgbOf(pal.a); for (let k = 0; k < 110; k++) { const L = pick(rng, Ls), p = pick(rng, L.paths), q = p[Math.floor(rng() * p.length)], r = S * rr(rng, 0.1, 0.28), x = q[0] + rr(rng, -1, 1) * S * 0.42, y = q[1] + rr(rng, -1, 1) * S * 0.42; const gr = lg.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, rgba(ac, 0.2)); gr.addColorStop(1, rgba(ac, 0)); lg.fillStyle = gr; lg.fillRect(x - r, y - r, 2 * r, 2 * r); } }
+      const n3 = Math.max(5, Math.ceil(Math.hypot(dx, dy) * S / 3));
+      for (let i = 0; i <= n3; i++) { lg.save(); lg.translate(dx * S * i / n3, dy * S * i / n3); Ls.forEach(L => body(lg, L, Wp, Op + Xp, rgba(pal.o), st)); lg.restore(); }
+      for (let i = n3; i >= 1; i--) { lg.save(); lg.translate(dx * S * i / n3, dy * S * i / n3); Ls.forEach(L => body(lg, L, Wp, Op, rgba(BLK), st)); lg.restore(); }
+      for (let i = n3; i >= 1; i--) { lg.save(); lg.translate(dx * S * i / n3, dy * S * i / n3); Ls.forEach(L => body(lg, L, Wp - Op * 0.6, 0, rgba(mixc(d3, d3b, i / n3)), st)); lg.restore(); }
+      const fx0 = f.x0, fy0 = f.y0, fx1 = f.x1, fy1 = f.y1, ang = rr(rng, -0.6, 0.6), deco = pick(rng, ['bubbles', 'stripes', 'blend', 'blend', 'none']);
+      Ls.forEach(L => {
+        lg.save(); lg.globalAlpha = 0.25; body(lg, L, Wp, Op + S * 0.02, rgba(BLK), st); lg.restore();
+        body(lg, L, Wp, Op, rgba(BLK), st);
+        masked(lg, W, H, L, Wp, st, tg => {
+          const cx = (fx0 + fx1) / 2, cy = (fy0 + fy1) / 2, R = (fy1 - fy0) * 0.6, gr = tg.createLinearGradient(cx - Math.sin(ang) * R, cy - Math.cos(ang) * R, cx + Math.sin(ang) * R, cy + Math.cos(ang) * R);
+          pal.f.forEach((c, k) => gr.addColorStop(k / (pal.f.length - 1), c)); tg.fillStyle = gr; tg.fillRect(L.x0 - Wp, L.y0 - Wp, L.x1 - L.x0 + 2 * Wp, L.y1 - L.y0 + 2 * Wp);
+          if (deco === 'bubbles') for (let k = 0; k < 6; k++) { const x = rr(rng, L.x0, L.x1), y = rr(rng, L.y0, L.y1), r = Wp * rr(rng, 0.12, 0.3); tg.strokeStyle = 'rgba(255,255,255,0.75)'; tg.lineWidth = Math.max(1, Wp * 0.05); tg.beginPath(); tg.arc(x, y, r, 0, TAU); tg.stroke(); }
+          if (deco === 'stripes') { tg.strokeStyle = rgba(pal.f[0], 0.7); tg.lineWidth = Wp * 0.08; for (let y = L.y0 - Wp; y < L.y1 + Wp; y += Wp * 0.42) { tg.beginPath(); tg.moveTo(L.x0 - Wp, y); tg.lineTo(L.x1 + Wp, y + Wp * 0.5); tg.stroke(); } }
+          if (deco === 'blend') for (let k = 0; k < 5; k++) { const x = rr(rng, L.x0, L.x1), y = rr(rng, L.y0, L.y1), r = Wp * rr(rng, 0.4, 0.9), gr2 = tg.createRadialGradient(x, y, 0, x, y, r); gr2.addColorStop(0, rgba(pick(rng, pal.f), 0.75)); gr2.addColorStop(1, rgba(pal.f[0], 0)); tg.fillStyle = gr2; tg.fillRect(x - r, y - r, 2 * r, 2 * r); }
+          tg.save(); tg.translate(-Wp * 0.2, -Wp * 0.2); tg.strokeStyle = 'rgba(255,255,255,0.9)'; tg.lineWidth = Wp * 0.1; tg.lineCap = st.cap === 'butt' ? 'butt' : 'round'; tg.lineJoin = st.join; trace(tg, L.paths.map(p => partial(p, rr(rng, 0.3, 0.6))), st.smooth); tg.stroke(); tg.restore();
+          if (chance(rng, 0.35)) { tg.strokeStyle = rgba(BLK, 0.9); tg.lineWidth = Math.max(1.2, Op * 0.5); tg.beginPath(); const y = rr(rng, L.y0, L.y1); tg.moveTo(L.x0 - Wp, y); tg.lineTo(L.x1 + Wp, y + rr(rng, -1, 1) * Wp); tg.stroke(); }   // a cut
+        });
+        speckle(lg, rng, L.paths, Wp + 2 * (Op + Xp), rgba(pal.o), 0.08);
+      });
+      for (let k = 0, n = ri(rng, 1, 2); k < n; k++) { const L = pick(rng, Ls); sparkle(lg, rng, rr(rng, L.x0, L.x1), rr(rng, L.y0, L.y0 + (L.y1 - L.y0) * 0.4), S * rr(rng, 0.08, 0.15), BLK); }
+      if (withChar) { const r = Math.min(cw * 0.42, H * 0.36), cx = cLeft ? W * 0.04 + cw * 0.5 : W * 0.96 - cw * 0.5; doodle(lg, rng, pick(rng, ['cat', 'dog', 'bird', 'fish', 'skull', 'boombox', 'eyeball', 'blobby', 'smiley']), cx, H * 0.5, r, { outer: pal.o }); }
+    }, 2);
+  }
+
+  // a cluster of tags of different ages and hands, maybe a buff patch, a doodle or two
+  function tagsStyle(cv, rng, o) {
+    const W = cv.width, H = cv.height, g = ctx(cv), m = margin(cv), wear = o.wear, occ = [];
+    const spot = (bw, bh, ov) => {
+      for (let t = 0; t < 50; t++) {
+        const x = rr(rng, m, Math.max(m, W - m - bw)), y = rr(rng, m, Math.max(m, H - m - bh)); let ok = true;
+        for (const b of occ) { const ix = Math.max(0, Math.min(x + bw, b[2]) - Math.max(x, b[0])), iy = Math.max(0, Math.min(y + bh, b[3]) - Math.max(y, b[1])); if (ix * iy > ov * Math.min(bw * bh, (b[2] - b[0]) * (b[3] - b[1]))) { ok = false; break; } }
+        if (ok) { occ.push([x, y, x + bw, y + bh]); return [x, y]; }
+      }
+      return null;
+    };
+    const putTag = (lg, hFrac, col, w, ov, extra) => {
+      for (let tries = 0; tries < 4; tries++, hFrac *= 0.82) {
+        const T = tagGeom(rng, pick(rng, chance(rng, 0.25) ? TU_WORDS : WORDS)), hh = Math.min(H - 2 * m, H * hFrac), sc = hh / (T.y1 - T.y0 + 0.4), tw = (T.x1 - T.x0 + 0.4) * sc;
+        if (tw > W - 2 * m) continue;
+        const p = spot(tw, hh, ov); if (!p) continue;
+        drawTag(lg, rng, T, p[0], p[1], sc, col, Object.assign({ w, pad: 0.2, maxY: H - m * 0.5 }, extra));
+        if (chance(rng, 0.25)) { const C = crewGeom(rng), cs = hh * 0.32 / (C.y1 - C.y0 + 0.3), cwid = (C.x1 - C.x0 + 0.3) * cs; drawTag(lg, rng, C, clamp(p[0] + tw * rr(rng, 0.3, 0.6), m, W - m - cwid), clamp(p[1] + hh * 0.92, m, H - m - hh * 0.4), cs, col, { w: 0.11, pad: 0.15 }); }
+        return true;
+      }
+      return false;
+    };
+    layer(g, W, H, clamp(wear + 0.3, 0.6, 0.95), sub(rng), lg => { for (let k = 0, n = ri(rng, 2, 4); k < n; k++) putTag(lg, rr(rng, 0.25, 0.48), pick(rng, TAGC), rr(rng, 0.07, 0.14), 0.5); });
+    if (chance(rng, o.buff != null ? o.buff : 0.3)) layer(g, W, H, 0.1, sub(rng), lg => { const bw = W * rr(rng, 0.2, 0.45), bh = H * rr(rng, 0.35, 0.65); buffPatch(lg, rng, rr(rng, m, W - m - bw), rr(rng, m, H - m - bh), bw, bh, pick(rng, BUFFS)); });
+    occ.length = 0;
+    layer(g, W, H, wear, sub(rng), lg => {
+      const n = o.count || ri(rng, 3, 5);
+      for (let k = 0; k < n; k++) { const fat = chance(rng, 0.5); putTag(lg, rr(rng, 0.22, 0.42), pick(rng, TAGC), fat ? rr(rng, 0.11, 0.16) : rr(rng, 0.06, 0.085), 0.25, { drips: fat ? 0.35 : 0, speck: fat ? 0.06 : 0 }); }
+      for (let k = 0, nd = chance(rng, o.doodles != null ? o.doodles : 0.6) ? ri(rng, 1, 2) : 0; k < nd; k++) { const r = H * rr(rng, 0.11, 0.17), p = spot(r * 2.4, r * 2.4, 0.35); if (p) doodle(lg, rng, pick(rng, SMALL_DOODLES), p[0] + r * 1.2, p[1] + r * 1.2, r); }
+      if (chance(rng, 0.3)) { const r = H * 0.05; sparkle(lg, rng, rr(rng, m + r, W - m - r), rr(rng, m + r, H - m - r), r, BLK); }
+    }, 2);
+  }
+
+  // a character / doodle on its own, maybe with the writer's tag
+  function characterStyle(cv, rng, o) {
+    const W = cv.width, H = cv.height, g = ctx(cv), kind = o.kind || pick(rng, CHAR_KINDS), tagOn = chance(rng, 0.45), wide = kind === 'lowrider';
+    const r = Math.min(W, H) * (wide ? 0.42 : tagOn ? 0.33 : 0.38), cx = W / 2, cy = tagOn ? H * 0.42 : H / 2;
+    if (chance(rng, 0.4)) oldTags(g, rng, W, H, 1, clamp(o.wear + 0.3, 0.65, 0.95), [0.2, 0.26]);
+    layer(g, W, H, o.wear, sub(rng), lg => {
+      doodle(lg, rng, kind, cx, cy, r, { outer: chance(rng, 0.35) ? WHT : null, rot: wide ? 0 : rr(rng, -0.2, 0.2) });
+      const by = cy + r * (BOTTOM[kind] || 0.7) * 0.92;
+      if (!wide && chance(rng, 0.35)) for (let k = 0, n = ri(rng, 1, 3); k < n; k++) drip(lg, cx + rr(rng, -0.35, 0.35) * r, by, Math.max(1.5, r * 0.035), Math.min(H * 0.95 - by, r * rr(rng, 0.12, 0.35)), rgba(BLK));
+      if (tagOn) { const T = tagGeom(rng, pick(rng, WORDS)), hh = H * 0.15, sc0 = hh / (T.y1 - T.y0 + 0.4), sc = Math.min(sc0, (W * 0.85) / (T.x1 - T.x0 + 0.4)), tw = (T.x1 - T.x0 + 0.4) * sc; drawTag(lg, rng, T, clamp(W / 2 - tw / 2 + rr(rng, -0.15, 0.15) * W, W * 0.05, W * 0.95 - tw), H * 0.93 - (T.y1 - T.y0 + 0.4) * sc, sc, pick(rng, [BLK, BLK, '#d42a2a', '#2a57d4']), { w: 0.1, pad: 0.2 }); }
+      for (let k = 0, n = chance(rng, 0.4) ? ri(rng, 1, 3) : 0; k < n; k++) sparkle(lg, rng, rr(rng, W * 0.12, W * 0.88), rr(rng, H * 0.1, H * 0.3), Math.min(W, H) * rr(rng, 0.04, 0.07), BLK);
+    }, 2);
+  }
+
+  // a long low row for jersey barriers and ledges: a throw-up next to tags, or a run of tags and a doodle
+  function strip(cv, rng, o) {
+    const W = cv.width, H = cv.height, g = ctx(cv);
+    const items = [];
+    let x = W * rr(rng, 0.02, 0.06);
+    while (x < W * 0.9) {
+      const r = rng();
+      if (r < 0.45 && !items.some(i => i === 'tu')) { const w = H * rr(rng, 1.8, 2.3); if (x + w > W * 0.98) break; const c = canvas(Math.round(w), H); throwup(c, rng, Object.assign({}, o, { word: pick(rng, TU_WORDS), tagOn: false, old: false })); g.drawImage(c, x, 0); items.push('tu'); x += w * rr(rng, 0.8, 0.95); }
+      else if (r < 0.8) { const T = tagGeom(rng, pick(rng, WORDS)), hh = H * rr(rng, 0.45, 0.7), sc = hh / (T.y1 - T.y0 + 0.4), tw = (T.x1 - T.x0 + 0.4) * sc; if (x + tw > W * 0.97) break; layer(g, W, H, clamp(o.wear + rr(rng, -0.2, 0.3), 0.05, 0.95), sub(rng), lg => drawTag(lg, rng, T, x, rr(rng, H * 0.08, H * 0.92 - hh), sc, pick(rng, TAGC), { w: rr(rng, 0.07, 0.14), pad: 0.2, drips: 0.3, maxY: H * 0.95 })); items.push('t'); x += tw * rr(rng, 0.85, 1.05); }
+      else { const rad = H * rr(rng, 0.25, 0.33); if (x + rad * 2.3 > W * 0.97) break; layer(g, W, H, o.wear, sub(rng), lg => doodle(lg, rng, pick(rng, SMALL_DOODLES), x + rad * 1.15, H / 2, rad)); items.push('d'); x += rad * 2.4; }
     }
   }
-  function grain(g, w, h, rng, amt, alphaToo) {
-    const img = g.getImageData(0, 0, w, h), d = img.data;
-    for (let i = 0; i < d.length; i += 4) {
-      if (d[i + 3] === 0) continue;
-      const n = 1 + (rng() - 0.5) * amt;
-      d[i] *= n; d[i + 1] *= n; d[i + 2] *= n;
-      if (alphaToo) d[i + 3] *= 1 - rng() * 0.2;
+
+  // rolled-over patches, ghosts of what's under them, maybe a fresh tag already back on top
+  function buffStyle(cv, rng, o) {
+    const W = cv.width, H = cv.height, g = ctx(cv), m = margin(cv);
+    oldTags(g, rng, W, H, ri(rng, 2, 4), 0.55, [0.3, 0.55]);
+    layer(g, W, H, 0.08, sub(rng), lg => {
+      const col = pick(rng, BUFFS), n = ri(rng, 1, 3);
+      for (let k = 0; k < n; k++) { const bw = W * rr(rng, 0.35, 0.8), bh = H * rr(rng, 0.45, 0.85); buffPatch(lg, rng, rr(rng, m, W - m - bw), rr(rng, m, H - m - bh), bw, bh, k && chance(rng, 0.5) ? pick(rng, BUFFS) : col); }
+    });
+    if (chance(rng, 0.45)) layer(g, W, H, o.wear, sub(rng), lg => { const T = tagGeom(rng, pick(rng, WORDS)), hh = H * rr(rng, 0.22, 0.34), sc = hh / (T.y1 - T.y0 + 0.4); drawTag(lg, rng, T, rr(rng, m, Math.max(m, W - m - (T.x1 - T.x0 + 0.4) * sc)), rr(rng, m, H - m - hh), sc, pick(rng, TAGC), { w: rr(rng, 0.08, 0.13), pad: 0.2 }); });
+  }
+
+  // a sprayed heart with an arrow through it and two names inside
+  function heartStyle(cv, rng, o) {
+    const W = cv.width, H = cv.height, g = ctx(cv), names = o.names || ['JON +', 'CLAUDE'];
+    const k = Math.min(W, H) * 0.39 / 16, cx = W / 2, cy = H * 0.47;
+    const hp = []; for (let i = 0; i <= 120; i++) { const t = i / 120 * TAU + 0.05, x = 16 * Math.pow(Math.sin(t), 3), y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)); hp.push([cx + x * k, cy + (y + 2.5) * k]); }
+    const col = o.color || '#e3122d';
+    layer(g, W, H, o.wear, sub(rng), lg => {
+      lg.save(); lg.beginPath(); polyPath(lg, hp); lg.clip(); for (let i = 0; i < 40; i++) { const x = rr(rng, cx - 14 * k, cx + 14 * k), y = rr(rng, cy - 10 * k, cy + 15 * k), r = k * rr(rng, 3, 6), gr = lg.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(255,120,150,0.08)'); gr.addColorStop(1, 'rgba(255,120,150,0)'); lg.fillStyle = gr; lg.fillRect(x - r, y - r, 2 * r, 2 * r); } lg.restore();
+      const a0 = [cx - 19 * k, cy + 9 * k], a1 = [cx + 19.5 * k, cy - 9.5 * k], dxa = (a1[0] - a0[0]), dya = (a1[1] - a0[1]), la = Math.hypot(dxa, dya), ux = dxa / la, uy = dya / la;
+      const tA = [a0, [a0[0] + ux * la * 0.2, a0[1] + uy * la * 0.2]], tB = [[a1[0] - ux * la * 0.17, a1[1] - uy * la * 0.17], a1];
+      pen(lg, rng, [tA, tB], k * 0.75, BLK, { pressure: 0.05, soft: 0.6 });
+      for (let j = 0; j < 3; j++) { const b = [a0[0] + ux * k * (1.2 + j * 1.3), a0[1] + uy * k * (1.2 + j * 1.3)]; pen(lg, rng, [[b, [b[0] - ux * k * 1.6 - uy * k * 1.4, b[1] - uy * k * 1.6 + ux * k * 1.4]], [b, [b[0] - ux * k * 1.6 + uy * k * 1.4, b[1] - uy * k * 1.6 - ux * k * 1.4]]], k * 0.45, BLK, { soft: 0.5, blob: false }); }
+      lg.fillStyle = rgba(BLK); lg.beginPath(); polyPath(lg, [[a1[0] + ux * k * 2.4, a1[1] + uy * k * 2.4], [a1[0] - uy * k * 1.5, a1[1] + ux * k * 1.5], [a1[0] + uy * k * 1.5, a1[1] - ux * k * 1.5]]); lg.fill();
+      pen(lg, rng, [hp], k * 1.25, col, { pressure: 0.18, soft: k * 0.3 });
+      pen(lg, rng, [hp.slice(8, 70).map(([x, y]) => [x + k * 0.35, y + k * 0.3])], k * 0.5, col, { pressure: 0.3, soft: k * 0.2, blob: false });
+      for (let j = 0; j < 4; j++) { const q = hp[Math.round(rr(rng, 38, 82))]; drip(lg, q[0], q[1] + k * 0.4, k * rr(rng, 0.35, 0.5), Math.min(H * 0.95 - q[1], k * rr(rng, 1.5, 4.5)), rgba(col)); }
+      const lines = names.map(s => tagGeom(rng, s, { wk: 0.62, gap: 0.14, slant: [0.08, 0.14], rotJ: 0.08, bounce: 0.06, scaleJ: 0.06, jit: 0.025, plain: true, bigFirst: 0, smooth: 2 }));
+      const hs = [5.0 * k, 4.4 * k], ys = [cy - 3.2 * k, cy + 3.6 * k];
+      lines.forEach((T, i) => { const sc = Math.min(hs[i] / (T.y1 - T.y0), 20 * k / (T.x1 - T.x0)), tw = (T.x1 - T.x0) * sc; drawTag(lg, rng, T, cx - tw / 2, ys[i] - (T.y1 - T.y0) * sc / 2, sc, BLK, { w: 0.13, soft: 0.6, pressure: 0.12, taper: 0.75 }); });
+    }, 2);
+  }
+
+  const STYLES = { blockbuster, rollertag, throwup, piece, tags: tagsStyle, character: characterStyle, strip, buff: buffStyle, heart: heartStyle };
+  function paintDecal(seed, w, h, opts = {}) {
+    tables();
+    const style = STYLES[opts.style] ? opts.style : 'throwup', cv = canvas(w, h), rng = makeRng(hashSeed(seed) ^ hashSeed(style));
+    const o = Object.assign({}, opts, { wear: clamp(opts.wear != null ? opts.wear : 0.5, 0, 1) });
+    STYLES[style](cv, rng, o);
+    return cv;
+  }
+
+  // ---------- opaque concrete ----------
+  // old graffiti for a street-level band: long-faded tags, buff patches rolled over them, a few newer tags; wraps across x
+  function oldBand(W, Hb, rng, amt, ppm, wear) {
+    const L = canvas(W, Hb), g = ctx(L), per8 = amt * W / ppm / 8;
+    const wrapped = (cv2, fn) => { const g2 = ctx(cv2); for (const ox of [-W, 0, W]) { g2.save(); g2.translate(ox, 0); fn(g2); g2.restore(); } };
+    const tagAt = (g2, s1, x, y, hh, col, w) => { const r = makeRng(s1), T = tagGeom(r, pick(r, WORDS)), sc = hh / (T.y1 - T.y0 + 0.4); drawTag(g2, r, T, x, y, sc, col, { w, pad: 0.2 }); };
+    const spec = n => Array.from({ length: n }, () => { const hh = ppm * rr(rng, 0.3, 0.8); return [sub(rng), rr(rng, 0, W), rr(rng, 0, Math.max(1, Hb - hh * 1.6)), hh, pick(rng, TAGC), rr(rng, 0.07, 0.14)]; });
+    // the oldest layer: long-faded tags
+    const A = canvas(W, Hb, true), old = spec(Math.round(rr(rng, 3, 6) * per8));
+    wrapped(A, g2 => old.forEach(t => tagAt(g2, ...t)));   // (no big ghost pieces: these textures repeat on every pier and column)
+    weather(A, { wear: clamp(wear + 0.15, 0, 0.95), seed: sub(rng), edge: 0, streak: 0.8 });
+    g.drawImage(A, 0, 0);
+    // buffs rolled over some of it
+    const B = canvas(W, Hb, true), nb = Math.round(rr(rng, 1, 2.4) * per8);
+    const bs = Array.from({ length: nb }, () => { const bw = ppm * rr(rng, 0.8, 2.6), bh = Math.min(Hb * 0.92, ppm * rr(rng, 0.6, 1.9)); return [sub(rng), rr(rng, 0, W), rr(rng, 0, Hb - bh), bw, bh, pick(rng, BUFFS)]; });
+    wrapped(B, g2 => bs.forEach(([s1, x, y, bw, bh, c]) => buffPatch(g2, makeRng(s1), x, y, bw, bh, c)));
+    weather(B, { wear: 0.12, seed: sub(rng), edge: 0 });
+    g.drawImage(B, 0, 0);
+    // and the next round of tags since
+    const C = canvas(W, Hb, true), nw = spec(Math.round(rr(rng, 1, 3) * per8));
+    wrapped(C, g2 => nw.forEach(t => tagAt(g2, ...t)));
+    weather(C, { wear, seed: sub(rng), edge: 0 });
+    g.drawImage(C, 0, 0);
+    return L;
+  }
+  function concretePass(d, W, H, rng, o) {
+    tables();
+    const base = rgbOf(o.base || '#aba292'), kx = NS / W, ppm = o.ppm, mv = H / ppm;
+    const c1 = new Int32Array(W), c2 = new Int32Array(W), c3 = new Int32Array(W), cs = new Float32Array(W);
+    const ox = (rng() * NS) | 0, oy = (rng() * NS) | 0;
+    for (let x = 0; x < W; x++) { c1[x] = (((x * kx) | 0) + ox) & NM; c2[x] = (((x * kx * 4) | 0) + oy) & NM; c3[x] = (((x * kx * 16) | 0) + ox * 3) & NM; cs[x] = ST[(((x * kx * 2) | 0) + oy * 5) & NM]; }
+    let s = sub(rng) | 1;
+    for (let y = 0; y < H; y++) {
+      const r1 = ((((y * kx) | 0) + oy) & NM) * NS, r2 = ((((y * kx * 4) | 0) + ox) & NM) * NS, r3 = ((((y * kx * 16) | 0) + oy * 7) & NM) * NS;
+      const h = o.tall ? (H - 1 - y) / ppm : 0;
+      for (let x = 0; x < W; x++) {
+        const i = (y * W + x) << 2, n1 = NT[r1 + c1[x]], n2 = NT[r2 + c2[x]], n3 = NT[r3 + c3[x]];
+        s = (Math.imul(s, 1664525) + 1013904223) | 0; const q = (s >>> 8) / 16777216;
+        let v = (n1 - 0.5) * (o.mottle || 26) + (n2 - 0.5) * 14 + (n3 - 0.5) * 10 + (q - 0.5) * 14;
+        if (q < 0.005) v -= 24 + q * 5000; else if (q > 0.994) v += 14;
+        let r = base[0] + v, gg = base[1] + v, b = base[2] + v;
+        if (o.patches) { const p = n1 > 0.66 ? 1 : n1 < 0.28 ? 2 : 0; if (p === 1) { r -= 9; gg -= 8; b -= 6; } else if (p === 2) { r += 7; gg += 6; b += 3; } if (Math.abs(n1 - 0.66) < 0.006 || Math.abs(n1 - 0.28) < 0.006) { r -= 22; gg -= 22; b -= 20; } }
+        if (o.tall) {
+          const dirt = 1 - sstep(0.04, 0.5 + (n2 - 0.5) * 0.5, h);   // splash and silt at the foot
+          const wl = o.waterline ? Math.exp(-Math.pow(h - o.waterline - (n1 - 0.5) * 0.4, 2) / 0.015) * 0.5 + (h < o.waterline ? 0.12 : 0) : 0;
+          const top = cs[x] * 0.25 * clamp((h - mv * (0.45 + n1 * 0.3)) / (mv * 0.3), 0, 1);   // a faint wash of streaks from the deck
+          const grime = sstep(mv * 0.75, mv, h) * 0.3;
+          r -= dirt * 30 + wl * 22 + top * 34 + grime * 30; gg -= dirt * 33 + wl * 22 + top * 34 + grime * 30; b -= dirt * 40 + wl * 26 + top * 30 + grime * 28;
+        }
+        d[i] = r; d[i + 1] = gg; d[i + 2] = b; d[i + 3] = 255;
+      }
     }
-    g.putImageData(img, 0, 0);
   }
-  function pits(g, S, rng) {   // tiny pores over everything, so the paint reads as sprayed onto rough concrete
-    const n = Math.round(S * S / 900);
-    for (let i = 0; i < n; i++) { g.fillStyle = 'rgba(55,52,48,' + rr(rng, 0.15, 0.4).toFixed(2) + ')'; g.beginPath(); g.arc(rng() * S, rng() * S, rr(rng, 0.4, 1.5) * S / 1024 + 0.3, 0, TAU); g.fill(); }
+  function structure(seed, W, H, o = {}) {
+    const rng = makeRng(hashSeed(seed) ^ 0x51ed270b), cv = canvas(W, H), g = ctx(cv), ppm = W / (o.mu || 8);
+    const img = g.createImageData(W, H); concretePass(img.data, W, H, rng, { base: o.base, ppm, tall: true, waterline: o.waterline, mottle: 24 }); g.putImageData(img, 0, 0);
+    // formwork: panel seams, lift joints, tie holes (all multiples of the width, so it still tiles)
+    if (o.forms !== false) {
+      const panels = Math.max(1, Math.round((o.mu || 8) / 1.2)), pw = W / panels;
+      g.fillStyle = 'rgba(40,36,30,0.06)'; for (let k = 0; k < panels; k++) g.fillRect(Math.round(k * pw), 0, 2, H);
+      g.fillStyle = 'rgba(255,250,240,0.04)'; for (let k = 0; k < panels; k++) g.fillRect(Math.round(k * pw) + 2, 0, 2, H);
+      for (let y = H - ppm * rr(rng, 1.6, 2.6); y > 0; y -= ppm * rr(rng, 2.2, 2.6)) { g.fillStyle = 'rgba(40,36,30,0.16)'; g.fillRect(0, Math.round(y), W, 2); g.fillStyle = 'rgba(50,44,36,0.05)'; g.fillRect(0, Math.round(y) + 2, W, ppm * 0.12); }
+      if (o.tie !== false) for (let y = H - ppm * 0.45; y > 0; y -= ppm * 0.6) for (let k = 0; k < panels * 2; k++) { const x = (k + 0.5) * pw / 2; g.fillStyle = 'rgba(70,64,56,0.35)'; g.beginPath(); g.arc(x, y, Math.max(1.2, ppm * 0.014), 0, TAU); g.fill(); g.fillStyle = 'rgba(240,235,225,0.12)'; g.beginPath(); g.arc(x + 1, y + 1, Math.max(1.2, ppm * 0.014), 0, TAU); g.fill(); }
+    }
+    if ((o.graf || 0) > 0) {   // old writing and buffs at street level
+      const y0 = (o.band || [0.25, 3.0])[0], y1 = (o.band || [0.25, 3.0])[1], Hb = Math.round((y1 - y0) * ppm);
+      const band = oldBand(W, Hb, rng, o.graf, ppm, o.grafWear || 0.62);
+      g.drawImage(band, 0, H - y1 * ppm);
+    }
+    // water and rust running down from the deck and the lift joints: a few distinct streaks, not a barcode
+    const ns = Math.round(rr(rng, 5, 9) * (o.mu || 8) / 8);
+    for (let k = 0; k < ns; k++) {
+      const x = rr(rng, 0, W), w = ppm * rr(rng, 0.03, 0.22), y = chance(rng, 0.6) ? 0 : rr(rng, 0, H * 0.6), len = H * rr(rng, 0.15, 0.55), rust = chance(rng, 0.3), a = rr(rng, 0.06, 0.16);
+      const col = rust ? '110,74,40' : chance(rng, 0.25) ? '235,230,220' : '58,52,44', gr = g.createLinearGradient(0, y, 0, y + len);
+      gr.addColorStop(0, 'rgba(' + col + ',' + a + ')'); gr.addColorStop(0.6, 'rgba(' + col + ',' + (a * 0.6).toFixed(3) + ')'); gr.addColorStop(1, 'rgba(' + col + ',0)');
+      g.fillStyle = gr; for (const ox of [-W, 0, W]) { g.fillRect(x + ox, y, w, len); g.fillRect(x + ox + w * 0.3, y, w * 0.4, len * 1.15); }
+    }
+    return cv;
   }
-  function toTex(c, repeat) {
-    const t = new THREE.CanvasTexture(c);
-    if (repeat) { t.wrapS = THREE.RepeatWrapping; t.wrapT = THREE.RepeatWrapping; }
-    t.anisotropy = 4; t.needsUpdate = true;
+  // DIY pours on the ramps: patchy pours with cold joints, trowel arcs, cracks, wheel skids, sparse old tags
+  function diy(seed, S, o = {}) {
+    const rng = makeRng(hashSeed(seed) ^ 0x1f3d5b79), cv = canvas(S, S), g = ctx(cv), ppm = S / 8, side = o.kind === 'diyside';
+    const img = g.createImageData(S, S); concretePass(img.data, S, S, rng, { base: o.base || (side ? '#a7a092' : '#aea797'), ppm, patches: true, mottle: 30 }); g.putImageData(img, 0, 0);
+    const wrap = fn => { for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]) { g.save(); g.translate(ox, oy); fn(); g.restore(); } };
+    for (let k = 0; k < 10; k++) { const x = rr(rng, 0, S), y = rr(rng, 0, S), r = rr(rng, 0.4, 1.2) * ppm, a0 = rng() * TAU, col = chance(rng, 0.5) ? 'rgba(255,250,240,0.06)' : 'rgba(40,36,30,0.06)'; wrap(() => { g.strokeStyle = col; g.lineWidth = rr(rng, 3, 8); g.beginPath(); g.arc(x, y, r, a0, a0 + rr(rng, 0.6, 1.8)); g.stroke(); }); }
+    for (let k = 0; k < 5; k++) { let x = rr(rng, 0, S), y = rr(rng, 0, S); const pts = [[x, y]]; for (let j = 0; j < 9; j++) { x += rr(rng, -40, 40); y += rr(rng, -40, 40); pts.push([x, y]); } wrap(() => { g.strokeStyle = 'rgba(28,24,20,0.35)'; g.lineWidth = rr(rng, 0.8, 1.8); g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); pts.forEach(p => g.lineTo(p[0], p[1])); g.stroke(); }); }
+    for (let k = 0; k < (side ? 3 : 9); k++) {   // urethane skids: a pair of dark arcs a truck's width apart
+      const x = rr(rng, 0, S), y = rr(rng, 0, S), a = rng() * TAU, L = rr(rng, 0.4, 1.6) * ppm, bend = rr(rng, -0.3, 0.3), sep = ppm * 0.16, al = rr(rng, 0.06, 0.18);
+      wrap(() => { g.strokeStyle = 'rgba(20,18,16,' + al + ')'; g.lineWidth = rr(rng, 2, 4); for (const sd of [-1, 1]) { const px = -Math.sin(a) * sep / 2 * sd, py = Math.cos(a) * sep / 2 * sd; g.beginPath(); g.moveTo(x + px, y + py); g.quadraticCurveTo(x + px + Math.cos(a + bend) * L / 2, y + py + Math.sin(a + bend) * L / 2, x + px + Math.cos(a) * L, y + py + Math.sin(a) * L); g.stroke(); } });
+    }
+    const tl = canvas(S, S, true), tg = ctx(tl);   // sparse tags, mostly old
+    const nT = side ? ri(rng, 4, 6) : ri(rng, 0, 1);   // the tops tile every 8 m along long pours: keep them nearly clean, the decals carry the writing
+    for (let k = 0; k < nT; k++) { const s1 = sub(rng), hh = ppm * rr(rng, 0.3, side ? 0.7 : 0.6), x = rr(rng, 0, S), y = rr(rng, 0, S), col = pick(rng, TAGC), w = rr(rng, 0.07, 0.14); for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]) { const r = makeRng(s1), T = tagGeom(r, pick(r, WORDS)), sc = hh / (T.y1 - T.y0 + 0.4); drawTag(tg, r, T, x + ox, y + oy, sc, col, { w, pad: 0.2 }); } }
+    for (let k = 0, nd = side ? 1 : 0; k < nd; k++) if (chance(rng, 0.75)) { const s1 = sub(rng), r0 = ppm * rr(rng, 0.2, 0.35), x = rr(rng, 0, S), y = rr(rng, 0, S); for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]) { const r = makeRng(s1); doodle(tg, r, pick(r, SMALL_DOODLES), x + ox, y + oy, r0); } }
+    weather(tl, { wear: side ? 0.62 : 0.85, seed: sub(rng), edge: 0 });
+    g.drawImage(tl, 0, 0);
+    return cv;
+  }
+
+  let DUMMY = null;
+  const release = t => { t.onUpdate = null; t.image = DUMMY || (DUMMY = canvas(1, 1)); };   // uploaded: let the canvas go (GPU and page memory)
+  function toTex(cv, o = {}) {
+    const t = new THREE.CanvasTexture(cv);
+    if (o.repeat) { t.wrapS = THREE.RepeatWrapping; t.wrapT = o.clampT ? THREE.ClampToEdgeWrapping : THREE.RepeatWrapping; }
+    if (o.premult) t.premultiplyAlpha = true;
+    t.anisotropy = o.aniso || 8; t.needsUpdate = true;
+    t.onUpdate = release;
     return t;
   }
-
-  // ---------- public builders ----------
-  function wall(seed, size) {
-    const S = Math.max(64, size | 0), c = newCanvas(S, S), g = c.getContext('2d'), rng = makeRng(hashSeed(seed));
-    paintConcrete(g, S, rng);
-    const area = (S / 1024) * (S / 1024), cnt = n => Math.max(1, Math.round(n * area * rr(rng, 0.8, 1.25)));
-    const place = (sp, alpha) => { const img = renderPiece(sp); blitWrapped(g, S, img, rng() * S - img.width / 2, rng() * S - img.height / 2, alpha); };
-    // older, faded layer
-    for (let i = cnt(16); i-- > 0;) place(tagSpec(rng, S * rr(rng, 0.03, 0.07)), rr(rng, 0.2, 0.45));
-    for (let i = cnt(4); i-- > 0;) place(throwSpec(rng, S * rr(rng, 0.08, 0.15), 'bubble'), rr(rng, 0.25, 0.5));
-    // buffed patches over some of it
-    for (let i = cnt(5); i-- > 0;) place({ kind: 'buff', seed: subSeed(rng), w: S * rr(rng, 0.1, 0.35), h: S * rr(rng, 0.06, 0.2), col: pick(rng, BUFFS) }, rr(rng, 0.85, 1));
-    // fresh layer
-    const fresh = [];
-    for (let i = cnt(5); i-- > 0;) fresh.push(throwSpec(rng, S * rr(rng, 0.09, 0.17), 'bubble'));
-    for (let i = cnt(2); i-- > 0;) fresh.push(throwSpec(rng, S * rr(rng, 0.1, 0.16), 'chrome'));
-    for (let i = cnt(1.4); i-- > 0;) fresh.push(throwSpec(rng, S * rr(rng, 0.08, 0.13), 'block'));
-    for (let i = cnt(1.4); i-- > 0;) fresh.push(charSpec(rng, S * rr(rng, 0.04, 0.07)));
-    for (let i = fresh.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); const t = fresh[i]; fresh[i] = fresh[j]; fresh[j] = t; }
-    fresh.forEach(sp => place(sp, rr(rng, 0.88, 1)));
-    for (let i = cnt(24); i-- > 0;) place(tagSpec(rng, S * rr(rng, 0.03, 0.075)), rr(rng, 0.75, 1));
-    pits(g, S, rng);
-    grain(g, S, S, rng, 0.16, false);
-    return toTex(c, true);
+  // lazy: a 1x1 stand-in now, the real canvas painted later by pump() (in idle time, or all at once before the map is shown)
+  const JOBS = [];
+  function lazyTex(paint, o = {}) {
+    const ph = canvas(1, 1); if (o.fill) { const g = ctx(ph); g.fillStyle = o.fill; g.fillRect(0, 0, 1, 1); }
+    const t = toTex(ph, o); t.onUpdate = null;
+    JOBS.push(() => { t.image = paint(); t.needsUpdate = true; t.onUpdate = release; });
+    return t;
   }
-  function decal(seed, w, h) {
-    w = Math.max(16, w | 0); h = Math.max(16, h | 0);
-    const c = newCanvas(w, h), g = c.getContext('2d'), rng = makeRng(hashSeed(seed) ^ 0x2545f491);
-    const r = rng(), kind = r < 0.45 ? 'bubble' : r < 0.7 ? 'chrome' : 'block';
-    const sp = throwSpec(rng, 100, kind);
-    sp.word = pick(rng, WORDS.filter(x => x.length >= 3 && x.length <= 5));
-    const cloud = chance(rng, 0.5), cloudCol = pick(rng, FILLS);
-    const b = pieceBox(sp), fit = cloud ? 0.78 : 0.94;
-    sp.h = 100 * Math.min(w * fit / (b.x1 - b.x0), h * fit / (b.y1 - b.y0));
-    const b2 = pieceBox(sp), ax = w / 2 - (b2.x0 + b2.x1) / 2, ay = h / 2 - (b2.y0 + b2.y1) / 2;
-    if (cloud) {   // a bubbly background splash behind the letters
-      const n = 7 + Math.floor(rng() * 4), cy = h / 2, circles = [];
-      for (let i = 0; i < n; i++) {
-        let rad = Math.min(cy, h - cy) * rr(rng, 0.6, 0.95) - 6;
-        let x = ax + b2.x0 + (b2.x1 - b2.x0) * (0.05 + 0.9 * i / (n - 1));
-        rad = Math.max(4, Math.min(rad, w / 2 - 6)); x = Math.max(rad + 6, Math.min(w - rad - 6, x));
-        circles.push([x, cy + (rng() - 0.5) * (h - 2 * rad - 12) * 0.5, rad]);
-      }
-      g.fillStyle = '#121212'; circles.forEach(([x, y, q]) => { g.beginPath(); g.arc(x, y, q + 5, 0, TAU); g.fill(); });
-      g.fillStyle = cloudCol; circles.forEach(([x, y, q]) => { g.beginPath(); g.arc(x, y, q, 0, TAU); g.fill(); });
-      g.fillStyle = 'rgba(255,255,255,0.25)'; circles.forEach(([x, y, q]) => { g.beginPath(); g.arc(x - q * 0.3, y - q * 0.3, q * 0.35, 0, TAU); g.fill(); });
-    }
-    drawPiece(g, sp, ax, ay);
-    if (chance(rng, 0.6)) for (let i = 0, n = 2 + Math.floor(rng() * 3); i < n; i++) {
-      const q = Math.min(w, h) * rr(rng, 0.04, 0.08);
-      star(g, rr(rng, q, w - q), rng() < 0.5 ? rr(rng, q, h * 0.25) : rr(rng, h * 0.75, h - q), q, '#ffffff');
-    }
-    grain(g, w, h, rng, 0.12, true);
-    return toTex(c, false);
-  }
-  function tagsOnly(seed, size) {
-    const S = Math.max(32, size | 0), c = newCanvas(S, S), g = c.getContext('2d'), rng = makeRng(hashSeed(seed) ^ 0x68e31da4);
-    const n = Math.max(2, Math.round(rr(rng, 7, 12) * (S / 512) * (S / 512)));
-    for (let i = 0; i < n; i++) {
-      const sp = tagSpec(rng, S * rr(rng, 0.05, 0.11)); sp.outline = null;
-      const img = renderPiece(sp);
-      blitWrapped(g, S, img, rng() * S - img.width / 2, rng() * S - img.height / 2, rr(rng, 0.75, 1));
-    }
-    grain(g, S, S, rng, 0.12, true);
-    return toTex(c, true);
-  }
-
-  _grafLib._lib = { wall, decal, tagsOnly };
+  function pump(ms) { const t0 = performance.now(); while (JOBS.length && performance.now() - t0 < ms) JOBS.shift()(); return JOBS.length; }
+  _grafLib._lib = { paintDecal, structure, diy, toTex, lazyTex, pump, weather, tables, DOODLES, CHAR_KINDS };
   return _grafLib._lib;
 }
 
-function makeGraffitiTexture(seed, size = 1024) { return _grafLib().wall(seed, size); }
-function makeGraffitiDecal(seed, w = 512, h = 256) { return _grafLib().decal(seed, w, h); }
-function makeTagsOnlyTexture(seed, size = 512) { return _grafLib().tagsOnly(seed, size); }
-
+// opts.lazy: return at once with a stand-in and paint later (grafPump / grafFlush)
+function makeGraffitiDecal(seed, w = 1024, h = 512, opts = {}) { const L = _grafLib(), p = () => L.paintDecal(seed, w, h, opts), o = { premult: true, aniso: opts.aniso }; return opts.lazy ? L.lazyTex(p, o) : L.toTex(p(), o); }
+function makeTagsOnlyTexture(seed, size = 1024, opts = {}) { return makeGraffitiDecal(seed, size, size / 2, Object.assign({ style: 'tags' }, opts)); }
+function makeGraffitiTexture(seed, size = 1024, opts = {}) { const L = _grafLib(), p = () => L.diy(seed, size, opts), o = { repeat: true, aniso: opts.aniso, fill: '#aaa395' }; return opts.lazy ? L.lazyTex(p, o) : L.toTex(p(), o); }
+function makeStructureTexture(seed, w = 1024, h = 2048, opts = {}) { const L = _grafLib(), p = () => L.structure(seed, w, h, opts), o = { repeat: true, clampT: true, aniso: opts.aniso, fill: '#aba292' }; return opts.lazy ? L.lazyTex(p, o) : L.toTex(p(), o); }
+// paint queued lazy textures for up to ms milliseconds; returns how many are left. grafFlush() paints the rest now.
+function grafPump(ms) { return _grafLib().pump(ms); }
+function grafFlush() { return _grafLib().pump(Infinity); }
+// Decal material: premultiplied texture, (ONE, ONE_MINUS_SRC_ALPHA) blending, no specular (so see-through texels stay see-through),
+// and the fog mixed in premultiplied too.
+function graffitiDecalMaterial(tex, opts = {}) {
+  const m = new THREE.MeshLambertMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: opts.offset || -3, polygonOffsetUnits: opts.offset || -3, side: opts.side || THREE.FrontSide });
+  m.blending = THREE.CustomBlending; m.blendEquation = THREE.AddEquation; m.blendSrc = THREE.OneFactor; m.blendDst = THREE.OneMinusSrcAlphaFactor;
+  m.onBeforeCompile = sh => { sh.fragmentShader = sh.fragmentShader.replace('#include <fog_fragment>', '#include <fog_fragment>\n#ifdef USE_FOG\n\tgl_FragColor.rgb -= fogColor * fogFactor * ( 1.0 - gl_FragColor.a );\n#endif'); };
+  return m;
+}
 /*__END_graffiti__*/
 // ---------- Birds (ported from Outpost: Holdover), silent ----------
 // ---------- Birds: perched flocks that burst off when a skater comes close or rips past, circle, and land somewhere else ----------
@@ -4825,16 +5488,39 @@ const RM = {
   upper: new THREE.MeshStandardMaterial({ map: rvTex('#9a948a', { joints: true, blots: 30, cracks: 8 }), roughness: 0.95 }),
   wall: new THREE.MeshStandardMaterial({ map: rvTex('#a59d90', { streaks: 40, blots: 20 }), roughness: 0.92 }),
   dirt: new THREE.MeshStandardMaterial({ map: rvTex('#8b7656', { noise: 40, blots: 60, blotRGB: '60,70,30', blotA: 0.18 }), roughness: 1 }),
-  diy: new THREE.MeshStandardMaterial({ map: graf ? makeGraffitiTexture(7, 1024, { wear: 0.7, density: 0.25 }) : rvTex('#a8a293', { blots: 40 }), roughness: 0.85, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 }),
-  diySide: new THREE.MeshStandardMaterial({ map: graf ? makeGraffitiTexture(11, 1024, { wear: 0.75, density: 0.22 }) : rvTex('#9d978a', { blots: 40 }), roughness: 0.9, side: THREE.DoubleSide }),
-  pillar: new THREE.MeshStandardMaterial({ map: graf ? makeGraffitiTexture(23, 1024, { wear: 0.65, density: 0.3 }) : rvTex('#b0a898', { streaks: 30 }), roughness: 0.9 }),
+  // DIY pours: patchy concrete, skids and a few old tags (uv = metres / 4, so repeat 0.5 = an 8 m tile)
+  diy: new THREE.MeshStandardMaterial({ map: graf ? makeGraffitiTexture(7, 1024, { kind: 'diy', lazy: true }) : rvTex('#a8a293', { blots: 40 }), roughness: 0.85, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 }),
+  diySide: new THREE.MeshStandardMaterial({ map: graf ? makeGraffitiTexture(11, 1024, { kind: 'diyside', lazy: true }) : rvTex('#9d978a', { blots: 40 }), roughness: 0.9, side: THREE.DoubleSide }),
+  // piers, headwalls, abutments: bare worn concrete cast in lifts, old tags and buffs only at street level (world-scaled uvs: rvBoxUV)
+  pillar: new THREE.MeshStandardMaterial({ map: typeof makeStructureTexture === 'function' ? makeStructureTexture(23, 1024, 2048, { mu: 8, graf: 1, waterline: 1.3, lazy: true }) : rvTex('#b0a898', { streaks: 30 }), roughness: 0.9 }),
+  pillarB: new THREE.MeshStandardMaterial({ map: typeof makeStructureTexture === 'function' ? makeStructureTexture(29, 1024, 2048, { mu: 8, graf: 0.7, waterline: 1.1, base: '#a9a090', lazy: true }) : rvTex('#aaa293', { streaks: 30 }), roughness: 0.9 }),
+  column: new THREE.MeshStandardMaterial({ map: typeof makeStructureTexture === 'function' ? makeStructureTexture(31, 512, 2048, { mu: 4.4, graf: 0.9, forms: false, lazy: true }) : rvTex('#b0a898', { streaks: 30 }), roughness: 0.9 }),
   bridge: new THREE.MeshStandardMaterial({ map: rvTex('#a39b8d', { streaks: 30, blots: 30 }), roughness: 0.9 }),
   black: new THREE.MeshBasicMaterial({ color: 0x000000, fog: false }),
   steel: new THREE.MeshStandardMaterial({ color: 0x8a8f94, roughness: 0.45, metalness: 0.7 }),
   rust: new THREE.MeshStandardMaterial({ color: 0x6b4a34, roughness: 0.8, metalness: 0.4 }),
   wood: new THREE.MeshStandardMaterial({ color: 0x4a3b2c, roughness: 1 }),
 };
-RM.diy.map.repeat.set(0.25, 0.25); RM.diySide.map.repeat.set(0.25, 0.25); RM.pillar.map.repeat.set(0.25, 0.25);
+RM.diy.map.repeat.set(0.5, 0.5); RM.diySide.map.repeat.set(0.5, 0.5);
+// world-scaled uvs for structural concrete: u runs along each face (su metres per tile), v is height above yBase (sv metres)
+function rvBoxUV(m, su, sv, yBase, uOff = 0) {
+  m.updateMatrix(); const P = m.geometry.attributes.position, N = m.geometry.attributes.normal, U = m.geometry.attributes.uv, p = new V3(), n = new V3();
+  for (let i = 0; i < P.count; i++) {
+    p.fromBufferAttribute(P, i).applyMatrix4(m.matrix); n.fromBufferAttribute(N, i).transformDirection(m.matrix);
+    let u, v;
+    if (Math.abs(n.y) > 0.7) { u = p.x; v = p.z; }
+    else if (Math.abs(n.x) >= Math.abs(n.z)) { u = n.x > 0 ? -p.z : p.z; v = p.y - yBase; }   // reads left to right from outside
+    else { u = n.z > 0 ? p.x : -p.x; v = p.y - yBase; }
+    U.setXY(i, u / su + uOff, v / sv);
+  }
+  U.needsUpdate = true; return m;
+}
+// columns: the column texture goes once round (it's cast for a ~0.7 m radius), v = height above yBase
+function rvCylUV(m, sv, yBase, uOff = 0) {
+  m.updateMatrix(); const P = m.geometry.attributes.position, U = m.geometry.attributes.uv, p = new V3();
+  for (let i = 0; i < P.count; i++) { const u = U.getX(i); p.fromBufferAttribute(P, i).applyMatrix4(m.matrix); U.setXY(i, u + uOff, (p.y - yBase) / sv); }
+  U.needsUpdate = true; return m;
+}
 const rvMesh = (geo, mat, shadow = true) => { const m = new THREE.Mesh(geo, mat); m.castShadow = shadow; m.receiveShadow = true; scene.add(m); return m; };
 // a cross-section (x, y) swept along z from z0 to z1
 function rvSweep(pts, z0, z1, mat, nz = 1) {
@@ -4926,19 +5612,80 @@ function rvBlock(cx, cz, a, hw, hl, top, mat, y0 = 0) {
 }
 function rvColumn(x, z, r, y0, y1, mat) {
   addObs({ cx: x, cz: z, a: 0, hw: r, hl: r, f: (lx, lz) => lx * lx + lz * lz <= r * r ? y1 : 0 });
-  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, y1 - y0, 20), mat); m.position.set(x, (y0 + y1) / 2, z); m.castShadow = m.receiveShadow = true; scene.add(m); return m;
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, y1 - y0, 20), mat); m.position.set(x, (y0 + y1) / 2, z); m.castShadow = m.receiveShadow = true; scene.add(m);
+  if (mat === RM.column) { m.rotation.y = Math.atan2(RV.xc - x, 0.001) + Math.PI; rvCylUV(m, 16, y0, Math.abs(x * 0.37 + z * 0.113) % 1); }   // texture seam turned away from the river
+  return m;
 }
-// graffiti pieces stuck onto a surface: a plane at p facing n
-const DECALS = [], DECAL_TEX = {};
-// most of it is old and sun-bleached, about one in five pieces is fresh
-const rvWear = seed => { const r = Math.abs(Math.sin(seed * 12.9898) * 43758.5453) % 1; return r < 0.2 ? r * 0.8 : 0.35 + (r - 0.2) / 0.8 * 0.6; };
-function rvDecal(x, y, z, w, h, yaw, pitch = 0, seed = 1, tagsOnly = false, wear = rvWear(seed)) {
+// ---- graffiti decals ----
+// A shared pool of painted textures (49 of them, ~120 MB of GPU memory with mipmaps; the canvases are let go once uploaded),
+// each decal is a patch of quads laid on (or curved round) a surface;
+// all the patches that use one texture are batched into a single mesh, built by rvDecalsFlush() once the map is placed.
+// key: [style, width, height, wear 0 fresh .. 1 very worn, extra options]
+const GSPEC = {
+  bb1: ['blockbuster', 2048, 512, 0.72], bb2: ['blockbuster', 2048, 512, 0.45], bb3: ['blockbuster', 2048, 512, 0.82], bb4: ['blockbuster', 2048, 512, 0.6], bb5: ['blockbuster', 2048, 512, 0.55, { buff: 0.9 }],
+  bb6: ['blockbuster', 2048, 512, 0.5], bb7: ['blockbuster', 2048, 512, 0.7],   // the sound wall and the warehouses get their own, so nothing repeats across the river
+  rt1: ['rollertag', 1024, 256, 0.55], rt2: ['rollertag', 1024, 256, 0.75],   // fat roller lines don't need the resolution
+  tu1: ['throwup', 1024, 512, 0.2], tu2: ['throwup', 1024, 512, 0.5], tu3: ['throwup', 1024, 512, 0.75], tu4: ['throwup', 1024, 512, 0.35], tu5: ['throwup', 1024, 512, 0.85], tu6: ['throwup', 1024, 512, 0.6],
+  tu7: ['throwup', 1024, 512, 0.45], tu8: ['throwup', 1024, 512, 0.68],
+  pc1: ['piece', 1024, 512, 0.04, { character: true, pal: 0 }], pc2: ['piece', 1024, 512, 0.06, { character: false, pal: 1 }], pc3: ['piece', 1024, 512, 0.15, { character: true, pal: 3 }],
+  tg1: ['tags', 1024, 512, 0.25], tg2: ['tags', 1024, 512, 0.5], tg3: ['tags', 1024, 512, 0.7], tg4: ['tags', 1024, 512, 0.35], tg5: ['tags', 1024, 512, 0.6], tg6: ['tags', 1024, 512, 0.15], tg7: ['tags', 1024, 512, 0.8],
+  tg8: ['tags', 1024, 512, 0.45], tg9: ['tags', 1024, 512, 0.65], tg10: ['tags', 1024, 512, 0.3],
+  st1: ['strip', 1024, 256, 0.3], st2: ['strip', 1024, 256, 0.55], st3: ['strip', 1024, 256, 0.75], st4: ['strip', 1024, 256, 0.2], st5: ['strip', 1024, 256, 0.65], st6: ['strip', 1024, 256, 0.45],
+  st7: ['strip', 1024, 256, 0.6], st8: ['strip', 1024, 256, 0.35], st9: ['strip', 1024, 256, 0.8],
+  ch1: ['character', 512, 512, 0.1, { kind: 'cat' }], ch2: ['character', 512, 512, 0.35, { kind: 'blobby' }], ch3: ['character', 512, 512, 0.55, { kind: 'lowrider' }], ch4: ['character', 512, 512, 0.2, { kind: 'boombox' }],
+  ch5: ['character', 512, 512, 0.6, { kind: 'dog' }], ch6: ['character', 512, 512, 0.25, { kind: 'eyeball' }], ch7: ['character', 512, 512, 0.45, { kind: 'fish' }],
+  bf1: ['buff', 1024, 512, 0.3], bf2: ['buff', 1024, 512, 0.5],
+  heart: ['heart', 512, 512, 0.05],
+};
+const GT = {}, GB = {};
+function gTex(key) {
+  if (GT[key]) return GT[key];
+  const s = GSPEC[key]; return (GT[key] = makeGraffitiDecal('river:' + key, s[1], s[2], Object.assign({ style: s[0], wear: s[3], lazy: true }, s[4] || {})));
+}
+// a patch: fn(u, v) -> world point for u (left to right as read) and v (bottom to top) in 0..1, pushed off the surface by off
+function gPatch(key, nu, nv, fn, off) {
   if (typeof makeGraffitiDecal !== 'function') return;
-  // a shared pool of textures (GPU memory): ~40 different pieces, each at one of three ages
-  const wq = wear < 0.25 ? 0.1 : wear < 0.65 ? 0.5 : 0.8, key = (tagsOnly ? 't' : 'p') + (seed % 41) + '/' + wq;
-  const tex = DECAL_TEX[key] || (DECAL_TEX[key] = tagsOnly ? makeTagsOnlyTexture(seed % 41, 512, { wear: wq }) : makeGraffitiDecal(seed % 41, 768, 384, { wear: wq }));
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: tex, transparent: true, roughness: 0.85, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3, depthWrite: false }));
-  m.rotation.order = 'YXZ'; m.rotation.set(pitch, yaw, 0); m.position.set(x, y, z); m.receiveShadow = true; m.renderOrder = 1; scene.add(m); DECALS.push(m); return m;
+  const B = GB[key] || (GB[key] = { pos: [], uv: [], nrm: [], idx: [] }), base = B.pos.length / 3, e = 1e-3, a = new V3(), b = new V3(), n = new V3();
+  for (let j = 0; j <= nv; j++) for (let i = 0; i <= nu; i++) {
+    const u = i / nu, v = j / nv, p = fn(u, v);
+    a.set(...fn(Math.min(1, u + e), v)).sub(new V3(...fn(Math.max(0, u - e), v))); b.set(...fn(u, Math.min(1, v + e))).sub(new V3(...fn(u, Math.max(0, v - e))));
+    n.crossVectors(a, b).normalize();
+    B.pos.push(p[0] + n.x * off, p[1] + n.y * off, p[2] + n.z * off); B.nrm.push(n.x, n.y, n.z); B.uv.push(u, v);
+  }
+  for (let j = 0; j < nv; j++) for (let i = 0; i < nu; i++) { const q = base + j * (nu + 1) + i, r = q + nu + 1; B.idx.push(q, q + 1, r, q + 1, r + 1, r); }
+}
+// flat: centre (x, y, z), size w x h, facing yaw (0 = +z, PI/2 = +x), tipped back by pitch
+const gObj = new THREE.Object3D(); gObj.rotation.order = 'YXZ';
+function rvDecal(key, x, y, z, w, h, yaw, pitch = 0, off = 0.02) {
+  gObj.position.set(x, y, z); gObj.rotation.set(pitch, yaw, 0); gObj.updateMatrixWorld(true);
+  const p = new V3(); gPatch(key, 1, 1, (u, v) => { p.set((u - 0.5) * w, (v - 0.5) * h, 0).applyMatrix4(gObj.matrixWorld); return [p.x, p.y, p.z]; }, off);
+}
+// along z on a cross-section: prof = [[x, y], ...] from the bottom of the piece to its top; rightZ: +1 if the reader's right is +z
+function rvProfDecal(key, prof, z0, z1, rightZ, off = 0.03) {
+  const acc = [0]; for (let i = 1; i < prof.length; i++) acc.push(acc[i - 1] + Math.hypot(prof[i][0] - prof[i - 1][0], prof[i][1] - prof[i - 1][1]));
+  const L = acc[acc.length - 1], at = s => { let i = 1; while (i < acc.length - 1 && acc[i] < s) i++; const t = (s - acc[i - 1]) / Math.max(1e-6, acc[i] - acc[i - 1]); return [lerp(prof[i - 1][0], prof[i][0], t), lerp(prof[i - 1][1], prof[i][1], t)]; };
+  gPatch(key, 1, Math.max(1, prof.length - 1), (u, v) => { const q = at(v * L); return [q[0], q[1], rightZ > 0 ? lerp(z0, z1, u) : lerp(z1, z0, u)]; }, off);
+}
+// a piece painted up a bank (on the bank's own curve, toe and lip included), centred at height hc, as tall up the slope as the
+// texture's aspect needs for its length along the river; it reads along the river from the channel
+function rvBankDecal(key, side, z0, z1, hc, aspect = 4) {
+  const T = []; let s = 0;   // the cross-section from toe to lip with arc length
+  for (let k = 0; k <= 240; k++) { const x = RV.xc + side * (RV.floor - 0.3 + (RV.bank + 0.3) * k / 240), y = rvBase(x); if (k) s += Math.hypot(x - T[k - 1][0], y - T[k - 1][1]); T.push([x, y, s]); }
+  const sAt = h => { for (let k = 1; k < T.length; k++) if (T[k][1] >= h) return T[k][2]; return s; };
+  const A = Math.abs(z1 - z0) / aspect, s0 = clamp(sAt(hc) - A / 2, 0.3, s - 0.3 - A), prof = [];
+  for (let k = 0; k <= 24; k++) { const t = s0 + A * k / 24; let i = 1; while (i < T.length - 1 && T[i][2] < t) i++; const f = (t - T[i - 1][2]) / Math.max(1e-6, T[i][2] - T[i - 1][2]); prof.push([lerp(T[i - 1][0], T[i][0], f), lerp(T[i - 1][1], T[i][1], f)]); }
+  rvProfDecal(key, prof, z0, z1, side > 0 ? 1 : -1, 0.035);
+}
+// wrapped round a column (centre x, z, radius r) between heights y0 and y1, centred on the direction ang (0 = +z, PI/2 = +x)
+function rvColDecal(key, x, z, r, y0, y1, ang, arc) {
+  gPatch(key, 12, 1, (u, v) => { const t = ang + (u - 0.5) * arc; return [x + Math.sin(t) * r, lerp(y0, y1, v), z + Math.cos(t) * r]; }, 0.018);
+}
+function rvDecalsFlush() {
+  for (const key in GB) {
+    const B = GB[key], g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(B.pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(B.nrm, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(B.uv, 2)); g.setIndex(B.idx);
+    const m = new THREE.Mesh(g, graffitiDecalMaterial(gTex(key))); m.receiveShadow = true; m.renderOrder = 1; m.frustumCulled = false; scene.add(m);
+  }
 }
 
 // ---- weeds out of the cracks, dried mud and algae on the floor ----
@@ -4980,7 +5727,6 @@ function rvDecal(x, y, z, w, h, yaw, pitch = 0, seed = 1, tagsOnly = false, wear
   });
 }
 // ---- the bridges: deck, railings, piers in the channel, columns on the decks ----
-const bankAngle = Math.atan(rvK);
 RV.bridges.forEach((B, bi) => {
   const z0 = B.z - B.w / 2, z1 = B.z + B.w / 2, x0 = -79, x1 = 96, th = RV.top - RV.under;
   const deck = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, th, B.w), RM.bridge); deck.position.set((x0 + x1) / 2, RV.under + th / 2, B.z); deck.castShadow = deck.receiveShadow = true; scene.add(deck);
@@ -5000,13 +5746,12 @@ RV.bridges.forEach((B, bi) => {
   [-1, 1].forEach(sd => {
     const x = RV.xc + sd * B.piers, L = B.pierL || B.w - 2, r = 0.75;
     addObs({ cx: x, cz: B.z, a: 0, hw: r, hl: L / 2 + r, f: (lx, lz) => { const e = Math.max(0, Math.abs(lz) - L / 2); return lx * lx + e * e <= r * r ? RV.under : 0; } });
-    const body = new THREE.Mesh(new THREE.BoxGeometry(r * 2, RV.under, L), RM.pillar); body.position.set(x, RV.under / 2, B.z); body.castShadow = body.receiveShadow = true; scene.add(body);
-    [-1, 1].forEach(e => { const n = new THREE.Mesh(new THREE.CylinderGeometry(r, r, RV.under, 20), RM.pillar); n.position.set(x, RV.under / 2, B.z + e * L / 2); n.castShadow = true; scene.add(n); });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(r * 2, RV.under, L), (bi + (sd > 0 ? 1 : 0)) % 2 ? RM.pillarB : RM.pillar); body.position.set(x, RV.under / 2, B.z); body.castShadow = body.receiveShadow = true; scene.add(body);
+    rvBoxUV(body, 8, 16, 0, bi * 0.37 + sd * 0.21);   // world-scaled, so no stretched or repeated-per-face graffiti
+    [-1, 1].forEach(e => { const n = new THREE.Mesh(new THREE.CylinderGeometry(r, r, RV.under, 20), RM.column); n.position.set(x, RV.under / 2, B.z + e * L / 2); if (e > 0) n.rotation.y = Math.PI; n.castShadow = true; scene.add(n); rvCylUV(n, 16, 0, bi * 0.29 + e * 0.13 + sd * 0.25); });   // seams face into the pier; facing noses get opposite halves
   });
   // columns up on the decks and the upper street
-  [[-27, RV.deck], [48, RV.deck], [-62, RV.upper], [73, RV.deck], [91, 0]].forEach(([x, y]) => { rvColumn(x, B.z - B.w / 4, 0.7, y, RV.under, RM.pillar); rvColumn(x, B.z + B.w / 4, 0.7, y, RV.under, RM.pillar); });
-  // graffiti on the girder faces
-  for (let k = 0; k < 6; k++) { const x = RV.xc + (k - 2.5) * 14; rvDecal(x, RV.top - 0.9, z0 - 0.02, 9, 1.6, Math.PI, 0, 100 + bi * 10 + k); rvDecal(x + 5, RV.top - 0.9, z1 + 0.02, 9, 1.6, 0, 0, 200 + bi * 10 + k); }
+  [[-27, RV.deck], [48, RV.deck], [-62, RV.upper], [73, RV.deck], [91, 0]].forEach(([x, y]) => { rvColumn(x, B.z - B.w / 4, 0.7, y, RV.under, RM.column); rvColumn(x, B.z + B.w / 4, 0.7, y, RV.under, RM.column); });
 });
 // the middle bridge is an old arched viaduct: arch fascias on both faces, springing from the piers and the bank tops
 {
@@ -5038,14 +5783,12 @@ const JB = { x: 56.2, h: 0.82, base: 0.31, top: 0.08 };
   addObs({ cx: JB.x, cz: 0, a: 0, hw: JB.base, hl: 900, f: lx => { const p = prof(lx); return p > 0 ? RV.deck + p : 0; } });
   const xs = [-JB.base, -0.16, -JB.top, JB.top, 0.16, JB.base].map(d => [JB.x + d, RV.deck + prof(d)]);
   for (let z = ZA; z < ZB; z += 3.85) rvSweep(xs.map(p => p.slice()), z, z + 3.75, RM.wall);
-  addRailPath([[JB.x, RV.deck + JB.h + 0.04, RV.PZS - 20], [JB.x, RV.deck + JB.h + 0.04, RV.PZN + 20]], { hidden: true, ledge: true });
+  addRailPath([[JB.x, RV.deck + JB.h + 0.04, RV.PZS + 1.5], [JB.x, RV.deck + JB.h + 0.04, RV.PZN - 1.5]], { hidden: true, ledge: true });
   // DIY banks poured against the barrier: wallie up them or ride along the top
-  [32, -112, -258].forEach((z, i) => {
+  [32, -40, -112, -175, -258].forEach((z, i) => {
     const L = 1.7, W = 5 + i;
     rvPiece(JB.x - JB.base - L / 2 + 0.25, z, 0, L / 2, W / 2 + 0.9, (lx, lz) => JB.h * 1.05 * Math.pow(clamp((lx + L / 2) / L, 0, 1), 1.5) * taper(W / 2 + 0.9 - Math.abs(lz), 1.2), RM.diy, 0.1);
-    rvDecal(JB.x - 0.2, RV.deck + 0.5, z + 4, 3.6, 0.8, -Math.PI / 2, 0, 300 + i);
   });
-  for (let k = 0; k < 18; k++) { const z = lerp(RV.PZS + 10, RV.PZN - 10, k / 17) + (Math.random() - 0.5) * 8; rvDecal(JB.x - 0.24, RV.deck + 0.45, z, 2.4 + Math.random() * 1.5, 0.6, -Math.PI / 2, -0.12, 320 + k, Math.random() < 0.5); }
   // chain-link fence along the top of the barrier line
   const cl = document.createElement('canvas'); cl.width = cl.height = 64; const g = cl.getContext('2d');
   g.strokeStyle = 'rgba(170,175,178,0.95)'; g.lineWidth = 2.2; g.beginPath(); g.moveTo(0, 0); g.lineTo(64, 64); g.moveTo(64, 0); g.lineTo(0, 64); g.moveTo(32, -32); g.lineTo(96, 32); g.moveTo(-32, 32); g.lineTo(32, 96); g.moveTo(32, 96); g.lineTo(96, 32); g.moveTo(-32, 32); g.lineTo(32, -32); g.stroke();
@@ -5071,7 +5814,6 @@ const JB = { x: 56.2, h: 0.82, base: 0.31, top: 0.08 };
   rvSweep([[72.7, RV.deck], [72.85, RV.deck + 0.82], [73.15, RV.deck + 0.82], [73.3, RV.deck]], ZA, ZB, RM.wall);
   rvSweep([[87, RV.deck], [87, RV.deck + 4.5], [87.4, RV.deck + 4.5], [87.4, 0]], ZA, ZB, RM.wall);
   rvSweep([[87.4, 0.01], [400, 0.01]], ZA, ZB, RM.dirt);
-  for (let k = 0; k < 26; k++) rvDecal(86.98, RV.deck + 2.2, lerp(-560, 480, k / 25) + Math.random() * 20, 7 + Math.random() * 5, 2.6, -Math.PI / 2, 0, 400 + k);
 }
 // chain-link across both ends of the map: the river, decks and street carry on past it into the haze
 [RV.PZN + 0.2, RV.PZS - 0.2].forEach(zf => {
@@ -5149,10 +5891,11 @@ const JB = { x: 56.2, h: 0.82, base: 0.31, top: 0.08 };
   scene.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(coil), 9000, 0.012, 3, false), RM.steel));
   addObs({ cx: fx, cz: 0, a: 0, hw: 0.15, hl: 900, f: () => RV.upper + fh });
   // the long tranny against the fence (rises toward -x)
-  const R = 2.2, z0 = -112, z1 = -36, D = 3.1;   // curve plus a 0.9 m deck against the fence
-  rvPiece(fx + 0.15 + D / 2, (z0 + z1) / 2, 0, D / 2, (z1 - z0) / 2, (lx, lz) => qProf(D / 2 - lx - 0.05, R) * taper((z1 - z0) / 2 - Math.abs(lz), 1.5), RM.diy, 0.12);
-  lipCoping(fx + 0.15 + D - 0.05 - R * 0.97, z0 + 1.6, fx + 0.15 + D - 0.05 - R * 0.97, z1 - 1.6, RV.upper + qProf(R * 0.97, R) + 0.02, [1, 0]);
-  for (let k = 0; k < 6; k++) rvDecal(fx + 1.1, RV.upper + 1.1, lerp(z0 + 6, z1 - 6, k / 5), 6, 1.4, Math.PI / 2, -0.55, 500 + k);
+  const R = 2.2, z0 = -112, z1 = -36, D = 3.1;   // curve plus a 0.9 m deck against the fence; two runs, either side of bridge 2
+  [[z0, -82], [-54, z1]].forEach(([za, zb]) => {
+    rvPiece(fx + 0.15 + D / 2, (za + zb) / 2, 0, D / 2, (zb - za) / 2, (lx, lz) => qProf(D / 2 - lx - 0.05, R) * taper((zb - za) / 2 - Math.abs(lz), 1.5), RM.diy, 0.12);
+    lipCoping(fx + 0.15 + D - 0.05 - R * 0.97, za + 1.6, fx + 0.15 + D - 0.05 - R * 0.97, zb - 1.6, RV.upper + qProf(R * 0.97, R) + 0.02, [1, 0]);
+  });
 }
 
 // ---- west side: power poles with sagging wires, the railroad, tunnel portals, stairs down from the upper street ----
@@ -5203,7 +5946,7 @@ const TRACK = { x: -38, gauge: 1.435, bed: 0.28 };
     const x = TRACK.x + sd * TRACK.gauge / 2;
     const r = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.16, ZB - ZA), RM.rust); r.position.set(x, railTop - 0.08, (ZA + ZB) / 2); r.castShadow = true; scene.add(r);
     const head = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.025, ZB - ZA), RM.steel); head.position.set(x, railTop - 0.01, (ZA + ZB) / 2); scene.add(head);
-    addRailPath([[x, railTop + 0.03, RV.PZS - 20], [x, railTop + 0.03, RV.PZN + 20]], { hidden: true });
+    addRailPath([[x, railTop + 0.03, RV.PZS + 1.5], [x, railTop + 0.03, RV.PZN - 1.5]], { hidden: true });
   });
   // tunnel portals at both ends: a concrete face in a hillside, the bore pitch black inside
   [[RV.PZN + 1, 1], [RV.PZS - 1, -1]].forEach(([z, sd]) => {
@@ -5221,7 +5964,6 @@ const TRACK = { x: -38, gauge: 1.435, bed: 0.28 };
     const ch = new THREE.Path(); ch.moveTo(4 - W / 2, 2); ch.lineTo(4 - W / 2, 2 + H - W / 2); ch.absarc(4, 2 + H - W / 2, W / 2, Math.PI, 0, true); ch.lineTo(4 + W / 2, 2); ch.lineTo(4 - W / 2, 2); cap.holes.push(ch);
     const capM = new THREE.Mesh(new THREE.ShapeGeometry(cap, 12), new THREE.MeshStandardMaterial({ color: 0x8a7550, roughness: 1, side: THREE.DoubleSide }));
     capM.position.set(TRACK.x - 4, y0 - 2, zb + sd * 0.05); scene.add(capM);
-    rvDecal(TRACK.x - 8.5, y0 + 2.4, z - sd * 0.02, 7, 3, sd > 0 ? Math.PI : 0, 0, 600 + (sd > 0 ? 1 : 2));
   });
 }
 // the upper street: a cracked old asphalt road with a curb, sidewalk, streetlights and a few parked beaters
@@ -5264,30 +6006,22 @@ function rvStairs(z, W, n, opts = {}) {
   const railAt = (zz, y) => addRail(x0 - 1.2, RV.upper + y, zz, x0 + L - tread * 0.5, RV.deck + rise + y, zz, {});
   (opts.rails || []).forEach(dz => { railAt(z + dz, 0.92); cylBetween(new V3(x0 - 1.2, RV.upper, z + dz), new V3(x0 - 1.2, RV.upper + 0.92, z + dz), 0.035, mats.steel); });
   if (opts.hubba) {   // a sloped concrete ledge down one side
-    const hz = z + opts.hubba, hw = 0.32, top = 0.55;
+    const hz = z + opts.hubba, hw = 0.32, top = 0.75;
     addObs({ cx: x0 + (L - 0.8) / 2, cz: hz, a: 0, hw: (L + 0.8) / 2, hl: hw, f: lx => { const t = clamp((lx + (L + 0.8) / 2) / (L + 0.8), 0, 1); return RV.upper - (RV.upper - RV.deck - rise) * t + top; } });
     const g = new THREE.BoxGeometry(Math.hypot(L + 0.8, RV.upper - RV.deck - rise), 1.6, hw * 2); const m = new THREE.Mesh(g, RM.diySide);
-    m.rotation.z = -Math.atan2(RV.upper - RV.deck - rise, L + 0.8); m.position.set(x0 - 0.8 + (L + 0.8) / 2, (RV.upper + RV.deck + rise) / 2 + top - 0.8, hz); m.castShadow = true; scene.add(m);
+    m.rotation.z = -Math.atan2(RV.upper - RV.deck - rise, L + 0.8); m.position.set(x0 - 0.8 + (L + 0.8) / 2, (RV.upper + RV.deck + rise) / 2 + top - 0.8, hz); m.castShadow = true; scene.add(m); rvBoxUV(m, 4, 4, RV.deck, 0.3);
     addRailPath([[x0 - 0.8, RV.upper + top + 0.02, hz - hw + 0.05], [x0 + L, RV.deck + rise + top + 0.02, hz - hw + 0.05]], { hidden: true, ledge: true });
     addRailPath([[x0 - 0.8, RV.upper + top + 0.02, hz + hw - 0.05], [x0 + L, RV.deck + rise + top + 0.02, hz + hw - 0.05]], { hidden: true, ledge: true });
   }
   if (opts.bank) {   // a smooth bank beside the stairs, same drop
     const bz = z + opts.bank, bw = 3.2, bl = L + 1.5;
-    rvPiece(x0 + bl / 2, bz, 0, bl / 2, bw / 2, (lx, lz) => (RV.upper - RV.deck) * (1 - clamp((lx + bl / 2) / bl, 0, 1)) + 0.0001, RM.wall, 0.2);
+    rvPiece(x0 + bl / 2, bz, 0, bl / 2, bw / 2, (lx, lz) => (RV.upper + 0.15 - RV.deck) * (1 - clamp((lx + bl / 2) / bl, 0, 1)) + 0.0001, RM.wall, 0.2);
   }
-  for (let k = 0; k < 2; k++) rvDecal(x0 + 0.02, RV.deck + 1.8, z + (k ? 1 : -1) * (W / 2 + 4), 5, 2.2, Math.PI / 2, 0, 700 + Math.round(z) + k);
 }
 rvStairs(-20, 5, 9, { rails: [0], hubba: 3.1, bank: -5.2 });
 rvStairs(-150, 6, 11, { rails: [-2.6, 2.6], bank: 5.4 });
-for (let k = 0; k < 16; k++) rvDecal(RV.wallX + 0.02, RV.deck + 1.6, lerp(RV.PZS + 20, RV.PZN - 20, k / 15) + 9, 7, 2.4, Math.PI / 2, 0, 750 + k, k % 3 === 0);
 
-// ---- banks: graffiti, a curb and a low rail on the west bank, the U-ditch on the east bank ----
-for (let k = 0; k < 30; k++) {
-  const side = k % 2 ? 1 : -1, z = lerp(RV.PZS + 10, RV.PZN - 10, k / 29) + (Math.random() - 0.5) * 10;
-  if (RV.bridges.some(B => Math.abs(z - B.z) < B.w / 2 + 4)) continue;
-  const t = 5 + Math.random() * 4, x = RV.xc + side * (RV.floor + t), y = rvBase(x) + 0.03;
-  rvDecal(x, y, z, 8 + Math.random() * 6, 3 + Math.random() * 1.5, side > 0 ? -Math.PI / 2 : Math.PI / 2, -(Math.PI / 2 - bankAngle), 800 + k, Math.random() < 0.3);
-}
+// ---- banks: a curb and a low rail on the west bank, the U-ditch on the east bank ----
 {
   // parking block lying along the bank and a bent low pipe rail running down it (west bank)
   const z = 30, xb = RV.xc - RV.floor - 7;
@@ -5331,14 +6065,14 @@ rvAccessRamp(-1, 66, 112);
   // box culvert: a flat-topped headwall out from the east toe with three dark openings, a DIY bank up its side
   const z0 = -30, z1 = -14, top = 2.6, xf = RV.xc + RV.floor - 1.5, xb = rvBankX(top, 1);
   addObs({ cx: (xf + xb) / 2, cz: (z0 + z1) / 2, a: 0, hw: (xb - xf) / 2, hl: (z1 - z0) / 2, f: () => top });
-  const m = new THREE.Mesh(new THREE.BoxGeometry(xb - xf, top, z1 - z0), RM.pillar); m.position.set((xf + xb) / 2, top / 2, (z0 + z1) / 2); m.castShadow = m.receiveShadow = true; scene.add(m);
+  const m = new THREE.Mesh(new THREE.BoxGeometry(xb - xf, top, z1 - z0), RM.pillar); m.position.set((xf + xb) / 2, top / 2, (z0 + z1) / 2); m.castShadow = m.receiveShadow = true; scene.add(m); rvBoxUV(m, 8, 16, 0, 0.13);
   [-5, 0, 5].forEach(dz => { const o = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.9, 3.6), RM.black); o.position.set(xf + 0.58, 0.95, (z0 + z1) / 2 + dz); scene.add(o); });
   addRailPath([[xf + 0.04, top + 0.02, z0 + 0.1], [xf + 0.04, top + 0.02, z1 - 0.1]], { hidden: true, ledge: true });
   rvPiece((xf + xb) / 2 - 0.5, z0 - 3, 0, (xb - xf) / 2 + 0.5, 3, (lx, lz) => Math.max(0, top * Math.pow(clamp((lz + 3) / 6, 0, 1), 1.3) * taper((xb - xf) / 2 + 0.5 - Math.abs(lx + 0.5), 0.6) - rvBase((xf + xb) / 2 - 0.5 + lx)), RM.diy, 0.12);
   // storm-drain outlet on the west: a headwall with a big round pipe, transition walls flaring off both sides
   const sz = -126, sw = 9, stop = 3.4, sxf = RV.xc - RV.floor + 1.4, sxb = rvBankX(stop, -1);
   addObs({ cx: (sxf + sxb) / 2, cz: sz, a: 0, hw: (sxf - sxb) / 2, hl: sw / 2, f: () => stop });
-  const hw = new THREE.Mesh(new THREE.BoxGeometry(sxf - sxb, stop, sw), RM.pillar); hw.position.set((sxf + sxb) / 2, stop / 2, sz); hw.castShadow = hw.receiveShadow = true; scene.add(hw);
+  const hw = new THREE.Mesh(new THREE.BoxGeometry(sxf - sxb, stop, sw), RM.pillarB); hw.position.set((sxf + sxb) / 2, stop / 2, sz); hw.castShadow = hw.receiveShadow = true; scene.add(hw); rvBoxUV(hw, 8, 16, 0, 0.61);
   const pipe = new THREE.Mesh(new THREE.CircleGeometry(1.45, 32), RM.black); pipe.rotation.y = Math.PI / 2; pipe.position.set(sxf + 0.02, 1.55, sz); scene.add(pipe);
   const ring = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.1, 8, 32), RM.rust); ring.rotation.y = Math.PI / 2; ring.position.set(sxf + 0.05, 1.55, sz); scene.add(ring);
   addRailPath([[sxf - 0.04, stop + 0.02, sz - sw / 2 + 0.1], [sxf - 0.04, stop + 0.02, sz + sw / 2 - 0.1]], { hidden: true, ledge: true });
@@ -5351,14 +6085,14 @@ rvAccessRamp(-1, 66, 112);
 // bridge 1: quarters poured against both piers, a wedge spine between them, a tall quarter up to the girders on the east deck
 {
   const B = RV.bridges[0];
-  [-1, 1].forEach(sd => { const px = RV.xc + sd * B.piers, R = 2.1, D = 0.3, hl = (R * 0.97 + D) / 2; quarter(px - sd * (0.75 + hl), B.z, sd > 0 ? Math.PI / 2 : -Math.PI / 2, B.pierL + 1, R, D); });
+  [-1, 1].forEach(sd => { const px = RV.xc + sd * B.piers, R = 2.1, D = 0.3, hl = (R * 0.97 + D) / 2; quarter(px - sd * (0.75 + hl), B.z, sd > 0 ? Math.PI / 2 : -Math.PI / 2, B.pierL + 1, R, D); quarter(px + sd * (0.75 + hl), B.z, sd > 0 ? -Math.PI / 2 : Math.PI / 2, B.pierL + 1, R, D); });
   funbox(RV.xc - 3.4, B.z + 16, 0, 0.35, 3.2, 1.05, { xn: 2.0, xp: 2.0, zn: 0.9, zp: 0.9 });
   funbox(RV.xc + 4.6, B.z - 15, 0.5, 2.0, 1.6, 0.6, { xn: 1.6, xp: 0.02, zn: 1.3, zp: 1.3 });
   // the ceiling quarter: from the east bike path up toward the girders, against the abutment
   const R = 3.9, D = 0.9, x0 = RV.lipE - 0.05, z0 = B.z - B.w / 2 + 1.5, z1 = B.z + B.w / 2 - 1.5, top = qProf(R * 0.97, R);
   rvPiece(x0 + (R * 0.97 + D) / 2, B.z, 0, (R * 0.97 + D) / 2, (z1 - z0) / 2, (lx, lz) => qProf(lx + (R * 0.97 + D) / 2, R) * taper((z1 - z0) / 2 - Math.abs(lz), 1), RM.wall, 0.12);   // buffed clean so the piece on it pops
   lipCoping(x0 + R * 0.97, z0 + 1, x0 + R * 0.97, z1 - 1, RV.deck + top, [-1, 0]);
-  rvBlock(x0 + R * 0.97 + D + 0.6, B.z, 0, 0.6, B.w / 2, RV.under, RM.pillar, RV.deck);
+  rvBoxUV(rvBlock(x0 + R * 0.97 + D + 0.6, B.z, 0, 0.6, B.w / 2, RV.under, RM.pillar, RV.deck), 8, 16, 0, 0.42);   // v from the river floor: only bare upper concrete shows here, nothing next to the piece
   // the user's piece, painted across the face of the wall, bent to follow its curve
   if (typeof RIVER_TAG === 'string') {
     const tex = new THREE.TextureLoader().load(RIVER_TAG), PW = 10.5, nu = 24, nv = 24, u0 = 0.25, u1 = R * 0.965;
@@ -5377,7 +6111,7 @@ rvAccessRamp(-1, 66, 112);
 // bridge 2: the graffiti DIY bowl on the west half of the floor
 {
   const B = RV.bridges[1];
-  bowl([[RV.xc - 7.5, B.z - 5], [RV.xc - 7.5, B.z + 5]], 0.8, 2.2, 0.45, 0.9);
+  bowl([[RV.xc - 7.67, B.z - 5], [RV.xc - 7.67, B.z + 5]], 0.6, 2.0, 0.4, 2.0);
 }
 // bridge 3: the DIY pad (flat bar, ledges, little quarters, a pyramid wedge) and the camp up on the east deck
 {
@@ -5393,7 +6127,7 @@ rvAccessRamp(-1, 66, 112);
 // ---- filler lines on the floor between the bridges, so every stretch has something to hit ----
 // the sludge gap: a kicker on the west side of the trench and a landing ramp on the east
 kicker(RV.xc - 6.2, -22, Math.PI / 2, 3.2, 3.0, 1.0);
-{ const L = 4.2, H = 0.9; rvPiece(RV.xc + 6.4, -22, 0, L / 2, 1.9, (lx, lz) => H * (1 - clamp((lx + L / 2) / L, 0, 1)) ** 1.3 * (lx > -L / 2 + 0.02 ? 1 : 0) * taper(1.9 - Math.abs(lz), 0.3), RM.diy, 0.1); }
+{ const L = 7.5, H = 1.0, x0 = RV.xc + RV.sh + 0.4; rvPiece(x0 + L / 2, -22, 0, L / 2, 2.2, (lx, lz) => { const u = lx + L / 2; return H * Math.min(u / 0.9, (1 - clamp(u / L, 0, 1)) ** 1.2) * taper(2.2 - Math.abs(lz), 0.4); }, RM.diy, 0.1); }
 // a jersey barrier someone dumped in the channel, with a DIY bank poured against one side
 {
   const bx = RV.xc - 9, bz = -158, len = 7.6, prof = d => { d = Math.abs(d); return d <= 0.08 ? 0.82 : d <= 0.16 ? lerp(0.82, 0.28, (d - 0.08) / 0.08) : d <= 0.31 ? lerp(0.28, 0, (d - 0.16) / 0.15) : 0; };
@@ -5405,12 +6139,118 @@ kicker(RV.xc - 6.2, -22, Math.PI / 2, 3.2, 3.0, 1.0);
 }
 // a long low manual pad
 funbox(RV.xc + 8.5, -138, 0, 1.6, 7, 0.28, 0.65);
+[-0.78, 0.78].forEach(dx => addRailPath([[RV.xc + 8.5 + dx, 0.3, -141.4], [RV.xc + 8.5 + dx, 0.3, -134.6]], { hidden: true, ledge: true }));
 // a spine at the south end: two quarters back to back
 { const R = 2.4, D = 0.15, hl = (R * 0.97 + D) / 2; quarter(RV.xc - 8, -250 - hl, 0, 9, R, D); quarter(RV.xc - 8, -250 + hl, Math.PI, 9, R, D); }
 funbox(RV.xc + 7, -262, 0.3, 1.4, 1.4, 0.9, 1.6);
 // up north: a bump to bar
-{ const bx = RV.xc + 7, bz = 100; rvPiece(bx, bz, 0, 1.5, 1.6, (lx, lz) => 0.55 * Math.max(0, Math.cos(lx / 1.5 * Math.PI / 2)) ** 2 * taper(1.6 - Math.abs(lz), 0.4), RM.diy, 0.1);
-  addRail(bx - 0.4, 0.85, bz - 1.2, bx - 0.4, 0.85, bz + 1.2, {}); }
+{ const bx = RV.xc + 7, bz = 100;
+  rvPiece(bx, bz + 1.6, 0, 1.8, 1.6, (lx, lz) => 0.6 * Math.max(0, Math.cos(lz / 1.6 * Math.PI / 2)) ** 2 * taper(1.8 - Math.abs(lx), 0.4), RM.diy, 0.1);
+  addRail(bx - 1.6, 0.62, bz - 1.4, bx + 1.6, 0.62, bz - 1.4, {}); }
+// ---- the graffiti, placed like a real spot: big worn roller letters on the banks, throw-ups and tags along the barriers, the
+// sound wall and the retaining wall, worn heaven spots on the bridge faces, a few fresh pieces on the piers under the bridges,
+// tags round the DIY spots and the camp. Nothing on the vert wall: that one's the user's. ----
+if (typeof makeGraffitiDecal === 'function') {
+  const PI2 = Math.PI / 2, B0 = RV.bridges[0], B1 = RV.bridges[1], B2 = RV.bridges[2];
+  let gs = 20261025; const gr = () => { gs = (Math.imul(gs, 1664525) + 1013904223) >>> 0; return gs / 4294967296; }, grr = (a, b) => a + (b - a) * gr();   // its own dice: same walls every load
+  const pool = list => { let bag = [], last = null; return () => {   // no repeats till the bag's empty, and never the same one twice running
+    if (!bag.length) { bag = list.slice(); for (let i = bag.length - 1; i > 0; i--) { const j = Math.floor(gr() * (i + 1)), t = bag[i]; bag[i] = bag[j]; bag[j] = t; } if (bag.length > 1 && bag[bag.length - 1] === last) { const t = bag[0]; bag[0] = bag[bag.length - 1]; bag[bag.length - 1] = t; } }
+    return (last = bag.pop()); }; };
+  const TAGS = pool(['tg1', 'tg2', 'tg3', 'tg4', 'tg5', 'tg6', 'tg7', 'tg8', 'tg9', 'tg10']), TUS = pool(['tu1', 'tu2', 'tu3', 'tu4', 'tu5', 'tu6', 'tu7', 'tu8']), STRIPS = pool(['st1', 'st2', 'st3', 'st4', 'st5', 'st6', 'st7', 'st8', 'st9']);
+  const CHARS = pool(['ch1', 'ch2', 'ch5', 'ch6', 'ch7']), BUFFS = pool(['bf1', 'bf2']), BIGS = pool(['bb6', 'bb7']), ROLLS = pool(['rt1', 'rt2']);
+  // walk a run of wall from z0 to z1 dropping pieces with gaps between, skipping blocked spans
+  const walk = (z0, z1, gap, blocked, choose, place) => {
+    for (let z = z0 + grr(0, gap[1]); ;) {
+      const [key, w, h] = choose(), zc = z + w / 2; if (zc + w / 2 > z1) break;
+      if (!blocked.some(([a, b]) => zc + w / 2 > a && zc - w / 2 < b)) place(key, zc, w, h);
+      z += w + grr(gap[0], gap[1]);
+    }
+  };
+  // banks: rolled blockbusters and roller tags reading along the river (east: z runs left to right seen from the channel)
+  const BIG = [['bb4', 1, 97.5, 117.5, 2.9], ['rt2', 1, 64, 86, 3.0], ['bb2', 1, 6, 32, 2.8], ['bb1', 1, -116, -88, 2.9], ['bb5', 1, -238, -212, 2.8], ['rt1', 1, -292, -266, 3.1],
+    ['bb3', -1, 16, 33, 2.9], ['rt1', -1, -56, -38, 3.1], ['bb2', -1, -116, -86, 2.8], ['bb4', -1, -176, -148, 2.9], ['bb1', -1, -292, -266, 2.8]];
+  BIG.forEach(([k, sd, z0, z1, hc]) => rvBankDecal(k, sd, z0, z1, hc, k[0] === 'r' ? 3 : 3.4));   // a touch taller than the texture: big rolled letters stand tall up the slope
+  rvBankDecal('bf1', -1, -236, -222, 2.9, 2);   // a stretch rolled over in beige by the county, the old letters ghosting through
+  // under the bridges, in the shade
+  [['tu3', -1, 44, 49, 3.0], ['tg4', -1, 53, 57, 2.4], ['tu2', -1, -75, -69, 3.2], ['tg7', -1, -66, -62, 4.0], ['tu6', 1, -203, -198, 3.0], ['tg6', 1, -194, -190, 2.6], ['tg1', -1, -185.5, -181.5, 4.1]]
+    .forEach(([k, sd, z0, z1, hc]) => rvBankDecal(k, sd, z0, z1, hc, 2));
+  // and throw-ups, tags and the odd character all along both banks, up by the lip (reached from the path) or down by the toe
+  [1, -1].forEach(sd => {
+    const blocked = BIG.filter(b => b[1] === sd).map(b => [b[2] - 1.5, b[3] + 1.5]).concat(sd > 0
+      ? [[40, 64], [86, 97.5], [-35, -11], [-81, -55], [-181, -125], [-208, -184], [-240, -210]]    // the vert wall and its bridge, the U-ditch, culvert, bridges, access ramp
+      : [[33, 46], [-38, 16], [63, 114], [-135, -117], [-81, -55], [-208, -180], [-238, -220]]);    // the curb rail, access ramps, storm drain, bridges, the buff
+    walk(-296, 119, [3, 12], blocked, () => { const r = gr(); return r < 0.5 ? [TAGS(), grr(3.4, 4.6), 2] : r < 0.85 ? [TUS(), grr(4.2, 5.6), 2] : [CHARS(), grr(1.8, 2.3), 1]; },
+      (k, zc, w, asp) => rvBankDecal(k, sd, zc - w / 2, zc + w / 2, gr() < 0.62 ? grr(3.9, 4.3) : grr(1.1, 1.5), asp));
+  });
+  // heaven spots: worn, high on the bridge faces over the channel
+  rvDecal('bb5', 4, RV.top - 0.9, B0.z - B0.w / 2 - 0.02, 6.4, 1.6, Math.PI);   // (not one that's on a bank in view of it)
+  rvDecal('tu3', 17, RV.top - 0.9, B0.z + B0.w / 2 + 0.02, 3.2, 1.6, 0);
+  rvDecal('bb5', 2, RV.top - 0.9, B2.z + B2.w / 2 + 0.02, 6.4, 1.6, 0);
+  rvDecal('tu5', 18, RV.top - 0.9, B2.z - B2.w / 2 - 0.02, 3.2, 1.6, Math.PI);
+  rvDecal('tu6', RV.xc - B1.piers + 0.4, 12.1, B1.z + B1.w / 2 + 0.02, 5, 2.5, 0);          // the arched bridge: over the piers, between the arches
+  rvDecal('tu2', RV.xc + B1.piers - 0.4, 12.1, B1.z - B1.w / 2 - 0.02, 5, 2.5, Math.PI);
+  // the piers (faces at x = pier +- 0.75): pieces at reach height, the rest bare
+  const pw = (B, sd, out) => RV.xc + sd * B.piers + (out ? sd : -sd) * 0.77;   // x just off a pier face; out = the face toward its bank
+  rvDecal('tu1', pw(B0, -1, false), 2.75, B0.z, 4.4, 2.2, PI2);        // above the quarters poured against bridge 1's piers
+  rvDecal('tg6', pw(B0, 1, false), 2.75, B0.z, 4, 2, -PI2);
+  rvDecal('tg3', pw(B0, -1, true), 1.45, B0.z + 1.2, 3.6, 1.8, -PI2);
+  rvDecal('tu4', pw(B0, 1, true), 1.6, B0.z - 0.5, 4.4, 2.2, PI2);
+  rvDecal('pc1', pw(B1, -1, false), 2.05, B1.z - 3.5, 7.2, 3.6, PI2);   // the showpieces either side of the bowl
+  rvDecal('heart', pw(B1, -1, false), 1.85, B1.z + 6.4, 1.6, 1.6, PI2);   // JON + CLAUDE
+  rvDecal('pc2', pw(B1, 1, false), 1.95, B1.z - 2, 6.4, 3.2, -PI2);
+  rvDecal('tg8', pw(B1, 1, false), 1.4, B1.z + 6.5, 3.6, 1.8, -PI2);
+  rvDecal('tu3', pw(B1, -1, true), 1.6, B1.z - 6, 4.4, 2.2, -PI2);
+  rvDecal('tg2', pw(B1, -1, true), 1.3, B1.z + 4, 3.6, 1.8, -PI2);
+  rvDecal('tu7', pw(B1, 1, true), 1.6, B1.z + 4, 4.4, 2.2, PI2);
+  rvDecal('tg5', pw(B1, 1, true), 1.3, B1.z - 4, 3.6, 1.8, PI2);
+  rvDecal('pc3', pw(B2, -1, false), 1.8, B2.z - 1, 6, 3, PI2);
+  rvDecal('tg10', pw(B2, -1, false), 1.3, B2.z + 6, 3.2, 1.6, PI2);
+  rvDecal('tu2', pw(B2, 1, false), 2.5, B2.z, 4, 2, -PI2);              // above the quarter
+  rvDecal('tg7', pw(B2, -1, true), 1.4, B2.z + 4, 3.6, 1.8, -PI2);
+  rvDecal('tg1', pw(B2, 1, true), 1.5, B2.z - 3, 3.6, 1.8, PI2);
+  rvDecal('ch5', pw(B2, 1, true), 1.6, B2.z + 6, 1.7, 1.7, PI2);
+  // columns: about half of them carry something wrapped round at reach height; a boombox by the camp
+  const col = (k, x, z, y0, w, h, ang) => rvColDecal(k, x, z, 0.7, y0, y0 + h, ang, w / 0.718);
+  col('ch4', 48, B2.z - B2.w / 4, RV.deck + 0.6, 1.3, 1.3, PI2);
+  RV.bridges.forEach(B => [[-27, RV.deck], [48, RV.deck], [-62, RV.upper], [73, RV.deck]].forEach(([x, y0]) => [-1, 1].forEach(e => {
+    const z = B.z + e * B.w / 4; if ((B === B2 && x === 48 && e < 0) || gr() < 0.4) return;
+    const r = gr(), ang = x === 73 ? -PI2 : gr() < 0.5 ? PI2 : -PI2;
+    if (r < 0.5) col(TAGS(), x, z, y0 + grr(0.3, 0.6), 2.0, 1.0, ang); else if (r < 0.8) col(TUS(), x, z, y0 + grr(0.3, 0.6), 2.2, 1.1, ang); else col(CHARS(), x, z, y0 + grr(0.4, 0.8), 1.3, 1.3, ang);
+  })));
+  // jersey barriers along the east path: throw-ups, tags and doodles on the face (its sloped foot and its upright)
+  const jb = [[JB.x - 0.31 + 0.01, RV.deck + 0.03], [JB.x - 0.16, RV.deck + 0.28], [JB.x - 0.085, RV.deck + 0.79]];
+  walk(-296, 118, [1.5, 7], [[27.5, 36.5], [-117, -107], [-263, -253]], () => [STRIPS(), 3.3, 0], (k, zc, w) => rvProfDecal(k, jb, zc - w / 2, zc + w / 2, 1, 0.012));
+  // the freeway sound wall: big and visible from across the lanes, plenty of county buff
+  walk(-330, 165, [2, 8], [], () => { const r = gr(), w = r < 0.15 || r > 0.88 ? grr(11, 13) : r < 0.66 ? grr(4.6, 5.8) : grr(6, 8); return r < 0.15 ? [BIGS(), w, w / 4] : r < 0.42 ? [TUS(), w, w / 2] : r < 0.66 ? [TAGS(), w, w / 2] : r < 0.88 ? [BUFFS(), w, w / 2] : [ROLLS(), w, w / 4]; },
+    (k, zc, w, h) => rvDecal(k, 86.98, Math.min(RV.deck + 0.5 + h / 2 + grr(0.2, 0.8), RV.deck + 4.4 - h / 2), zc, w, h, -PI2));
+  // the retaining wall by the tracks (faces +x): tags, throw-ups, characters, buffs; the stair sets left clear, the lowrider by the north end
+  rvDecal('ch3', RV.wallX + 0.02, RV.deck + 1.6, 84, 2.6, 2.6, PI2);
+  walk(-296, 117, [1.5, 6], [[-27, -13], [-155, -141], [82, 86]], () => { const r = gr(), w = r < 0.45 ? grr(3.2, 4.4) : r < 0.72 ? grr(3.8, 4.8) : r < 0.85 ? grr(1.4, 2.0) : grr(4.5, 7); return r < 0.45 ? [TAGS(), w, w / 2] : r < 0.72 ? [TUS(), w, w / 2] : r < 0.85 ? [CHARS(), w, w] : [BUFFS(), w, w / 2]; },
+    (k, zc, w, h) => rvDecal(k, RV.wallX + 0.02, Math.min(RV.deck + 0.35 + h / 2 + grr(0, 0.7), RV.upper - 0.15 - h / 2), zc, w, h, PI2));
+  // the fence tranny (curves up toward -x; read from the street, so right is -z)
+  { const prof = []; for (let k = 0; k <= 12; k++) { const t = lerp(0.12, 2.0, k / 12); prof.push([-72 - t, RV.upper + qProf(t, 2.2)]); }
+    [-104, -91, -78, -65, -52].forEach((z, i) => rvProfDecal(i % 2 ? TUS() : TAGS(), prof, z - 2.5, z + 2.5, -1, 0.025)); }
+  // the tunnel portals: a heaven spot over each arch, tags by the bore
+  rvDecal('bb6', TRACK.x, RV.deck + 8.75, RV.PZN + 1 - 0.02, 10, 2.5, Math.PI); rvDecal('tg3', TRACK.x - 8, RV.deck + 1.5, RV.PZN + 1 - 0.02, 4, 2, Math.PI); rvDecal('tg9', TRACK.x + 8.5, RV.deck + 1.6, RV.PZN + 1 - 0.02, 4, 2, Math.PI);
+  rvDecal('tu2', TRACK.x, RV.deck + 9.4, RV.PZS - 1 + 0.02, 6, 3, 0); rvDecal('tg6', TRACK.x + 8, RV.deck + 1.5, RV.PZS - 1 + 0.02, 4, 2, 0); rvDecal('tu8', TRACK.x - 8.5, RV.deck + 1.7, RV.PZS - 1 + 0.02, 4.4, 2.2, 0);
+  // the box culvert: tags along the band over the openings and on the piers between them, a cat round the side
+  { const xf = RV.xc + RV.floor - 1.5 - 0.02; rvDecal('st2', xf, 2.27, -24.6, 2.4, 0.6, -PI2); rvDecal('st5', xf, 2.27, -19.4, 2.4, 0.6, -PI2); rvDecal('ch6', xf, 1.0, -24.5, 1.25, 1.25, -PI2); rvDecal('ch1', xf + 1.5, 1.3, -13.98, 1.9, 1.9, 0); }
+  // the storm drain headwall, either side of the pipe
+  { const sx = RV.xc - RV.floor + 1.4 + 0.02; rvDecal('tg6', sx, 2.4, -129.1, 2.5, 1.25, PI2); rvDecal('ch2', sx, 1.5, -123, 2.2, 2.2, PI2); }
+  // the jersey barrier dumped in the channel
+  rvProfDecal('st6', [[RV.xc - 9 - 0.3, 0.03], [RV.xc - 9 - 0.16, 0.28], [RV.xc - 9 - 0.085, 0.79]], -158 - 1.6, -158 + 1.6, 1, 0.012);
+  // warehouse walls across the upper street
+  rvDecal('bb7', -79.98, 14, -125, 16, 4, PI2); rvDecal('rt1', -79.98, 17.5, 15, 14, 3.5, PI2); rvDecal('bf1', -79.98, 12.5, 85, 8, 4, PI2); rvDecal('tu7', -79.98, 11.2, -45, 6, 3, PI2);
+  rvDecalsFlush();
+}
+// the river's graffiti textures are painted lazily: a little at a time in idle moments after load, the rest at once if the
+// river gets picked before that's done (setMap)
+if (typeof grafPump === 'function') { const step = dl => { if (grafPump(dl && dl.timeRemaining ? Math.max(4, dl.timeRemaining() - 2) : 8) > 0) idle(step); }, idle = f => (window.requestIdleCallback ? requestIdleCallback(f, { timeout: 400 }) : setTimeout(f, 30)); setTimeout(() => idle(step), 400); }
+{ const B = RV.bridges[1], px = RV.xc + B.piers - 0.75, R = 2.0, D = 0.35, hl = (R * 0.97 + D) / 2; quarter(px - hl, B.z, Math.PI / 2, 12, R, D); }
+// a long concrete ledge on the east bike path (the deck there was a plain strip)
+{ const lx = 46.5, z0 = -60, z1 = -44, H = 0.5; addObs({ cx: lx, cz: (z0 + z1) / 2, a: 0, hw: 0.3, hl: (z1 - z0) / 2, f: () => RV.deck + H });
+  const m = new THREE.Mesh(new THREE.BoxGeometry(0.6, H, z1 - z0), RM.wall); m.position.set(lx, RV.deck + H / 2, (z0 + z1) / 2); m.castShadow = m.receiveShadow = true; scene.add(m);
+  [-0.28, 0.28].forEach(dx => addRailPath([[lx + dx, RV.deck + H + 0.02, z0 + 0.1], [lx + dx, RV.deck + H + 0.02, z1 - 0.1]], { hidden: true, ledge: true })); }
 // every ramp in the river is a DIY pour: graffiti concrete instead of the park's clean finish
 RIVER_ROOT.traverse(o => { if (o.isMesh && o.material === mats.ramp) o.material = RM.diy; else if (o.isMesh && o.material === mats.rampSide) o.material = RM.diySide; else if (o.isMesh && o.material === mats.ply) o.material = RM.diy; });
 
@@ -5552,20 +6392,20 @@ rails.length = 0; rails.push(...PARK_SET.rails); BOOSTS.length = 0; BOOSTS.push(
 const RIVER_SPAWNS = [
   { name: 'River bottom', x: RV.xc - 6, z: 20, heading: Math.PI },
   { name: 'Bridge quarters', x: RV.xc - 6, z: RV.bridges[0].z + 23, heading: Math.PI },
-  { name: 'Vert wall line', x: RV.lipW - 0.6, z: RV.bridges[0].z - 14, heading: 1.37 },   // drop the west bank, cross the floor, up the east bank into the vert wall
+  { name: 'Vert wall line', x: RV.lipW - 0.6, z: RV.bridges[0].z - 14, heading: 1.25 },   // drop the west bank, cross the floor, up the east bank into the vert wall
   { name: 'Box culvert', x: RV.xc + 9, z: -6, heading: Math.PI },
-  { name: 'DIY bowl', x: RV.xc - 7.2, z: RV.bridges[1].z - 13, heading: 0 },
+  { name: 'DIY bowl', x: RV.xc - 7.67, z: RV.bridges[1].z, heading: 0 },
   { name: 'Burning car', x: RV.xc + 7, z: -80, heading: Math.PI },
   { name: 'Storm drain', x: RV.xc - 5, z: -108, heading: Math.PI },
   { name: 'DIY pad', x: RV.xc + 6, z: RV.bridges[2].z + 16, heading: Math.PI },
   { name: 'East bike path', x: 50, z: 66, heading: Math.PI },
   { name: 'Jersey barriers', x: 54.4, z: 46, heading: Math.PI },
-  { name: 'Train tracks', x: TRACK.x - 2.6, z: 40, heading: Math.PI },
-  { name: 'Stairs and hubba', x: RV.wallX - 6, z: -17, heading: Math.PI / 2 },
+  { name: 'Train tracks', x: TRACK.x, z: 40, heading: Math.PI },
+  { name: 'Stairs and hubba', x: RV.wallX - 6, z: -21.3, heading: Math.PI / 2 },
   { name: 'Stairs and bank', x: RV.wallX - 6, z: -150, heading: Math.PI / 2 },
   { name: 'Fence tranny', x: -70.5, z: -30, heading: Math.PI },
   { name: 'U-ditch', x: RV.lipE + 2.5, z: 92, heading: -Math.PI / 2 },
-  { name: 'Curb and rail', x: RV.lipW - 1.5, z: 48, heading: -Math.PI * 0.8 },
+  { name: 'Bank rail', x: RV.lipW - 1.2, z: 46.5, heading: 2.2 },
 ];
 
 
@@ -6531,7 +7371,7 @@ const MAPS = {
   park: { name: 'Concrete Park', set: PARK_SET, spawns: SPAWNS.slice(), gaps: GAPS.slice(), bounds: [136, 84, -278], attract: { x: 0, y: 6, z: 0, r: 115, h: 48 },
     lede: 'Mega park. Drop in from a 22-metre tower, clear the mega gap, carve the arena, then head south to the sky zone: ride the giant spiral rails up into a bowl floating 25 m in the air. Out on the wings: a 230 m mega half pipe with a loop-de-loop, sky rails, and a pool. Find the S-K-A-T-E letters and the secret tape.',
     eyebrow: 'Lot 9 skatepark · after hours' },
-  river: { name: 'LA River', set: RIVER_SET, spawns: RIVER_SPAWNS, gaps: [{ name: 'Sludge Gap', pts: 400, from: [RV.xc - 8, RV.xc - 4.4, -24, -20], to: [RV.xc + 3, RV.xc + 9, -26, -18] }], bounds: [RV.PX, RV.PZN, RV.PZS], attract: { x: RV.xc, y: 4, z: -60, r: 95, h: 34 },
+  river: { name: 'LA River', set: RIVER_SET, spawns: RIVER_SPAWNS, gaps: [{ name: 'Sludge Gap', pts: 400, from: [RV.xc - 8, RV.xc - 4.4, -24, -20], to: [RV.xc + 2.8, RV.xc + 12, -25, -19] }], bounds: [RV.PX, RV.PZN, RV.PZS], attract: { x: RV.xc, y: 4, z: -60, r: 95, h: 34 },
     lede: 'A dry flood channel at golden hour. Bomb the banks, carve across the sludge, and hit the DIY spots poured under the freeway bridges: pier quarters, a graffiti bowl, a ceiling quarter, ledges and a flat bar. Stairs and handrails up top, a U-ditch, a storm drain, a burning car. Leave the guy under the third bridge alone.',
     eyebrow: 'LA River · under the 5' },
 };
@@ -6550,6 +7390,7 @@ function setMap(id, opts = {}) {
   SPAWNS.length = 0; SPAWNS.push(...MAPS[id].spawns); GAPS.length = 0; GAPS.push(...MAPS[id].gaps);
   [PX, PZN, PZS] = MAPS[id].bounds; PZC = (PZN + PZS) / 2; PZH = (PZN - PZS) / 2; LIMX = PX - 0.5; LIMZN = PZN - 0.5; LIMZS = PZS + 0.5;
   MAPID = id; spawnIdx = 0; inSky = false; inDome = false; inTunnel = false;
+  if (id === 'river' && typeof grafFlush === 'function') grafFlush();   // any graffiti not painted yet in idle time
   PARK_ROOT.visible = id === 'park'; RIVER_ROOT.visible = id === 'river';
   if (RVB.birds) RVB.birds.setVisible(id === 'river');
   const E = ENV[id];
@@ -6987,6 +7828,18 @@ function isWallAt(x, z, mx, mz) {
   const e = 0.04;
   return (heightAt(x + mx * e, z + mz * e) - heightAt(x - mx * e, z - mz * e)) / (2 * e) > 9;
 }
+// A curb-like step between here and the next position (a rise of more than ~6 cm over a few cm of travel):
+// snapping up onto it would read as a vert lip on the next frame, so it's treated as a wall instead
+function stepAhead(nx, nz, h) {
+  if (h - P.pos.y < 0.08) return false;
+  let prev = heightAt(P.pos.x, P.pos.z);
+  for (let k = 1; k <= 8; k++) {
+    const t = k / 8, hh = heightAt(lerp(P.pos.x, nx, t), lerp(P.pos.z, nz, t)), run = Math.hypot(nx - P.pos.x, nz - P.pos.z) / 8 + 1e-4;
+    if (hh - prev > 0.06 && (hh - prev) / run > 6) return true;
+    prev = hh;
+  }
+  return false;
+}
 // Direction into a wall the board just ran into (falls back to the travel direction)
 function wallNormal(x, z, tx, tz) {
   const y = P.pos.y;
@@ -7195,7 +8048,7 @@ function stepGround(dt, st) {
     P.pos.set(nx, Math.max(ny, DOME.Hl + 0.01), nz); enterDome(P.vel); return;
   }
   const h = heightAt(nx, nz);
-  if (h - P.pos.y > 0.4 + Math.abs(dy) || (h - P.pos.y > 0.02 && isWallAt(nx, nz, fx * dirS, fz * dirS))) { const w = wallNormal(nx, nz, fx * dirS, fz * dirS); glance(w[0], w[1]); return; }
+  if (h - P.pos.y > 0.4 + Math.abs(dy) || (h - P.pos.y > 0.02 && (isWallAt(nx, nz, fx * dirS, fz * dirS) || stepAhead(nx, nz, h)))) { const w = wallNormal(nx, nz, fx * dirS, fz * dirS); glance(w[0], w[1]); return; }
   // leave the ground when the surface ahead falls away from the board's current slope
   const aheadSlope = Math.abs(dh) > 1e-5 ? (h - P.pos.y) / Math.abs(dh) : m * dirS;
   if (ny > h + 0.004 && m * dirS - aheadSlope > 0.55) {
@@ -7208,7 +8061,10 @@ function stepGround(dt, st) {
       P.manual = null; P.pending = 0; P.push.phase = -1;
       P.pos.set(nx, Math.max(ny, DOME.Hl + 0.01), nz); enterDome(P.vel); return;
     }
-    if (Math.abs(m) > 1.6 && !transfer) {
+    // a vert launch needs a real transition under you; a steep little face (a jersey barrier, a low kicker lip) just pops you a bit
+    const tall = P.pos.y - Math.min(heightAt(P.pos.x - fx * dirS * 1.2, P.pos.z - fz * dirS * 1.2), heightAt(P.pos.x - fx * dirS * 2, P.pos.z - fz * dirS * 2)) > 1.1;
+    if (Math.abs(m) > 1.6 && !tall) { P.vel.y = Math.min(P.vel.y, 4); P.pos.set(nx, ny, nz); }
+    else if (Math.abs(m) > 1.6 && !transfer) {
       const gl = Math.hypot(gx, gz) || 1, ux = gx / gl, uz = gz / gl, along = P.vel.x * ux + P.vel.z * uz;
       P.vel.x -= ux * along * 1.05; P.vel.z -= uz * along * 1.05; vert = true;
       P.pos.set(P.pos.x - ux * 0.06, ny, P.pos.z - uz * 0.06);
@@ -8439,7 +9295,7 @@ function fxTick(dt) {
   const total = Math.round(combo.base) * Math.max(1, combo.mult);
   if (total >= 1e6 && P.state !== 'bail') { if (!FIRE.big) { toast("You're on fire!", 'hot wheels', 'good'); sfx.special(); } FIRE.big = true; FIRE.t = FIRE_TIME; }
   FIRE.t = Math.max(0, FIRE.t - dt); if (FIRE.t <= 0) FIRE.big = false;
-  const hot = FIRE.t > 0, heat = Math.min(1, FIRE.t / 4);   // burns down over the last few seconds
+  const hot = FIRE.t > 0, heat = Math.min(1, FIRE.t / (FIRE.big ? 4 : 1.8));   // burns down over the last few seconds
   WHEEL_MATS.forEach(m => { if (!m.emissive) return; m.emissive.setRGB(1, 0.35, 0.05); m.emissiveIntensity = hot ? 1.4 * heat : 0; });
   if (hot) {
     const sp = P.state === 'grind' ? Math.abs(P.grind.vr) : P.state === 'ground' ? Math.abs(P.s) : Math.hypot(P.vel.x, P.vel.z);

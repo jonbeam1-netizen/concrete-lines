@@ -5502,6 +5502,9 @@ const RM = {
   wood: new THREE.MeshStandardMaterial({ color: 0x4a3b2c, roughness: 1 }),
 };
 RM.diy.map.repeat.set(0.5, 0.5); RM.diySide.map.repeat.set(0.5, 0.5);
+// two-sided copies for hand-built lanes and side walls (their strips can wind either way)
+RM.rampTop = Object.assign(RM.deck.clone(), { side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+RM.rampWall = Object.assign(RM.wall.clone(), { side: THREE.DoubleSide });
 // world-scaled uvs for structural concrete: u runs along each face (su metres per tile), v is height above yBase (sv metres)
 function rvBoxUV(m, su, sv, yBase, uOff = 0) {
   m.updateMatrix(); const P = m.geometry.attributes.position, N = m.geometry.attributes.normal, U = m.geometry.attributes.uv, p = new V3(), n = new V3();
@@ -6016,6 +6019,11 @@ function rvStairs(z, W, n, opts = {}) {
   if (opts.bank) {   // a smooth bank beside the stairs, same drop
     const bz = z + opts.bank, bw = 3.2, bl = L + 1.5;
     rvPiece(x0 + bl / 2, bz, 0, bl / 2, bw / 2, (lx, lz) => (RV.upper + 0.15 - RV.deck) * (1 - clamp((lx + bl / 2) / bl, 0, 1)) + 0.0001, RM.wall, 0.2);
+    // solid sides down to the deck, so it reads as a poured block rather than a floating slab
+    const pos = [], uv = [], idx = [], m = 12;
+    [bz - bw / 2, bz + bw / 2].forEach((zz, sdI) => { for (let k = 0; k <= m; k++) { const x = x0 + bl * k / m, y = RV.deck + (RV.upper + 0.15 - RV.deck) * (1 - k / m); pos.push(x, y, zz, x, RV.deck - 0.02, zz); uv.push(x / 4, y / 4, x / 4, RV.deck / 4); if (k) { const a = (sdI * (m + 1) + k - 1) * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } } });
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+    const sm = new THREE.Mesh(g, RM.rampWall); sm.castShadow = sm.receiveShadow = true; scene.add(sm);
   }
 }
 rvStairs(-20, 5, 9, { rails: [0], hubba: 3.1, bank: -5.2 });
@@ -6047,12 +6055,26 @@ function rvAccessRamp(side, zLow, zHigh) {
   const outer = h => side > 0 ? Math.min(rvBankX(Math.max(h, 0.3), side), lip) : Math.max(rvBankX(Math.max(h, 0.3), side), lip);   // where the bank reaches the ramp's height: a straight line in plan
   const xIn = h => outer(h) - side * W;
   const x0 = side > 0 ? RV.xc + RV.floor - W - 1 : RV.lipW - 1, x1 = side > 0 ? RV.lipE + 1 : RV.xc - RV.floor + W + 1;
-  rvPiece((x0 + x1) / 2, zc + dirZ * 0.5, 0, (x1 - x0) / 2, L / 2 + 1, (lx, lz) => {
-    const x = (x0 + x1) / 2 + lx, z = zc + dirZ * 0.5 + lz, h = hAt(z); if (h <= 0) return 0;
-    const xi = xIn(h), xo = outer(h) + side * 0.3;
-    if ((x - xi) * side < 0 || (x - xo) * side > 0) return 0;
-    return h - rvBase(x);
-  }, RM.deck, 0.12);
+  addObs({ cx: (x0 + x1) / 2, cz: zc, a: 0, hw: (x1 - x0) / 2, hl: L / 2, f: (lx, lz) => {
+    const x = (x0 + x1) / 2 + lx, h = hAt(zc + lz); if (h <= 0) return 0;
+    if ((x - xIn(h)) * side < 0 || (x - outer(h) - side * 0.3) * side > 0) return 0;
+    return h > rvBase(x) ? h : 0;
+  } });
+  // meshed as a flat lane with a clean vertical wall down its open side and across its top end (a trimmed grid left a jagged, see-through edge)
+  const top = [], tuv = [], wall = [], wuv = [], ti = [], wi = [], n = Math.ceil(L / 0.25);
+  for (let k = 0; k <= n; k++) {
+    const z = lerp(zLow, zHigh, k / n), h = hAt(z), xi = xIn(h), xo = outer(h) + side * 0.3, yb = Math.min(h, rvBase(xi)) - 0.05;
+    top.push(xi, h, z, xo, h, z); tuv.push(xi / 4, z / 4, xo / 4, z / 4);
+    wall.push(xi, h, z, xi, yb, z); wuv.push(z / 4, h / 4, z / 4, yb / 4);
+    if (k) { const a = (k - 1) * 2; ti.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); wi.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+  }
+  { const z = zHigh, h = hAt(z), m = 16, base = wall.length / 3;   // the top end: down from the lane to the bank below it
+    for (let k = 0; k <= m; k++) { const x = lerp(xIn(h), outer(h), k / m); wall.push(x, h, z, x, Math.min(h, rvBase(x)) - 0.05, z); wuv.push(x / 4, h / 4, x / 4, rvBase(x) / 4); if (k) { const a = base + (k - 1) * 2; wi.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } } }
+  [[top, tuv, ti, RM.rampTop], [wall, wuv, wi, RM.rampWall]].forEach(([p, u, ix, mat]) => {
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(u, 2)); g.setIndex(ix); g.computeVertexNormals();
+    if (mat === RM.rampTop) { const N = g.attributes.normal; for (let i = 0; i < N.count; i++) N.setXYZ(i, 0, 1, 0); }   // the lane faces up whichever way the strip winds
+    const m = new THREE.Mesh(g, mat); m.castShadow = m.receiveShadow = true; scene.add(m);
+  });
   // the guard rail along the drop on the inner side
   const pts = []; for (let k = 0; k <= 24; k++) { const z = lerp(zLow, zHigh, 0.08 + 0.92 * k / 24), h = hAt(z); if (h < 0.5) continue; pts.push([xIn(h) + side * 0.25, h + 0.75, z]); }
   addRailPath(pts, {});

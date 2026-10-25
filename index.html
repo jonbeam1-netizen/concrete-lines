@@ -2040,7 +2040,7 @@ var makeCop, makeBench, makePoliceCar;
       const lid = new THREE.Group(); lid.position.set(0, H, -D / 2); lid.rotation.x = -1.95; box.add(lid);
       const lidMesh = add(lid, new THREE.BoxGeometry(W, T, D), std(0xffffff, 0.85, { map: lidTex }), 0, 0, D / 2);
       [[-0.082, -0.076, 'pink'], [0.082, -0.076, 'choc'], [-0.082, 0.078, 'glaze'], [0.082, 0.078, 'pink']].forEach(([x, z, k]) => { const d = buildDonut(k); d.position.set(x, T + 0.025, z); d.rotation.y = Math.random() * TAU; box.add(d); });
-      const cup = new THREE.Group(); cup.position.set(-0.6, 0.45, 0.06); root.add(cup);
+      const cup = new THREE.Group(); cup.position.set(0.36, 0, 0.44); root.add(cup);   // on the ground by his feet
       cup.add(lathe([[0.001, 0], [0.04, 0], [0.052, 0.16], [0.001, 0.16]], 16, white));
       add(cup, new THREE.CylinderGeometry(0.05, 0.045, 0.06, 16), std(0x9a6a3e, 0.9), 0, 0.085, 0);       // cardboard sleeve
       add(cup, new THREE.CylinderGeometry(0.056, 0.056, 0.016, 16), white, 0, 0.168, 0);                   // lid
@@ -2079,7 +2079,20 @@ var makeCop, makeBench, makePoliceCar;
     const startR = new V3(), startL = new V3(), aimLocal = new V3(), tmpD = new V3(), tmpE = new V3();
     let aimYaw = 0;
 
-    root.userData.giveDonut = () => { hasDonut = true; held.visible = true; };
+    root.userData.giveDonut = () => { hasDonut = true; held.visible = true; bites = 0; held.scale.setScalar(1); };
+    // eating: three messy bites per donut (crumbs everywhere, frosting on the mustache), then he reaches into the box for another
+    let bites = 0, reachT = -1, crumbI = 0;
+    const BOX = new V3(0.64, 0.5, 0.02), boxT = new V3(), mouthW = new V3();
+    const smear = add(head, new THREE.SphereGeometry(0.03, 8, 6), std(0xf7a8c8, 0.6), 0.02, 0.07, 0.158, false); smear.scale.set(1.2, 0.45, 0.4); smear.visible = false;
+    const crumbM = std(0xc8955a, 0.9), crumbs = [];
+    for (let k = 0; k < 14; k++) { const c = add(root, new THREE.IcosahedronGeometry(0.012, 0), k % 3 ? crumbM : std(0xf7a8c8, 0.7), 0, -1, 0, false); c.visible = false; crumbs.push({ m: c, v: new V3(), t: 9 }); }
+    const crumb = () => {
+      const c = crumbs[crumbI++ % crumbs.length]; root.updateWorldMatrix(true, true); head.localToWorld(mouthW.set(0, 0.03, 0.17)); root.worldToLocal(mouthW);
+      c.m.position.copy(mouthW); c.v.set((Math.random() - 0.5) * 0.6, 0.3 + Math.random() * 0.4, 0.3 + Math.random() * 0.5); c.t = 0; c.m.visible = true;
+    };
+    const crumbTick = dt => crumbs.forEach(c => { if (c.t > 8) return; c.t += dt;
+      if (c.m.position.y > 0.006) { c.v.y -= 9.8 * dt; c.m.position.addScaledVector(c.v, dt); const floor = Math.abs(c.m.position.x) < 0.9 && c.m.position.z > -0.25 && c.m.position.z < 0.22 ? 0.456 : 0.006; if (c.m.position.y < floor && c.v.y < 0) { c.m.position.y = floor; c.v.set(0, 0, 0); } }
+      if (c.t > 8) c.m.visible = false; });
     root.userData.aimAt = null;
 
     function update(dt, state) {
@@ -2109,13 +2122,28 @@ var makeCop, makeBench, makePoliceCar;
       } else {
         // idle: rest or hold, with the occasional bite
         holdW += ((hasDonut ? 1 : 0) - holdW) * Math.min(1, dt * 5);
-        if (hasDonut && biteT < 0) { nextBite -= dt; if (nextBite <= 0) { biteT = 0; nextBite = 6 + Math.random() * 6; } }
+        if (hasDonut && biteT < 0 && reachT < 0) { nextBite -= dt; if (nextBite <= 0) { biteT = 0; nextBite = 2.2 + Math.random() * 2.5; } }
         let b = 0;
-        if (biteT >= 0) { biteT += dt; b = env(biteT, [[0, 0], [0.5, 1], [1.3, 1], [1.8, 0]]); if (biteT > 0.5 && biteT < 1.65) chew = Math.abs(Math.sin((biteT - 0.5) * 11)); if (biteT >= 1.8) biteT = -1; }
+        if (biteT >= 0) {
+          const was = biteT; biteT += dt; b = env(biteT, [[0, 0], [0.5, 1], [1.3, 1], [1.8, 0]]);
+          if (biteT > 0.5 && biteT < 1.65) chew = Math.abs(Math.sin((biteT - 0.5) * 11));
+          if (was < 0.55 && biteT >= 0.55) { bites++; held.scale.setScalar(Math.max(0.35, 1 - bites * 0.24)); smear.visible = true; for (let k = 0; k < 4; k++) crumb(); }   // chomp
+          if (biteT > 0.6 && biteT < 1.6 && Math.floor(was * 6) !== Math.floor(biteT * 6)) crumb();   // and more falling out as he chews
+          if (biteT >= 1.8) { biteT = -1; if (bites >= 3) { hasDonut = false; held.visible = false; reachT = 0; nextBite = 2.5; } }
+        }
+        // reach over into the box for the next one
+        let reach = 0;
+        if (reachT >= 0) {
+          reachT += dt; reach = env(reachT, [[0, 0], [0.55, 1], [0.8, 1], [1.4, 0]]);
+          if (reachT >= 0.68 && !hasDonut) root.userData.giveDonut();
+          if (reachT >= 1.4) reachT = -1;
+        }
+        twist = -0.35 * reach;
         headPitch = 0.14 * b + 0.03 * br;
         tmpD.lerpVectors(P.restR, P.holdR, holdW); armR.target.lerpVectors(tmpD, P.biteR, b);
         tmpD.lerpVectors(P.restL, P.holdL, holdW); armL.target.lerpVectors(tmpD, P.biteL, b);
         armR.target.y += br * 0.006; armL.target.y += br * 0.006;
+        if (reach > 0) { root.updateWorldMatrix(true, true); torso.worldToLocal(root.localToWorld(boxT.copy(BOX))); armL.target.lerp(boxT, reach); }   // the box is on his left
         held.userData.bite = b;
       }
       // ---- aim (yaw toward the target, in the cop's local frame)
@@ -2129,7 +2157,7 @@ var makeCop, makeBench, makePoliceCar;
       head.rotation.set(headPitch, aimYaw * aimW * 0.15 - twist * 0.5, 0);
       mouth.scale.set(1 - chew * 0.15, 1 + chew * 0.9, 1);
       mouthOpen.scale.y = 0.15 + chew * 0.6;
-      solveLegs(); solveArm(armR); solveArm(armL);
+      solveLegs(); solveArm(armR); solveArm(armL); crumbTick(dt);
       // ---- donut placement: between both hands when holding, in his right hand while throwing
       if (held.visible) {
         tmpE.addVectors(armR.grip, armL.grip).multiplyScalar(0.5);
@@ -6239,16 +6267,19 @@ rvStairs(-150, 6, 11, { rails: [-2.6, 2.6], bank: 5.4 });
 // a solid poured piece running along x from x0 to x1, z0..z1 wide, its top yBase + hFn(x): top, both sides and both ends meshed, so it
 // always reads as a block of concrete (wall banks, the quarter up to the street, the sidewalk kicker)
 RM.pourTop = Object.assign(RM.wall.clone(), { side: THREE.DoubleSide });
-function rvWedge(x0, x1, z0, z1, yBase, hFn, topMat = RM.pourTop, sideMat = RM.rampWall) {
+function rvWedge(x0, x1, z0, z1, yBase, hFn, topMat = RM.pourTop, sideMat = RM.rampWall, alongZ = false) {   // alongZ: the profile runs along z (x0..x1 are z), z0..z1 are x
   const n = Math.max(2, Math.ceil((x1 - x0) / 0.15)), tp = [], tu = [], ti = [], sp = [], su = [], si = [];
   const quad = (arr, ix, a, b, c, d) => { const o = arr.length / 3; arr.push(...a, ...b, ...c, ...d); ix.push(o, o + 1, o + 2, o, o + 2, o + 3); };
   for (let k = 0; k <= n; k++) { const x = lerp(x0, x1, k / n), y = yBase + hFn(x); tp.push(x, y, z0, x, y, z1); tu.push(x / 4, z0 / 4, x / 4, z1 / 4); if (k) { const a = (k - 1) * 2; ti.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } }
   for (let k = 0; k < n; k++) { const xa = lerp(x0, x1, k / n), xb = lerp(x0, x1, (k + 1) / n), ya = yBase + hFn(xa), yb = yBase + hFn(xb);
     [z0, z1].forEach(z => { quad(sp, si, [xa, yBase - 0.05, z], [xb, yBase - 0.05, z], [xb, yb, z], [xa, ya, z]); su.push(xa / 4, -0.01, xb / 4, -0.01, xb / 4, (yb - yBase) / 4, xa / 4, (ya - yBase) / 4); }); }
   [x0, x1].forEach(x => { const y = yBase + hFn(x); if (y - yBase > 0.01) { quad(sp, si, [x, yBase - 0.05, z0], [x, yBase - 0.05, z1], [x, y, z1], [x, y, z0]); su.push(z0 / 4, 0, z1 / 4, 0, z1 / 4, (y - yBase) / 4, z0 / 4, (y - yBase) / 4); } });
+  if (alongZ) [tp, sp].forEach(p => { for (let i = 0; i < p.length; i += 3) { const t = p[i]; p[i] = p[i + 2]; p[i + 2] = t; } });
   [[tp, tu, ti, topMat], [sp, su, si, sideMat]].forEach(([p, u, ix, m]) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(u, 2)); g.setIndex(ix); g.computeVertexNormals();
     const me = new THREE.Mesh(g, m); me.castShadow = me.receiveShadow = true; scene.add(me); });
-  const cx = (x0 + x1) / 2; addObs({ cx, cz: (z0 + z1) / 2, a: 0, hw: (x1 - x0) / 2, hl: (z1 - z0) / 2, f: lx => { const h = hFn(cx + lx); return h > 0.002 ? yBase + h : 0; } });
+  const cx = (x0 + x1) / 2;
+  if (alongZ) addObs({ cx: (z0 + z1) / 2, cz: cx, a: 0, hw: (z1 - z0) / 2, hl: (x1 - x0) / 2, f: (lx, lz) => { const h = hFn(cx + lz); return h > 0.002 ? yBase + h : 0; } });
+  else addObs({ cx, cz: (z0 + z1) / 2, a: 0, hw: (x1 - x0) / 2, hl: (z1 - z0) / 2, f: lx => { const h = hFn(cx + lx); return h > 0.002 ? yBase + h : 0; } });
 }
 // ---- more ways up from the track deck to the street, spread along the wall so one's never far away ----
 {
@@ -6407,7 +6438,7 @@ function rvTrickle(x0, z0, x1, z1, w, seed) {
   });
   bars.castShadow = true; scene.add(bars);
   addRailPath([[xf + 0.04, top + 0.02, z0 + 0.1], [xf + 0.04, top + 0.02, z1 - 0.1]], { hidden: true, ledge: true });
-  rvPiece((xf + xb) / 2 - 0.5, z0 - 3, 0, (xb - xf) / 2 + 0.5, 3, (lx, lz) => Math.max(0, top * Math.pow(clamp((lz + 3) / 6, 0, 1), 1.3) * taper((xb - xf) / 2 + 0.5 - Math.abs(lx + 0.5), 0.6) - rvBase((xf + xb) / 2 - 0.5 + lx)), RM.diy, 0.12);
+  rvWedge(z0 - 6, z0 - 0.015, xf - 1, xb, 0, z => top * Math.pow(clamp((z - z0 + 6) / 6, 0, 1), 1.3), RM.diy, RM.diySide, true);   // a solid pour up the culvert's side (where it runs into the bank, the bank covers it)
   // storm-drain outlet on the west: a headwall with a big round pipe, transition walls flaring off both sides
   const sz = -126, sw = 9, stop = 3.4, sxf = RV.xc - RV.floor + 1.4, sxb = rvBankX(stop, -1);
   addObs({ cx: (sxf + sxb) / 2, cz: sz, a: 0, hw: (sxf - sxb) / 2, hl: sw / 2, f: () => stop });
@@ -6684,7 +6715,7 @@ if (typeof junkLitter === 'function') {
   put(P_(junkMattress), -4, -150, 0.4, [0.72, 0.99, 0.27, 0.6]);
   put(P_(junkMattress, { lean: true }), -6.55, -12.5, 1.384, null);   // leaning on the side wall of the maintenance ramp
   put(P_(junkCouch), -1, 74, Math.PI, [1.05, 0.47, 0.9]);                       // front-row seats for the pier quarters
-  put(P_(junkCone, { knocked: true }), 26.5, -34, 0.4, null); put(P_(junkCone, { knocked: false }), 24.6, -12, 0, null);
+  put(P_(junkCone, { knocked: true }), 23.2, -37.5, 0.4, null); put(P_(junkCone, { knocked: false }), 24.6, -12, 0, null);
   put(P_(junkBarrel), -2, -116, 0, [0.3, 0.3, 0.88]); put(P_(junkBarrel, { tipped: true }), -4.4, -133, 1.1, null);
   put(P_(junkPallet), RV.xc + 8, -184.5, 0.2, null);
   put(P_(junkShoppingBags), 6, -196, 0, null); put(P_(junkShoppingBags), -2, 40, 0, null);
@@ -6733,7 +6764,7 @@ if (typeof makeCop === 'function') {
   const seat = BL(-0.45, 0, 0);
   COP.rig = makeCop(); COP.rig.group.position.set(seat[0], RV.deck, seat[2]); COP.rig.group.rotation.y = COP.benchYaw; scene.add(COP.rig.group);
   addObs({ cx: seat[0], cz: seat[2], a: COP.benchYaw, hw: 0.4, hl: 0.4, f: () => RV.deck + 1.3 });   // and he's in the way
-  COP.benchRails = [...addRailPath([BL(0.02, 0.47, 0.21), BL(0.88, 0.47, 0.21)], { hidden: true }), ...addRailPath([BL(0.02, 0.86, -0.34), BL(0.88, 0.86, -0.34)], { hidden: true })];
+  COP.benchRails = [...addRailPath([BL(0.4, 0.47, 0.21), BL(0.88, 0.47, 0.21)], { hidden: true }), ...addRailPath([BL(0.02, 0.86, -0.34), BL(0.88, 0.86, -0.34)], { hidden: true })];
   COP.car = makePoliceCar(); COP.car.group.position.set(COP.carX, RV.deck, COP.carZ); COP.car.group.rotation.y = COP.carYaw; scene.add(COP.car.group);
   // the car's top in its own frame (front +z): trunk, rear window, roof, windshield, hood; bumpers lower; the light bar sticks up off the roof
   const D = { roof: [-0.92, 0.52, 1.5] };

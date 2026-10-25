@@ -8450,11 +8450,14 @@ function copTick(dt) {
 // portal (inside its width, under its arch) and a little way into the dark before you come out the other end
 const TUNW = { zn: RV.PZN + 2.2, zs: RV.PZS - 2.2, fadeOut: 0 };   // just past the back of the portal faces
 const boreGap = (x, y) => MAPID === 'river' && Math.abs(x - TRACK.x) < RV_GAP - 0.4 && y < RV.deck + 7;
-// the map's north / south limits, which open up through the fence gap into the tunnel bores; moving out of the gap sideways once past the fence line is blocked
+// the map's north / south limits, which open up through the fence gap into the tunnel bores. Past the limit you can always head back in
+// (the end-fence tops grind out there); the one extra rule is no sliding sideways out of a bore through the hillside
+const leavingBore = (nx, ny, nz, px) => (nz > LIMZN + 0.3 || nz < LIMZS - 0.3) && !boreGap(nx, ny) && boreGap(px, ny);
 function outOfBoundsZ(nx, ny, nz, px, pz) {
+  if (leavingBore(nx, ny, nz, px)) return true;
   const gap = boreGap(nx, ny);
-  if (nz > LIMZN) return gap ? nz > TUNW.zn + 0.6 && nz > pz - 1e-6 : nz > pz - 1e-6 || pz > LIMZN;
-  if (nz < LIMZS) return gap ? nz < TUNW.zs - 0.6 && nz < pz + 1e-6 : nz < pz + 1e-6 || pz < LIMZS;
+  if (nz > LIMZN) return nz > pz - 1e-6 && (!gap || nz > TUNW.zn + 0.6);
+  if (nz < LIMZS) return nz < pz + 1e-6 && (!gap || nz < TUNW.zs - 0.6);
   return false;
 }
 function tunnelVz() { return P.state === 'ground' ? Math.cos(P.heading) * P.s : P.state === 'grind' ? P.grind.r.dir.z * P.grind.vr : P.vel ? P.vel.z : 0; }
@@ -9214,7 +9217,8 @@ function stepAir(dt, st) {
     }
   }
   if (Math.abs(nx) > LIMX) { P.vel.x *= -0.1; nx = P.pos.x; }
-  if (outOfBoundsZ(nx, ny, nz, P.pos.x, P.pos.z)) { P.vel.z *= -0.1; nz = P.pos.z; if (outOfBoundsZ(nx, ny, nz, P.pos.x, P.pos.z)) { P.vel.x *= -0.1; nx = P.pos.x; } }
+  if (leavingBore(nx, ny, nz, P.pos.x)) { P.vel.x *= -0.1; nx = P.pos.x; }
+  if (outOfBoundsZ(nx, ny, nz, P.pos.x, P.pos.z)) { P.vel.z *= -0.1; nz = P.pos.z; }
   if (inDome && ny > DOME.Hl - 0.05 && Math.hypot(nx - DOME.x, ny - DOME.Hl, nz - DOME.z) >= DOME.Rd - 0.02) {
     if (A.flip) { if (A.flip.t >= 0.35) completeFlip(A); else A.flip = null; }
     finalizeGrab(); finalizeSpecial();

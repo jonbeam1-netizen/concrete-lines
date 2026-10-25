@@ -6758,7 +6758,7 @@ const WRECK = { x: RV.xc + 9.5, z: -92, yaw: 0.35 };
 }
 
 // ---- the homeless camp: cardboard, newspapers and a guy with a beer, up on the east deck under the third bridge ----
-const BUM = { x: 51.5, z: -199, yaw: Math.PI * 0.55, state: 'idle', nextOk: 20, bottle: null };
+const BUM = { x: 51.5, z: -199, yaw: Math.PI * 0.55, state: 'idle', nextOk: 2, bottle: null };
 if (typeof makeHomelessGuy === 'function') {
   BUM.rig = makeHomelessGuy(); BUM.rig.group.position.set(BUM.x, RV.deck, BUM.z); BUM.rig.group.rotation.y = BUM.yaw; scene.add(BUM.rig.group);
 }
@@ -8034,21 +8034,18 @@ function riverTick(dt) {
       const dist = Math.hypot(wp.x - W.x, wp.z - W.z); RVB.crackleT -= dt;
       if (dist < 14 && RVB.crackleT <= 0) { RVB.crackleT = 0.08 + Math.random() * 0.35; sfx.burst('bandpass', 1400 + Math.random() * 1800, 0.03, 0.025 * (1 - dist / 14)); }
     } }
-  // the guy under the bridge: swigs his beer, and very rarely throws it at someone who skates right up on him (not while your special is up)
+  // the guy under the bridge: swigs his beer, and throws a bottle at you when you land near him or skate past; then he cools off for a bit
   { const B = BUM, pr = B.proj;
     if (B.rig) {
       if (B.state === 'throw') B.rig.group.userData.aimAt = P.pos;
       const ev = B.rig.update(dt, B.state);
       if (ev === 'release') bumThrow();
-      if (ev === 'done' || (B.state === 'throw' && (B.throwT += dt) > 3)) { B.state = 'idle'; B.throwT = undefined; B.refillAt = t + 20; }
+      if (ev === 'done' || (B.state === 'throw' && (B.throwT += dt) > 3)) { B.state = 'idle'; B.throwT = undefined; B.refillAt = t + 6; }
       if (B.refillAt && t > B.refillAt) { B.refillAt = 0; if (B.rig.group.userData.giveBottle) B.rig.group.userData.giveBottle(); }
-      if (game.running && B.state === 'idle' && !pr.on && !B.refillAt && t > B.nextOk && P.state !== 'bail' && P.special < 1) {
+      if (game.running && B.state === 'idle' && !pr.on && !B.refillAt && t > B.nextOk && P.state !== 'bail') {
         const d = Math.hypot(P.pos.x - B.x, P.pos.z - B.z), close = Math.abs(P.pos.y - RV.deck) < 2.5;
         const landed = P.state === 'ground' && game.clock - (P.landedAt ?? -9) < 0.5;
-        if (close && ((d < 4.5 && landed) || (d < 3.2 && P.state === 'ground' && Math.abs(P.s) > 1.5))) {
-          if (Math.random() < 0.55) { B.state = 'throw'; B.throwT = 0; B.nextOk = t + 70 + Math.random() * 40; }
-          else B.nextOk = t + 25;
-        }
+        if (close && ((d < 7 && landed) || (d < 6 && P.state === 'ground' && Math.abs(P.s) > 2))) { B.state = 'throw'; B.throwT = 0; B.nextOk = t + 14 + Math.random() * 6; }
       }
     }
     if (pr.on) {

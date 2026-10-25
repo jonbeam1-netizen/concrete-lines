@@ -1828,6 +1828,24 @@ var makeCop, makeBench, makePoliceCar;
   const lathe = (pts, seg, m) => { const o = new THREE.Mesh(new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), seg), m); o.castShadow = true; o.receiveShadow = true; return o; };
   // a limb segment hanging down -y from its origin, length L
   const limb = (r1, r2, L, m, seg = 12) => { const g = new THREE.CylinderGeometry(r1, r2, L, seg, 1); g.translate(0, -L / 2, 0); const o = new THREE.Mesh(g, m); o.castShadow = true; return o; };
+  const ring = (a, r, y, p) => p.set(Math.sin(a) * r, y, Math.cos(a) * r);   // the point r out from the y axis at angle a (0 = +z), height y
+  // a smooth surface over a grid: f(u, v, out) for u, v in 0..1 (u wraps round when `closed`, so there's no seam); faces point along du x dv
+  const grid = (nu, nv, f, closed = true) => {
+    const pos = [], idx = [], p = new V3(), cols = closed ? nu : nu + 1;
+    for (let j = 0; j <= nv; j++) for (let i = 0; i < cols; i++) { f(i / nu, j / nv, p); pos.push(p.x, p.y, p.z); }
+    for (let j = 0; j < nv; j++) for (let i = 0; i < nu; i++) { const a = j * cols + i, b = j * cols + (i + 1) % cols; idx.push(a, b, a + cols, b, b + cols, a + cols); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals(); return g;
+  };
+  // a thin sheet, th thick, either side of the surface mid(u, s, out): open along s = 0 (tuck that edge in), rolled over at s = 1
+  const sheet = (mid, nu, ns, th) => {
+    const e = 1e-3, a = new V3(), b = new V3(), n = new V3(), t = new V3(), R = ns * 2 + 4;
+    return grid(nu, R, (u, v, p) => {
+      const k = Math.round(v * R), s = k <= ns ? k / ns : k >= ns + 4 ? (R - k) / ns : 1, roll = k <= ns ? 0 : k >= ns + 4 ? Math.PI : (k - ns) / 4 * Math.PI;
+      mid(Math.min(1, u + e), s, a); mid(Math.max(0, u - e), s, b); n.subVectors(a, b);
+      mid(u, Math.min(1, s + e), a); mid(u, Math.max(0, s - e), b); t.subVectors(a, b).normalize(); n.cross(t).normalize();
+      return mid(u, s, p).addScaledVector(n, Math.cos(roll) * th / 2).addScaledVector(t, Math.sin(roll) * th / 2);
+    }, false);
+  };
 
   // ---------------------------------------------------------------- donuts
   let donutTex = null, chocoTex = null, glazeTex = null, doughM = null;
@@ -1902,8 +1920,8 @@ var makeCop, makeBench, makePoliceCar;
   makeCop = function makeCop() {
     const navy = std(0x1f2b4d, 0.8), navyDark = std(0x161e36, 0.85), skin = std(0xe0a581, 0.65), black = std(0x111114, 0.45);
     const leather = std(0x0c0c0e, 0.35, { metalness: 0.1 }), gold = std(0xd8b04a, 0.3, { metalness: 0.85 }), white = std(0xf4f2ee, 0.5);
-    const hairM = std(0x5a4030, 0.9), cheekM = std(0xe98a7c, 0.7), mouthM = std(0x2e1010, 0.9), stache = std(0x6a4a34, 0.95);
-    const silver = std(0xc9ccd1, 0.3, { metalness: 0.8 });
+    const hairM = std(0x2e2119, 0.9), stache = std(0x1e1510, 0.95), noseM = std(0xe39c80, 0.6);
+    const silver = std(0xe8eaee, 0.25, { metalness: 0.35, emissive: 0x2c2f35 }), patent = std(0x0b0b0e, 0.14, { metalness: 0.3 });   // the cap's badge, and its glossy band and visor
 
     const root = new THREE.Group(); root.name = 'cop';
     const pelvis = new THREE.Group(); root.add(pelvis);
@@ -1933,9 +1951,15 @@ var makeCop, makeBench, makePoliceCar;
       add(badge, new THREE.BoxGeometry(0.06, 0.055, 0.012), gold, 0, 0.01, 0);
       add(badge, new THREE.CylinderGeometry(0.03, 0.03, 0.012, 3), gold, 0, -0.022, 0).rotation.set(Math.PI / 2, 0, Math.PI); }
     onFront(add(torso, new THREE.BoxGeometry(0.075, 0.018, 0.01), gold), -0.13, 0.475, 0.012);   // name plate
-    // open collar at the neck
-    [-1, 1].forEach(s => { const c = add(torso, new THREE.BoxGeometry(0.1, 0.03, 0.12), navy, s * 0.07, 0.625, 0.04); c.rotation.set(0.3, s * 0.5, s * 0.35); });
-    add(torso, new THREE.CylinderGeometry(0.11, 0.12, 0.13, 14), skin, 0, 0.66, 0.0);           // thick neck
+    // open shirt collar: a fold-over band standing up round the back of his neck (the neck itself is part of the head, below),
+    // open at the throat, with its two points lying on his chest
+    const collarM = std(0x1f2b4d, 0.8, { side: THREE.DoubleSide });
+    add(torso, sheet((u, s, p) => { const a = 0.62 + u * (TAU - 1.24), top = 0.668 - 0.022 * Math.pow(Math.max(0, Math.cos(a)), 2);
+      ring(a, 0.134 + 0.01 * s, lerp(0.6, top, s), p).z += 0.03; return p; }, 36, 4, 0.006), collarM);
+    const chestZ = (x, y) => { const r = profR(y); return Math.sqrt(Math.max(0, r * r - x * x)) * 0.92 * bellyK(y); };
+    [-1, 1].forEach(s => add(torso, sheet((u, t, p) => {
+      const x = s * lerp(lerp(0.035, 0.12, u), lerp(0.012, 0.1, u), t), y = lerp(lerp(0.652, 0.66, u), lerp(0.6, 0.562, u), t);
+      return p.set(x, y, Math.max(chestZ(x, y), 0.03 + Math.sqrt(Math.max(0, 0.142 * 0.142 - x * x))) + 0.004); }, 6, 6, 0.005), collarM));
     // belt + kit
     { add(torso, new THREE.CylinderGeometry(0.318, 0.312, 0.075, 28), leather, 0, 0.0, 0.01).scale.z = 0.88;
       add(torso, new THREE.BoxGeometry(0.075, 0.055, 0.02), gold, 0, 0.0, 0.282);                 // buckle
@@ -1946,32 +1970,120 @@ var makeCop, makeBench, makePoliceCar;
       add(torso, new THREE.BoxGeometry(0.05, 0.12, 0.03), black, 0.33, 0.0, -0.06);
       add(torso, new THREE.CylinderGeometry(0.006, 0.006, 0.08, 5), black, 0.33, 0.09, -0.06); }
 
-    // head, built like the skater's and the bum's: a round skull with a chunky jaw under it, black beady eyes, little box brows,
-    // a cone nose, a push-broom mustache, short hair round the back under a peaked cap. front is +z
-    const head = new THREE.Group(); head.position.set(0, 0.7, 0.03); torso.add(head);
-    const skull = add(head, new THREE.SphereGeometry(0.135, 20, 16), skin, 0, 0.12, 0); skull.scale.set(0.94, 1.08, 1);
-    add(head, new THREE.SphereGeometry(0.105, 16, 10), skin, 0, 0.045, 0.03).scale.set(1.12, 0.8, 1);        // the jaw (a heavy one)
-    [-1, 1].forEach(s => {
-      add(head, new THREE.SphereGeometry(0.016, 10, 8), black, s * 0.046, 0.137, 0.118);                       // black beady eyes
-      const brow = add(head, new THREE.BoxGeometry(0.046, 0.012, 0.014), hairM, s * 0.047, 0.166, 0.116); brow.rotation.z = -s * 0.12;
-      add(head, new THREE.SphereGeometry(0.034, 10, 8), skin, s * 0.127, 0.115, -0.005).scale.set(0.45, 1, 0.62);   // ears
-      const st = add(head, new THREE.BoxGeometry(0.05, 0.022, 0.024), stache, s * 0.023, 0.079, 0.128); st.rotation.z = s * 0.2;   // the mustache, in two halves drooping at the ends
+    // head: one seamless surface (round skull, heavy jaw and jowls, chubby cheeks, a soft double chin, and a bull neck that runs down
+    // into the collar), painted with a short haircut and a five o'clock shadow; black beady eyes, box brows, a round nose and ears like
+    // the skater's and the bum's, a horseshoe mustache where his mouth would be, and a peaked cap. front is +z
+    const head = new THREE.Group(); head.name = 'copHead'; head.position.set(0, 0.7, 0.03); torso.add(head);
+    // the shape: a smooth union of ellipsoids [x, y, z, rx, ry, rz] (skull, jaw, chin, cheeks) and the neck column
+    const BLOBS = [[0, 0.148, -0.004, 0.13, 0.15, 0.14], [0, 0.055, 0.02, 0.14, 0.092, 0.12], [0, 0.002, 0.086, 0.064, 0.05, 0.06],
+      [0.074, 0.088, 0.08, 0.058, 0.055, 0.06], [-0.074, 0.088, 0.08, 0.058, 0.055, 0.06]];
+    const smin = (a, b, k) => { const h = clamp(0.5 + 0.5 * (b - a) / k, 0, 1); return lerp(b, a, h) - k * h * (1 - h); };
+    const headSD = (x, y, z) => {
+      let d = Math.max(Math.sqrt(x * x + z * z) - Math.max(0.075, 0.12 - 0.6 * Math.max(0, -0.045 - y)), y - 0.12, -0.26 - y);   // the neck narrows inside the collar, so it stays inside when he nods
+      for (const [cx, cy, cz, rx, ry, rz] of BLOBS) {
+        const px = (x - cx) / rx, py = (y - cy) / ry, pz = (z - cz) / rz, k0 = Math.sqrt(px * px + py * py + pz * pz), qx = px / rx, qy = py / ry, qz = pz / rz;
+        d = smin(d, k0 * (k0 - 1) / (Math.sqrt(qx * qx + qy * qy + qz * qz) + 1e-9), 0.035);
+      }
+      return d;
+    };
+    // how far it is from (ox, oy, oz) along the unit direction (dx, dy, dz) to the outside of his head
+    const hitHead = (ox, oy, oz, dx, dy, dz) => {
+      const sd = r => headSD(ox + dx * r, oy + dy * r, oz + dz * r);
+      let r = 0.42; while (r > 0 && sd(r) > 0) r -= 0.01;
+      let lo = Math.max(0, r), hi = r + 0.01; for (let k = 0; k < 12; k++) { const m = (lo + hi) / 2; if (sd(m) > 0) hi = m; else lo = m; }
+      return (lo + hi) / 2;
+    };
+    const headN = (p, out) => { const e = 0.002; return out.set(headSD(p.x + e, p.y, p.z) - headSD(p.x - e, p.y, p.z), headSD(p.x, p.y + e, p.z) - headSD(p.x, p.y - e, p.z), headSD(p.x, p.y, p.z + e) - headSD(p.x, p.y, p.z - e)).normalize(); };
+    const onFace = (x, y) => new V3(x, y, hitHead(x, y, 0, 0, 0, 1));   // the point on his face straight in front of (x, y)
+    // mesh it: a sphere's vertices pushed out along their rays to the surface (its seam at the back), normals from the shape itself
+    const HW = 48, HH = 36, hg = new THREE.SphereGeometry(1, HW, HH, -Math.PI / 2), hp = hg.attributes.position, hn = hg.attributes.normal, hv = new V3(), hq = new V3();
+    for (let i = 0; i < hp.count; i++) {
+      hv.fromBufferAttribute(hp, i); hv.multiplyScalar(hitHead(0, 0.12, 0, hv.x, hv.y, hv.z)); hv.y += 0.12;
+      hp.setXYZ(i, hv.x, hv.y, hv.z); headN(hv, hq); hn.setXYZ(i, hq.x, hq.y, hq.z);
+    }
+    // and paint it over the sphere's uv grid: plain skin (no rosy cheeks), a five o'clock shadow along the jaw, and short dark
+    // hair from up under the cap down to the nape, with sideburns. the lines are heights by angle round from the front
+    const pwl = (pts, a) => { for (let i = 1; i < pts.length; i++) if (a <= pts[i][0]) return lerp(pts[i - 1][1], pts[i][1], (a - pts[i - 1][0]) / (pts[i][0] - pts[i - 1][0])); return pts[pts.length - 1][1]; };
+    // how far a point (angle a, height y, rr out from the axis) is above one of those lines, measured across the surface so the edges stay even where they run steep
+    const above = (pts, a, y, rr) => { const sl = (pwl(pts, a + 0.01) - pwl(pts, a - 0.01)) / 0.02 / Math.max(0.05, rr); return (y - pwl(pts, a)) / Math.sqrt(1 + sl * sl); };
+    const HAIRLINE = [[0, 0.25], [0.62, 0.24], [0.82, 0.192], [1.05, 0.178], [1.22, 0.166], [1.3, 0.112], [1.33, 0.1], [1.46, 0.104], [1.5, 0.15], [1.82, 0.155], [1.9, 0.12], [2.05, 0.085], [2.5, 0.045], [Math.PI, 0.036]];
+    const STUBBLE = [[0, 0.092], [0.35, 0.08], [0.6, 0.07], [0.9, 0.075], [1.15, 0.088], [1.3, 0.09], [1.5, 0.06], [1.75, -0.02], [Math.PI, -0.06]];
+    const faceTex = cv(512, 256, (g, w, h) => {
+      const img = g.createImageData(w, h), px = img.data, A = hp.array, at = (ix, iy) => (iy * (HW + 1) + ix) * 3;
+      const SKIN = [224, 165, 129], SHADOW = [128, 104, 100], HAIR = [46, 33, 25];
+      for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) {
+        // the point on his head under this texel, between the mesh's vertices
+        const gx = (c + 0.5) / w * HW, gy = (r + 0.5) / h * HH, ix = Math.min(HW - 1, gx | 0), iy = Math.min(HH - 1, gy | 0), fx = gx - ix, fy = gy - iy;
+        const i00 = at(ix, iy), i10 = at(ix + 1, iy), i01 = at(ix, iy + 1), i11 = at(ix + 1, iy + 1);
+        const P = k => lerp(lerp(A[i00 + k], A[i10 + k], fx), lerp(A[i01 + k], A[i11 + k], fx), fy), x = P(0), y = P(1), z = P(2);
+        const ang = Math.abs(Math.atan2(x, z)), rr = Math.sqrt(x * x + z * z), n = Math.random();
+        const stub = smooth(0.5 - above(STUBBLE, ang, y, rr) / 0.03) * smooth((y + 0.05) / 0.04) * (0.28 + 0.2 * n);
+        const hair = smooth(above(HAIRLINE, ang, y, rr) / (ang > 2.1 ? 0.016 : 0.004) + 0.5), hk = 0.8 + 0.4 * n, o = (r * w + c) * 4;
+        for (let k = 0; k < 3; k++) px[o + k] = lerp(lerp(SKIN[k], SHADOW[k], stub), HAIR[k] * hk, hair);
+        px[o + 3] = 255;
+      }
+      g.putImageData(img, 0, 0);
     });
-    add(head, new THREE.ConeGeometry(0.021, 0.048, 8), skin, 0, 0.104, 0.142).rotation.x = Math.PI / 2;        // nose
-    // short hair round the back and sides, a band from under the cap down to the nape (the face side stays open)
-    add(head, new THREE.SphereGeometry(0.141, 18, 10, Math.PI * 1.06, Math.PI * 0.88, Math.PI * 0.26, Math.PI * 0.36), hairM, 0, 0.12, 0).scale.set(0.95, 1.08, 1.0);
-    // the mouth: a dark slot that opens wide for a bite and works when he chews
-    const mouth = new THREE.Group(); mouth.position.set(0, 0.054, 0.131); head.add(mouth);
-    const mouthOpen = add(mouth, new THREE.BoxGeometry(0.044, 0.01, 0.014), mouthM, 0, 0, 0, false);
-    // peaked cap, sitting up on the crown clear of the brows
-    const cap = new THREE.Group(); cap.position.set(0, 0.228, -0.012); cap.rotation.x = -0.06; head.add(cap);
-    add(cap, new THREE.CylinderGeometry(0.148, 0.146, 0.05, 24), black, 0, 0, 0);
-    add(cap, new THREE.CylinderGeometry(0.178, 0.149, 0.075, 24), navy, 0, 0.06, 0);
-    add(cap, new THREE.CylinderGeometry(0.178, 0.178, 0.01, 24), navyDark, 0, 0.1, 0);
-    { const visor = add(cap, new THREE.CylinderGeometry(0.155, 0.155, 0.012, 20, 1, false, -Math.PI / 2, Math.PI), leather, 0, -0.022, 0.03);
-      visor.scale.z = 0.62; visor.rotation.x = 0.2; }
-    add(cap, new THREE.CylinderGeometry(0.022, 0.022, 0.01, 6), gold, 0, 0.055, 0.166).rotation.x = Math.PI / 2 - 0.25;   // cap badge
-    add(cap, new THREE.BoxGeometry(0.19, 0.008, 0.01), gold, 0, 0.006, 0.146);                                          // chin-strap cord
+    add(head, hg, std(0xffffff, 0.62, { map: faceTex }));
+    [-1, 1].forEach(s => {
+      const e = onFace(s * 0.05, 0.136); add(head, new THREE.SphereGeometry(0.0175, 12, 10), black, e.x, e.y, e.z - 0.005);   // black beady eyes
+      const b = onFace(s * 0.054, 0.162); add(head, new THREE.BoxGeometry(0.058, 0.015, 0.016), hairM, b.x, b.y, b.z).rotation.set(0, s * 0.32, -s * 0.12);   // bushy brows
+      const ex = hitHead(0, 0.112, -0.008, s, 0, 0), ear = add(head, new THREE.SphereGeometry(0.037, 12, 10), skin, s * (ex + 0.004), 0.112, -0.008);
+      ear.scale.set(0.42, 1, 0.66); ear.rotation.y = -s * 0.3;                                                                   // ears, angled back
+      add(ear, new THREE.SphereGeometry(0.026, 12, 8), std(0xcb8a6c, 0.7), s * 0.034, -0.003, 0.003, false).scale.set(0.18, 0.72, 0.55);   // and the hollow inside
+      const al = onFace(s * 0.019, 0.095); add(head, new THREE.SphereGeometry(0.014, 10, 8), noseM, al.x, al.y, al.z + 0.004);   // nostrils
+    });
+    { // a round nose: a bulb on a short bridge
+      const t = onFace(0, 0.102), b = onFace(0, 0.126);
+      add(head, new THREE.SphereGeometry(0.028, 14, 10), noseM, 0, 0.102, t.z + 0.015).scale.set(1, 0.86, 0.84);
+      const br = add(head, new THREE.SphereGeometry(0.014, 10, 8), noseM, 0, 0.12, b.z + 0.001); br.scale.set(0.85, 1.4, 0.8); br.rotation.x = -0.5;
+    }
+    // the mustache: a thick horseshoe swept along his upper lip, bushy across the middle, the ends drooping down past the corners of his
+    // mouth (which is all under there). [x, y, thickness] along it
+    const STACHE = [[-0.066, -0.002, 0.007], [-0.064, 0.028, 0.0125], [-0.059, 0.053, 0.0165], [-0.034, 0.066, 0.0215], [0, 0.068, 0.0195],
+      [0.034, 0.066, 0.0215], [0.059, 0.053, 0.0165], [0.064, 0.028, 0.0125], [0.066, -0.002, 0.007]];
+    { const curve = new THREE.CatmullRomCurve3(STACHE.map(([x, y]) => onFace(x, y)), false, 'centripetal'), N = 64, rings = [];
+      for (let i = 0; i <= N; i++) {
+        const t = i / N, c = curve.getPoint(t), T = curve.getTangent(t), nf = headN(c, new V3()), b = new V3().crossVectors(T, nf).normalize(); nf.crossVectors(b, T);
+        const f = t * (STACHE.length - 1), k = Math.min(f | 0, STACHE.length - 2), w = lerp(STACHE[k][2], STACHE[k + 1][2], f - k) * Math.sqrt(smooth(Math.min(t, 1 - t) / 0.04));
+        rings.push([c.addScaledVector(nf, w * 0.22), nf, b, w, t]);   // a flattened oval round the curve, half sunk into the lip
+      }
+      // b points to the inside of the horseshoe: that edge goes a bit ragged, in clumps
+      add(head, grid(12, N, (u, v, p) => { const [c, nf, b, w, t] = rings[Math.round(v * N)], a = u * TAU, sa = Math.sin(a), rag = sa > 0 ? 1 + (0.06 * Math.sin(t * TAU * 11) + 0.04 * Math.sin(t * TAU * 17 + 1.3)) * sa : 1;
+        return p.copy(c).addScaledVector(nf, Math.cos(a) * w * 0.66).addScaledVector(b, sa * w * rag); }), stache);
+    }
+    // peaked cap: a glossy patent band fitted snug round his head, a soft navy crown flaring out over it (raised at the front behind the
+    // badge), a glossy visor curving down over his brow, a silver shield badge, and silver buttons holding the strap at the sides
+    const cap = new THREE.Group(); cap.position.set(0, 0.211, -0.006); cap.rotation.x = 0.06; head.add(cap); cap.updateMatrix();
+    const NU = 48, BH = 0.044, bandR = [], cd = new V3();   // the band's lower edge hugs his head: how far out his head is there, all the way round
+    for (let i = 0; i < NU; i++) { ring(i / NU * TAU, 1, 0, cd).transformDirection(cap.matrix); bandR.push(hitHead(cap.position.x, cap.position.y, cap.position.z, cd.x, cd.y, cd.z) + 0.003); }
+    const R0 = a => { const f = ((a / TAU % 1) + 1) % 1 * NU, i = f | 0; return lerp(bandR[i % NU], bandR[(i + 1) % NU], f - i); };
+    const BAND = [[-0.004, -0.002], [0.002, 0], [0.005, 0.005], [0.005, BH - 0.005], [0.002, BH], [-0.006, BH + 0.002]];   // [out, up]
+    add(cap, grid(NU, BAND.length - 1, (u, v, p) => { const [dr, y] = BAND[Math.round(v * (BAND.length - 1))]; return ring(u * TAU, R0(u * TAU) + dr, y, p); }), patent);
+    { // the crown: [spread, height] up from inside the band, out to the soft rolled rim, then across the top
+      const hc = a => 0.068 + 0.037 * Math.pow(Math.max(0, Math.cos(a)), 1.6);
+      const CROWN = [[0.975, -0.01], [1.0, 0.004], [1.065, 0.25], [1.16, 0.5], [1.25, 0.75], [1.3, 0.92], [1.286, 1.0], [1.225, 1.05], [0.8, 1.09], [0.4, 1.105], [0, 1.105]];
+      add(cap, grid(NU, CROWN.length - 1, (u, v, p) => {
+        const a = u * TAU, [s, f] = CROWN[Math.round(v * (CROWN.length - 1))], soft = s > 1.03 ? 1 + 0.02 * Math.sin(a * 5 + 1) * (1 - Math.max(0, Math.cos(a))) : 1;   // soft fabric, a little uneven except the stiff front
+        return ring(a, R0(a) * s * soft, BH + f * lerp(0.078, hc(a), Math.min(1, s / 1.1)), p);
+      }), navy);
+      // silver shield badge on the front of the crown, leaning back with it
+      const sh = new THREE.Shape(); sh.moveTo(0, -0.035);
+      sh.quadraticCurveTo(0.02, -0.028, 0.026, -0.008); sh.quadraticCurveTo(0.029, 0.008, 0.024, 0.019); sh.lineTo(0.03, 0.026); sh.quadraticCurveTo(0.02, 0.025, 0.012, 0.03);   // up the right side to its shoulder
+      sh.quadraticCurveTo(0.011, 0.043, 0, 0.044); sh.quadraticCurveTo(-0.011, 0.043, -0.012, 0.03);                                                                  // the crest
+      sh.quadraticCurveTo(-0.02, 0.025, -0.03, 0.026); sh.lineTo(-0.024, 0.019); sh.quadraticCurveTo(-0.029, 0.008, -0.026, -0.008); sh.quadraticCurveTo(-0.02, -0.028, 0, -0.035);
+      const badge = new THREE.Group(); badge.position.set(0, BH + 0.054, R0(0) * 1.165 + 0.002); badge.rotation.x = -0.41; cap.add(badge);
+      add(badge, new THREE.ExtrudeGeometry(sh, { depth: 0.002, bevelEnabled: true, bevelThickness: 0.0012, bevelSize: 0.0012, bevelSegments: 2, curveSegments: 6 }), silver);
+      add(badge, new THREE.CylinderGeometry(0.011, 0.011, 0.003, 18), silver, 0, 0.002, 0.003).rotation.x = Math.PI / 2;   // the seal in the middle
+    }
+    { // the visor: off the front half of the band, reaching forward and curving down over his brow, with a rolled edge
+      const PV = 1.32;
+      add(cap, sheet((u, s, p) => { const a = (u * 2 - 1) * PV, d = s * 0.058 * Math.pow(Math.cos(a / PV * Math.PI / 2), 0.7); return ring(a, R0(a) + 0.004 + d, -0.002 - d * 0.3 - d * d * 1.2, p); }, 28, 8, 0.0045), patent);
+      // the strap across the front of the band, and the buttons at its ends
+      const STRAP = [[0.0045, 0.006], [0.0072, 0.0075], [0.0072, 0.0165], [0.0045, 0.018]];
+      add(cap, grid(30, 3, (u, v, p) => { const a = (u * 2 - 1) * 1.42, [dr, y] = STRAP[Math.round(v * 3)]; return ring(a, R0(a) + dr, y, p); }, false), patent);
+      [-1, 1].forEach(s => { const a = s * 1.42, bt = add(cap, new THREE.SphereGeometry(0.0062, 10, 8), silver, 0, 0.012, 0); ring(a, R0(a) + 0.006, 0.012, bt.position); bt.rotation.y = a; bt.scale.z = 0.55; });
+    }
 
     // arms (IK-driven, in torso space). His right is -x.
     const UA = 0.3, FA = 0.29, SH = 0.31;
@@ -2092,11 +2204,15 @@ var makeCop, makeBench, makePoliceCar;
     // eating: two big bites per donut (a chomp out of it, then the rest; crumbs everywhere, frosting on the mustache), then he reaches into the box for another
     let bites = 0, reachT = -1, crumbI = 0;
     const BOX = new V3(0.64, 0.5, 0.02), boxT = new V3(), mouthW = new V3();
-    const smear = add(head, new THREE.SphereGeometry(0.03, 8, 6), std(0xf7a8c8, 0.6), 0.03, 0.074, 0.14, false); smear.scale.set(0.55, 0.28, 0.3);   // a dab of frosting caught in the mustache smear.visible = false;
+    // in head space: where the donut's middle goes for a bite (the top of the ring, ~0.07 up, in under the mustache, just clear of his chin),
+    // and where the crumbs fly out from under the mustache
+    const BITE = new V3(0, -0.017, onFace(0, 0).z + 0.03), CRUMB = new V3(0, 0.045, onFace(0, 0.045).z + 0.014);
+    const sm = onFace(0.027, 0.052), smear = add(head, new THREE.SphereGeometry(0.03, 8, 6), std(0xf7a8c8, 0.6), sm.x, sm.y, sm.z + 0.014, false);
+    smear.scale.set(0.55, 0.28, 0.3); smear.visible = false;   // a dab of frosting caught in the mustache
     const crumbM = std(0xc8955a, 0.9), crumbs = [];
     for (let k = 0; k < 14; k++) { const c = add(root, new THREE.IcosahedronGeometry(0.012, 0), k % 3 ? crumbM : std(0xf7a8c8, 0.7), 0, -1, 0, false); c.visible = false; crumbs.push({ m: c, v: new V3(), t: 9 }); }
     const crumb = () => {
-      const c = crumbs[crumbI++ % crumbs.length]; root.updateWorldMatrix(true, true); head.localToWorld(mouthW.set(0, 0.054, 0.15)); root.worldToLocal(mouthW);
+      const c = crumbs[crumbI++ % crumbs.length]; root.updateWorldMatrix(true, true); head.localToWorld(mouthW.copy(CRUMB)); root.worldToLocal(mouthW);
       c.m.position.copy(mouthW); c.v.set((Math.random() - 0.5) * 0.6, 0.3 + Math.random() * 0.4, 0.3 + Math.random() * 0.5); c.t = 0; c.m.visible = true;
     };
     const crumbTick = dt => crumbs.forEach(c => { if (c.t > 8) return; c.t += dt;
@@ -2116,7 +2232,7 @@ var makeCop, makeBench, makePoliceCar;
       // ---- breathing
       const br = Math.sin(time * 1.6);
       belly.scale.set(1 + br * 0.008, 1 + br * 0.005, 1 + br * 0.014);
-      let stand = 0, lean = 0, twist = 0, aimW = 0, headPitch = 0, chew = 0, donutBlend = 0, gape = 0;
+      let stand = 0, lean = 0, twist = 0, aimW = 0, headPitch = 0, donutBlend = 0;
       if (throwT >= 0) {
         throwT += dt; const t = throwT;
         stand = env(t, [[0, 0], [0.35, 1], [0.95, 1], [1.6, 0]]);
@@ -2135,8 +2251,6 @@ var makeCop, makeBench, makePoliceCar;
         let b = 0;
         if (biteT >= 0) {
           const was = biteT; biteT += dt; b = env(biteT, [[0, 0], [0.5, 1], [1.3, 1], [1.8, 0]]);
-          gape = env(biteT, [[0.15, 0], [0.45, 1], [0.55, 1], [0.62, 0.1]]);   // his jaw drops wide as the donut comes up, then chomp
-          if (biteT > 0.5 && biteT < 1.65) chew = Math.abs(Math.sin((biteT - 0.5) * 11));
           if (was < 0.55 && biteT >= 0.55) { bites++; if (bites === 1) held.userData.bitten(true); else held.visible = false; smear.visible = true; for (let k = 0; k < 5; k++) crumb(); }   // CHOMP
           if (biteT > 0.6 && biteT < 1.6 && Math.floor(was * 6) !== Math.floor(biteT * 6)) crumb();   // and more falling out as he chews
           if (biteT >= 1.8) { biteT = -1; if (bites >= 2) { hasDonut = false; held.visible = false; reachT = 0; nextBite = 2.5; } }
@@ -2180,9 +2294,6 @@ var makeCop, makeBench, makePoliceCar;
       pelvis.rotation.set(0.32 * stand, aimYaw * aimW * 0.35, 0);
       torso.rotation.set(lean, aimYaw * aimW * 0.55 + twist + bodyLook * 0.8, -twist * 0.15);
       head.rotation.set(headPitch + lookPitchS * lookW * 0.7, aimYaw * aimW * 0.15 - twist * 0.5 + headLook, 0);
-      mouth.scale.set(1 - chew * 0.12 + gape * 0.15, 1, 1);
-      mouthOpen.scale.y = 1 + chew * 1.6 + gape * 4.2;
-      mouthOpen.position.y = -0.006 * (chew * 0.6 + gape * 2.4);   // it opens downward, with the jaw
       solveLegs(); solveArm(armR); solveArm(armL); crumbTick(dt);
       // ---- donut placement: between both hands when holding, in his right hand while throwing
       if (held.visible) {
@@ -2191,8 +2302,8 @@ var makeCop, makeBench, makePoliceCar;
         else {
           held.position.copy(tmpE); held.position.z += 0.03; held.position.y += 0.03;
           const bb = held.userData.bite || 0;
-          if (bb > 0) {   // up to his open mouth: the top edge of the ring goes right in for the chomp
-            root.updateWorldMatrix(true, true); torso.worldToLocal(head.localToWorld(mouthW.set(0, -0.012, 0.165)));
+          if (bb > 0) {   // up to his face: the top edge of the ring goes in under the mustache for the chomp
+            root.updateWorldMatrix(true, true); torso.worldToLocal(head.localToWorld(mouthW.copy(BITE)));
             held.position.lerp(mouthW, smooth(bb));
           }
           held.rotation.set(1.3 + bb * 0.25, 0, 0);

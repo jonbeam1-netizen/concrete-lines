@@ -6526,6 +6526,8 @@ const RV_GAP = 3.3, RV_TRACKX = -38;   // (TRACK isn't built yet here) half-widt
   const posts = Math.floor((ZB - ZA) / 3), ip = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.05, 0.05, fh + 0.6, 6), RM.steel, posts), m4 = new THREE.Matrix4();
   for (let i = 0; i < posts; i++) { m4.makeTranslation(fx, RV.upper + (fh + 0.6) / 2, ZA + i * 3); ip.setMatrixAt(i, m4); }
   scene.add(ip);
+  cylBetween(new V3(fx, RV.upper + fh, ZA), new V3(fx, RV.upper + fh, ZB), 0.04, RM.steel);          // the top rail (just looks: not grindable)
+  cylBetween(new V3(fx, RV.upper + 0.06, ZA), new V3(fx, RV.upper + 0.06, ZB), 0.015, RM.steel);   // and a tension wire along the bottom
   // razor wire: a coil of thin loops along the top
   const coil = []; for (let t = 0; t <= 1; t += 1 / 9000) { const z = lerp(RV.PZS - 60, RV.PZN + 60, t), a = t * 9000 * 0.45; coil.push(new V3(fx + Math.cos(a) * 0.32, RV.upper + fh + 0.45 + Math.sin(a) * 0.32, z)); }
   scene.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(coil), 9000, 0.012, 3, false), RM.steel));
@@ -6602,16 +6604,16 @@ const TRACK = { x: -38, gauge: 1.435, bed: 0.28 };
     const groundAt = x => x < RV.wallX ? RV.upper : x > RV.lipW ? rvBase(x) : RV.deck;
     const lump = (x, d) => 0.9 * Math.sin(x * 0.31 + d * 0.17 + sd) * Math.sin(d * 0.23 - x * 0.12) + 0.5 * Math.sin(x * 0.9 + d * 0.7);
     const bump = (x, d) => {
-      // the face is set into the hill: across its whole width the hill stands just over the face's top edge, with no lumps right behind it,
-      // then rolls down to the ground past each end (on the channel side it's gone a little way down the bank) and away behind
-      const ax = Math.abs(x - fx), fall = x > fx ? RV.lipW + 4 - (fx + half) : 12;
-      const wide = ax <= half + 0.6 ? 1 : smoothT(1 - (ax - half - 0.6) / fall);
+      // the face is set into the hill: across its whole width the hill starts flush with the face's top edge (no lip, no gap), with no
+      // lumps right behind it, then rolls down to the ground past each end (on the channel side a little way down the bank) and away behind.
+      // past the face's ends the hill's front edge rests on the wing walls, which follow it down
+      const ax = Math.abs(x - fx), fall = x > fx ? RV.lipW + 4 - (fx + half) : 8;
+      const wide = ax <= half + 0.6 ? 1 : Math.pow(clamp(1 - (ax - half - 0.6) / fall, 0, 1), 1.6);   // a hill's foot: steep near the face, easing out along the ground
       const away = smoothT(1 - (d - 32) / 70), rough = smoothT((d - 3) / 9) * (0.6 + 0.4 * smoothT((ax - half) / 4 + 1));
-      const top = faceH + 0.6 + 13 * smoothT(d / 28) - (groundAt(x) - y0);   // measured from the deck, whatever ground it sits on
-      const front = lerp(1, smoothT(d / 10), smoothT((ax - half) / 1.5));   // beside the face it rises from the ground instead of standing there cut off
-      return Math.max(0, (top + lump(x, d) * 1.6 * rough) * wide * front * (d < 32 ? 1 : away));
+      const top = faceH + 0.09 + 13 * smoothT(d / 28) - (groundAt(x) - y0);   // measured from the deck, whatever ground it sits on (the mesh sits 0.12 lower)
+      return Math.max(0, (top + lump(x, d) * 1.6 * rough) * wide * (d < 32 ? 1 : away));
     };
-    const NX = 60, ND = 50, X0 = -60, X1 = RV.lipW + 3, DMAX = 110, hp = [], hc = [], hi = [], B = [];
+    const NX = 64, ND = 50, X0 = -66, X1 = RV.lipW + 6, DMAX = 110, hp = [], hc = [], hi = [], B = [];
     for (let j = 0; j <= ND; j++) for (let i = 0; i <= NX; i++) {
       const x = lerp(X0, X1, i / NX), d = DMAX * Math.pow(j / ND, 1.35), b = bump(x, d), y = groundAt(x) + b - 0.12;
       hp.push(x, y, zb + sd * d); B.push(b);
@@ -6621,6 +6623,25 @@ const TRACK = { x: -38, gauge: 1.435, bed: 0.28 };
     for (let j = 0; j < ND; j++) for (let i = 0; i < NX; i++) { const a = j * (NX + 1) + i, b = a + 1, c = a + NX + 1, e = c + 1; if (B[a] > 0.15 || B[b] > 0.15 || B[c] > 0.15 || B[e] > 0.15) { if (sd > 0) hi.push(a, c, b, b, c, e); else hi.push(a, b, c, b, e, c); } }
     const hg = new THREE.BufferGeometry(); hg.setAttribute('position', new THREE.Float32BufferAttribute(hp, 3)); hg.setAttribute('color', new THREE.Float32BufferAttribute(hc, 3)); hg.setIndex(hi); hg.computeVertexNormals();
     const hill = new THREE.Mesh(hg, new THREE.MeshStandardMaterial({ vertexColors: true, map: RM.dirt.map, roughness: 1 })); hill.receiveShadow = true; scene.add(hill);
+    // wing walls: the portal face carried on out past each end, its top stepping down with the hill's front edge until the hill meets the ground,
+    // so the hill always sits on concrete there instead of hanging off the face's corners as a cliff
+    { const zf = sd > 0 ? z : z - 1.2, zk = zf + 1.2, P = [], U = [], I = [];
+      const quad = (a, b, c, d, ua, ub, uc, ud) => { const o = P.length / 3; P.push(...a, ...b, ...c, ...d); U.push(...ua, ...ub, ...uc, ...ud); I.push(o, o + 1, o + 2, o, o + 2, o + 3); };
+      [-1, 1].forEach(e => {
+        const xs = []; for (let k = 0; k <= 60; k++) { const x = fx + e * (half - 0.02 + k * 0.4); xs.push(x); if (bump(x, 0) < 0.03) break; }
+        const yt = x => groundAt(x) + bump(x, 0) - 0.1, yb = x => Math.min(groundAt(x), y0) - 0.4;
+        for (let k = 0; k + 1 < xs.length; k++) {
+          const a = xs[k], b = xs[k + 1], ta = yt(a), tb = yt(b), ba = yb(a), bb = yb(b);
+          quad([a, ba, zf], [b, bb, zf], [b, tb, zf], [a, ta, zf], [a / 4, ba / 4], [b / 4, bb / 4], [b / 4, tb / 4], [a / 4, ta / 4]);   // front
+          quad([a, ba, zk], [b, bb, zk], [b, tb, zk], [a, ta, zk], [a / 4, ba / 4], [b / 4, bb / 4], [b / 4, tb / 4], [a / 4, ta / 4]);   // back
+          quad([a, ta, zf], [b, tb, zf], [b, tb, zk], [a, ta, zk], [a / 4, zf / 4], [b / 4, zf / 4], [b / 4, zk / 4], [a / 4, zk / 4]);   // top
+        }
+        const l = xs[xs.length - 1], tl = yt(l), bl = yb(l);
+        quad([l, bl, zf], [l, bl, zk], [l, tl, zk], [l, tl, zf], [zf / 4, bl / 4], [zk / 4, bl / 4], [zk / 4, tl / 4], [zf / 4, tl / 4]);   // end cap
+      });
+      const wg = new THREE.BufferGeometry(); wg.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); wg.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2)); wg.setIndex(I); wg.computeVertexNormals();
+      if (!RM.wingWall) RM.wingWall = Object.assign(RM.wall.clone(), { side: THREE.DoubleSide });
+      const wings = new THREE.Mesh(wg, RM.wingWall); wings.castShadow = wings.receiveShadow = true; scene.add(wings); }
     // dry brush and a few rocks scattered over it
     const brush = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ color: 0x6b6440, roughness: 1, flatShading: true }), 90), rocks = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ color: 0x8a8070, roughness: 1, flatShading: true }), 30);
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new V3(), pp = new V3(); let nb = 0, nr = 0, sdd = 917 + sd * 31; const rnd = () => (sdd = (sdd * 16807) % 2147483647) / 2147483647;
@@ -8647,7 +8668,9 @@ function riverStop() {
   tunnelWarp();
   const p = P.pos, lim = RV.fenceX - 0.35;
   if (P.state === 'grind') { if (p.x > RV.fenceX + 0.1) p.x = RV.fenceX + 0.1; }   // the top of the fence grinds
-  else if (P.state === 'air' && p.x > lim) { p.x = Math.max(lim, p.x - 2.5 * (1 / 60)); if (P.vel.x > 0) P.vel.x = 0; }   // off the fence top: eased back over the barrier
+  else if (P.state === 'wall') { if (p.x > RV.fenceX - 0.13) p.x = RV.fenceX - 0.13; }   // wallriding the fence: wheels right on the chain-link
+  else if (P.state === 'air' && p.x > lim && p.y > RV.deck + 3.1) { p.x = Math.max(lim, p.x - 2.5 * (1 / 60)); if (P.vel.x > 0) P.vel.x = 0; }   // off the fence top: eased back over the barrier
+  else if (P.state === 'air') { if (p.x > RV.fenceX - 0.13) { p.x = RV.fenceX - 0.13; if (P.vel.x > 0) P.vel.x = 0; } }   // below the top the fence itself is solid (wallride it)
   else if (p.x > lim && P.state !== 'bail') {
     p.x = lim;
     if (P.state === 'ground') { const vx = Math.sin(P.heading) * P.s, vz = Math.cos(P.heading) * P.s; if (vx > 0) { const sp = Math.abs(vz); if (sp > 0.3) { P.heading = Math.atan2(0, vz) + (P.s < 0 ? Math.PI : 0); P.s = Math.sign(P.s) * sp * 0.9; } else P.s = 0; if (vx > 3) { sfx.bump(); shake = Math.max(shake, 0.3); } } }

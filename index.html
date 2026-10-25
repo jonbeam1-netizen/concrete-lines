@@ -8617,8 +8617,10 @@ function outOfBoundsZ(nx, ny, nz, px, pz) {
 function tunnelVz() { return P.state === 'ground' ? Math.cos(P.heading) * P.s : P.state === 'grind' ? P.grind.r.dir.z * P.grind.vr : P.vel ? P.vel.z : 0; }
 function tunnelWarp() {
   const p = P.pos; if (!boreGap(p.x, p.y) || P.state === 'bail') return;
-  const vz = tunnelVz(), span = TUNW.zn - TUNW.zs;
-  const dz = p.z > TUNW.zn && vz > 0 ? -span : p.z < TUNW.zs && vz < 0 ? span : 0;
+  // you come out a few metres clear of the far portal, so the camera trailing behind you lands just outside it too:
+  // the whole trip is a quick dip to black instead of waiting for the camera to follow you out of the dark
+  const vz = tunnelVz(), OUT = 6.5;
+  const dz = p.z > TUNW.zn && vz > 0 ? RV.PZS + OUT + (p.z - TUNW.zn) - p.z : p.z < TUNW.zs && vz < 0 ? RV.PZN - OUT - (TUNW.zs - p.z) - p.z : 0;
   if (!dz) return;
   p.z += dz; camera.position.z += dz; rider.position.z += dz;
   if (P.state === 'grind') { const g = P.grind, u = (p.z - g.r.a.z) / (g.r.dir.z * g.r.len); if (u > 0 && u < 1) g.u = u; else exitGrind(0.8); }
@@ -8627,7 +8629,7 @@ function tunnelWarp() {
 function tunnelFade(dt) {   // darken as you head into a portal, then fade back up on the other side
   let a = 0; const p = P.pos;
   if (boreGap(p.x, p.y)) { const vz = tunnelVz(); a = vz > 0 ? clamp(1 - (TUNW.zn - p.z) / 3, 0, 1) : vz < 0 ? clamp(1 - (p.z - TUNW.zs) / 3, 0, 1) : 0; }
-  TUNW.fadeOut = Math.max(0, TUNW.fadeOut - dt / 0.35);
+  TUNW.fadeOut = Math.max(0, TUNW.fadeOut - dt / 0.22);
   // the camera trails behind you, so just after a warp it's still back inside the far tunnel (where the hill can't hide the map):
   // stay black until it has followed you out past the portal face
   let c = 0; const cp = camera.position;

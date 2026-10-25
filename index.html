@@ -6299,9 +6299,13 @@ const TRACK = { x: -38, gauge: 1.435, bed: 0.28 };
     const groundAt = x => x < RV.wallX ? RV.upper : x > RV.lipW ? rvBase(x) : RV.deck;
     const lump = (x, d) => 0.9 * Math.sin(x * 0.31 + d * 0.17 + sd) * Math.sin(d * 0.23 - x * 0.12) + 0.5 * Math.sin(x * 0.9 + d * 0.7);
     const bump = (x, d) => {
-      const across = Math.exp(-Math.pow((x - fx) / 17, 6)) * smoothT((RV.lipW + 1.5 - x) / 3.5) * smoothT((x + 58) / 5);   // fades out before the bank lip and the street
+      const across = Math.exp(-Math.pow((x - fx) / 17, 6)) * smoothT((RV.lipW + 1.5 - x) / 3.5) * smoothT((x + 52) / 10);   // fades out before the bank lip and the street
       const inFace = smoothT((half - Math.abs(x - fx)) / 2.5), rise = lerp(smoothT(d / 14), 1, inFace);   // full height behind the face, rising from the ground beside it
-      return Math.max(0, (16 + lump(x, d)) * across * rise * Math.exp(-Math.pow(d / 75, 2)));
+      const base = Math.max(0, (16 + lump(x, d)) * across * rise * Math.exp(-Math.pow(d / 75, 2)));
+      // right behind the portal the hill stands well clear of the wall's top, so the face is set into it (nothing peeking over its edge)
+      const side = smoothT((half + 14 - Math.abs(x - fx)) / 14), inF = smoothT((half - Math.abs(x - fx)) / 2.5);
+      const cover = side * lerp(smoothT(d / 12), 1, inF) * smoothT((RV.lipW + 1.5 - x) / 3.5) * smoothT((x + 52) / 10) * (faceH - 0.4 + 0.5 * d * Math.max(0, 1 - d / 80) + lump(x, d) * 0.5 * smoothT(d / 6));   // starts just under the wall's top edge and climbs away behind it
+      return Math.max(base, cover);
     };
     const NX = 60, ND = 50, X0 = -60, X1 = RV.lipW + 3, DMAX = 110, hp = [], hc = [], hi = [], B = [];
     for (let j = 0; j <= ND; j++) for (let i = 0; i <= NX; i++) {
@@ -6333,6 +6337,7 @@ const TRACK = { x: -38, gauge: 1.435, bed: 0.28 };
   // a rolled curb (a gentle 0.15 m ramp, so rolling over it never kicks you into the air) up to the sidewalk
   rvSweep([[x1, RV.upper + 0.02], [x1 + 0.4, RV.upper + 0.15]], ZA, ZB, RM.wall);
   addObs({ cx: x1 + 0.2, cz: 0, a: 0, hw: 0.2, hl: 900, f: lx => RV.upper + 0.15 * clamp((lx + 0.2) / 0.4, 0, 1) + 0.0001 });
+  addRailPath([[x1 + 0.38, RV.upper + 0.17, RV.PZS + 1], [x1 + 0.38, RV.upper + 0.17, RV.PZN - 1]], { hidden: true, ledge: true });   // the whole curb grinds
   addObs({ cx: (x1 + 0.4 + RV.wallX) / 2, cz: 0, a: 0, hw: (RV.wallX - x1 - 0.4) / 2, hl: 900, f: () => RV.upper + 0.15 });   // the sidewalk
   rvSweep([[x1 + 0.4, RV.upper + 0.15], [RV.wallX, RV.upper + 0.15]], ZA, ZB, RM.upper);
   rvSweep([[RV.wallX, RV.upper + 0.15], [RV.wallX, RV.upper]], ZA, ZB, RM.wall);
@@ -6417,7 +6422,7 @@ function rvWedge(x0, x1, z0, z1, yBase, hFn, topMat = RM.pourTop, sideMat = RM.r
   rvWedge(-52.5, -50.3, -6.5, -3.1, S, x => 0.55 * Math.pow((x + 52.5) / 2.2, 1.6), RM.diy, RM.diySide);
   // a stretch of red-painted curb you can grind
   { const red = new THREE.MeshStandardMaterial({ color: 0xa8322a, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
-    [[-50, -27], [96, 116]].forEach(([za, zb]) => { rvSweep([[x1 + 0.02, RV.upper + 0.03], [x1 + 0.4, RV.upper + 0.152]], za, zb, red); addRailPath([[x1 + 0.38, RV.upper + 0.17, za + 0.2], [x1 + 0.38, RV.upper + 0.17, zb - 0.2]], { hidden: true, ledge: true }); }); }
+    [[-50, -27], [96, 116]].forEach(([za, zb]) => { rvSweep([[x1 + 0.02, RV.upper + 0.03], [x1 + 0.4, RV.upper + 0.152]], za, zb, red); }); }
   // a bus stop: bench (grind the seat edge or the backrest), the stop sign, a couple of newspaper boxes to wallie
   if (typeof makeBench === 'function') {
     const bx = -53.4, bz = -40, yaw = Math.PI / 2, c = Math.cos(yaw), s = Math.sin(yaw), BL = (lx, y, lz) => [bx + lx * c + lz * s, S + y, bz - lx * s + lz * c];
@@ -6446,6 +6451,50 @@ function rvWedge(x0, x1, z0, z1, yBase, hFn, topMat = RM.pourTop, sideMat = RM.r
   { const fx = -75.2, R = 2.2, D = 3.1, za = 10, zb = 33;
     rvPiece(fx + 0.15 + D / 2, (za + zb) / 2, 0, D / 2, (zb - za) / 2, (lx, lz) => qProf(D / 2 - lx - 0.05, R) * taper((zb - za) / 2 - Math.abs(lz), 1.5), RM.diy, 0.12);
     lipCoping(fx + 0.15 + D - 0.05 - R * 0.97, za + 1.6, fx + 0.15 + D - 0.05 - R * 0.97, zb - 1.6, RV.upper + qProf(R * 0.97, R) + 0.02, [1, 0]); }
+}
+// ---- the DIY halfpipe at the north end of the street: beat-up plywood, tagged all over, rusty coping, boards leaned against it ----
+{
+  const cx = -64.4, z0 = 99, z1 = 111, R = 2.4, FL = 1.5, TR = R * 0.97, DK = 1.1, HW = FL + TR + DK, H = qProf(TR, R), y0 = RV.upper;
+  const prof = x => { const d = Math.abs(x - cx); return d < FL ? 0 : d < FL + TR ? qProf(d - FL, R) : d <= HW ? H : 0; };
+  // ply skin: sheet seams, screw heads, cracks, rust bleeding down from the coping, old wax, and tags everywhere
+  const c = document.createElement('canvas'); c.width = c.height = 1024; const g = c.getContext('2d');
+  g.fillStyle = '#9c8058'; g.fillRect(0, 0, 1024, 1024);
+  const im = g.getImageData(0, 0, 1024, 1024), dd = im.data; for (let i = 0; i < dd.length; i += 4) { const n = (Math.random() - 0.5) * 22; dd[i] += n; dd[i + 1] += n; dd[i + 2] += n * 0.8; } g.putImageData(im, 0, 0);
+  for (let k = 0; k < 140; k++) { g.strokeStyle = `rgba(70,50,28,${(0.08 + Math.random() * 0.14).toFixed(2)})`; g.lineWidth = 1 + Math.random() * 2; g.beginPath(); const y = Math.random() * 1024; g.moveTo(0, y); for (let x = 0; x <= 1024; x += 64) g.lineTo(x, y + Math.sin(x * 0.01 + k) * 5); g.stroke(); }   // grain
+  for (let k = 0; k < 40; k++) { g.fillStyle = `rgba(30,24,16,${(0.1 + Math.random() * 0.25).toFixed(2)})`; g.beginPath(); g.ellipse(Math.random() * 1024, Math.random() * 1024, 10 + Math.random() * 70, 6 + Math.random() * 30, Math.random() * 3, 0, Math.PI * 2); g.fill(); }   // grime and water damage
+  g.strokeStyle = 'rgba(25,18,10,0.7)'; g.lineWidth = 3; for (let x = 0; x <= 1024; x += 256) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 1024); g.stroke(); } for (let y = 0; y <= 1024; y += 512) { g.beginPath(); g.moveTo(0, y); g.lineTo(1024, y); g.stroke(); }   // sheet seams
+  g.fillStyle = 'rgba(40,40,40,0.8)'; for (let x = 8; x < 1024; x += 256) for (let y = 16; y < 1024; y += 48) { g.beginPath(); g.arc(x, y, 2.5, 0, Math.PI * 2); g.fill(); g.beginPath(); g.arc(x + 240, y, 2.5, 0, Math.PI * 2); g.fill(); }   // screws
+  for (let k = 0; k < 16; k++) { g.strokeStyle = 'rgba(20,14,8,0.75)'; g.lineWidth = 1.5 + Math.random() * 1.5; g.beginPath(); let x = Math.random() * 1024, y = Math.random() * 1024; g.moveTo(x, y); for (let s2 = 0; s2 < 6; s2++) { x += (Math.random() - 0.5) * 60; y += 10 + Math.random() * 30; g.lineTo(x, y); } g.stroke(); }   // splits and cracks
+  for (let k = 0; k < 30; k++) { const x = Math.random() * 1024, w = 4 + Math.random() * 14, h = 40 + Math.random() * 220, gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, 'rgba(130,60,20,0.55)'); gr.addColorStop(1, 'rgba(130,60,20,0)'); g.fillStyle = gr; g.fillRect(x, 0, w, h); }   // rust bleeding from the coping
+  g.fillStyle = 'rgba(15,12,10,0.4)'; for (let k = 0; k < 60; k++) g.fillRect(Math.random() * 1024, 600 + Math.random() * 400, 10 + Math.random() * 90, 2 + Math.random() * 3);   // wheel and wax marks low down
+  const spray = ['#111', '#f2f2f2', '#d8342a', '#2f62d0', '#e8c21a', '#3aa34a', '#e46ab0', '#8a3fd0'];
+  for (let k = 0; k < 9; k++) {   // throw-ups: fat rounded letters, filled and outlined, with drips
+    const x = 60 + Math.random() * 820, y = 120 + Math.random() * 760, w = 140 + Math.random() * 140, h = 70 + Math.random() * 50, f = spray[(k * 3 + 2) % spray.length], o = spray[(k * 5) % 2];
+    for (let l = 0; l < 4; l++) { const lx = x + l * w / 4; g.fillStyle = f; g.strokeStyle = o; g.lineWidth = 6; g.beginPath(); g.ellipse(lx + w / 8, y + h / 2 + (Math.random() - 0.5) * 12, w / 7, h / 2, (Math.random() - 0.5) * 0.4, 0, Math.PI * 2); g.fill(); g.stroke(); }
+    g.fillStyle = f; for (let dI = 0; dI < 5; dI++) g.fillRect(x + Math.random() * w, y + h * 0.9, 3, 10 + Math.random() * 40);
+  }
+  for (let k = 0; k < 26; k++) {   // tags: quick scribbled signatures
+    g.strokeStyle = spray[k % spray.length]; g.lineWidth = 3 + Math.random() * 4; g.lineCap = 'round'; g.beginPath(); let x = Math.random() * 900, y = 60 + Math.random() * 920; g.moveTo(x, y);
+    for (let s2 = 0; s2 < 7; s2++) { const nx = x + 14 + Math.random() * 26, ny = y + (Math.random() - 0.5) * 50; g.quadraticCurveTo((x + nx) / 2, y - 30 - Math.random() * 30, nx, ny); x = nx; y = ny; } g.stroke();
+  }
+  const ply = new THREE.CanvasTexture(c); ply.wrapS = ply.wrapT = THREE.RepeatWrapping; ply.repeat.set(0.25, 0.25); ply.anisotropy = 8;
+  const topM = new THREE.MeshStandardMaterial({ map: ply, roughness: 0.82, side: THREE.DoubleSide });
+  const sideT = ply.clone(); sideT.needsUpdate = true; sideT.repeat.set(0.3, 0.3);
+  const sideM = new THREE.MeshStandardMaterial({ map: sideT, color: 0xb0a090, roughness: 0.9, side: THREE.DoubleSide });
+  rvWedge(cx - HW, cx + HW, z0, z1, y0, prof, topM, sideM);
+  [-1, 1].forEach(sd => lipCoping(cx + sd * (FL + TR), z0 + 0.15, cx + sd * (FL + TR), z1 - 0.15, y0 + H + 0.02, [-sd, 0]));   // the coping (grinds)
+  const rustM = new THREE.MeshStandardMaterial({ color: 0x7a4a2c, roughness: 0.75, metalness: 0.45 });
+  RIVER_ROOT.traverse(o => { if (o.isMesh && o.material === mats.steel && Math.abs(o.position.x - cx) < HW && Math.abs(o.position.z - (z0 + z1) / 2) < 7 && Math.abs(o.position.y - (y0 + H)) < 0.3) o.material = rustM; });   // rusted copings
+  // boards leaned against it: up the back of each deck and up the end of one deck
+  rvLeanBoard(cx - HW - 3.3, 104.5, cx - HW, 104.5, y0, y0 + H, 1.3);
+  rvLeanBoard(cx + HW + 3.0, 107, cx + HW, 107, y0 + 0.15, y0 + H, 1.2);
+  rvLeanBoard(cx - HW + DK / 2, z0 - 3.4, cx - HW + DK / 2, z0, y0, y0 + H, 0.95);
+  // tags on the sides and the backs (decals)
+  if (typeof makeGraffitiDecal === 'function') {
+    rvDecal('tu4', cx - 3.5, y0 + 0.75, z1 + 0.02, 1.9, 0.95, 0); rvDecal('tg2', cx + 3.5, y0 + 0.8, z1 + 0.02, 1.8, 0.9, 0);
+    rvDecal('tu7', cx + 3.5, y0 + 0.75, z0 - 0.02, 1.9, 0.95, Math.PI); rvDecal('ch4', cx - 3.6, y0 + 0.85, z0 - 0.02, 1.1, 1.1, Math.PI);
+    rvDecal('pc2', cx - HW - 0.02, y0 + 0.95, 108.5, 3.6, 1.8, -Math.PI / 2); rvDecal('tg8', cx + HW + 0.02, y0 + 0.95, 102.5, 3.2, 1.6, Math.PI / 2);
+  }
 }
 
 // ---- banks: a curb and a low rail on the west bank, the U-ditch on the east bank ----
@@ -6512,6 +6561,24 @@ function rvTunnelLining(dep, h, w, xf, zc) {
   const lin = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: true }), hide = new THREE.MeshBasicMaterial({ visible: false });
   const m = new THREE.Mesh(g, [hide, hide, lin, hide, lin, lin]); m.position.set(xf + dep / 2 + 0.02, h / 2, zc); return m;   // roof and side walls; the floor stays the wet concrete
 }
+// weathered plywood for the DIY boards
+function rvPlyMat() {
+  if (!RM.plywood) { const c = document.createElement('canvas'); c.width = 256; c.height = 512; const g = c.getContext('2d');
+      g.fillStyle = '#b08a5a'; g.fillRect(0, 0, 256, 512);
+      for (let k = 0; k < 70; k++) { g.strokeStyle = `rgba(${90 + Math.random() * 40 | 0},${60 + Math.random() * 25 | 0},30,${(0.12 + Math.random() * 0.2).toFixed(2)})`; g.lineWidth = 1 + Math.random() * 2; g.beginPath(); const x = Math.random() * 256; g.moveTo(x, 0); for (let y = 0; y <= 512; y += 32) g.lineTo(x + Math.sin(y * 0.02 + k) * 6, y); g.stroke(); }   // grain
+      for (let k = 0; k < 18; k++) { g.fillStyle = `rgba(40,32,22,${(0.08 + Math.random() * 0.15).toFixed(2)})`; g.beginPath(); g.ellipse(Math.random() * 256, Math.random() * 512, 6 + Math.random() * 30, 3 + Math.random() * 10, Math.random() * 3, 0, Math.PI * 2); g.fill(); }   // water stains and scuffs
+      g.fillStyle = 'rgba(25,22,18,0.55)'; for (let k = 0; k < 10; k++) g.fillRect(Math.random() * 250, Math.random() * 500, 3 + Math.random() * 30, 2);   // board-slide wax marks
+      RM.plywood = new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(c), roughness: 0.85 }); RM.plyEdge = new THREE.MeshStandardMaterial({ color: 0x8a6a42, roughness: 0.9 }); }
+}
+// a board leaned from a foot at (fx, fz) height y0 up to (tx, tz) height y1, W wide: a straight ramp
+function rvLeanBoard(fx, fz, tx, tz, y0, y1, W) {
+  rvPlyMat();
+  const T = 0.06, L = Math.hypot(tx - fx, tz - fz), a = Math.atan2(tx - fx, tz - fz), hyp = Math.hypot(L, y1 - y0);
+  const b = new THREE.Mesh(new THREE.BoxGeometry(W, T, hyp), [RM.plyEdge, RM.plyEdge, RM.plywood, RM.plywood, RM.plyEdge, RM.plyEdge]);
+  b.rotation.order = 'YXZ'; b.rotation.set(-Math.atan2(y1 - y0, L), a, (Math.random() - 0.5) * 0.02);
+  b.position.set((fx + tx) / 2, (y0 + y1) / 2 + T / 2, (fz + tz) / 2); b.castShadow = b.receiveShadow = true; scene.add(b);
+  addObs({ cx: (fx + tx) / 2, cz: (fz + tz) / 2, a, hw: W / 2, hl: L / 2, f: (lx, lz) => y0 + (y1 - y0) * (lz + L / 2) / L + T * smoothT((lz + L / 2) / 0.4) + 0.0001 });
+}
 // a wet trickle of sludge across the floor from (x0, z0) to (x1, z1): a wandering strip, soft wet edges, greenish muck down the middle,
 // widest at the outlet and thinning out as it goes
 function rvTrickle(x0, z0, x1, z1, w, seed) {
@@ -6562,12 +6629,7 @@ function rvTrickle(x0, z0, x1, z1, w, seed) {
   addRailPath([[xf + 0.04, top + 0.02, z0 + 0.1], [xf + 0.04, top + 0.02, z1 - 0.1]], { hidden: true, ledge: true });
   // a big sheet of plywood leaned up against the culvert's side: a straight board to ride up onto the top
   { const L = 6.2, W = 2.4, T = 0.06, bx = xf + 1.05, za = z0 - L, ang = Math.atan2(top, L), hyp = Math.hypot(L, top);
-    if (!RM.plywood) { const c = document.createElement('canvas'); c.width = 256; c.height = 512; const g = c.getContext('2d');
-      g.fillStyle = '#b08a5a'; g.fillRect(0, 0, 256, 512);
-      for (let k = 0; k < 70; k++) { g.strokeStyle = `rgba(${90 + Math.random() * 40 | 0},${60 + Math.random() * 25 | 0},30,${(0.12 + Math.random() * 0.2).toFixed(2)})`; g.lineWidth = 1 + Math.random() * 2; g.beginPath(); const x = Math.random() * 256; g.moveTo(x, 0); for (let y = 0; y <= 512; y += 32) g.lineTo(x + Math.sin(y * 0.02 + k) * 6, y); g.stroke(); }   // grain
-      for (let k = 0; k < 18; k++) { g.fillStyle = `rgba(40,32,22,${(0.08 + Math.random() * 0.15).toFixed(2)})`; g.beginPath(); g.ellipse(Math.random() * 256, Math.random() * 512, 6 + Math.random() * 30, 3 + Math.random() * 10, Math.random() * 3, 0, Math.PI * 2); g.fill(); }   // water stains and scuffs
-      g.fillStyle = 'rgba(25,22,18,0.55)'; for (let k = 0; k < 10; k++) g.fillRect(Math.random() * 250, Math.random() * 500, 3 + Math.random() * 30, 2);   // board-slide wax marks
-      RM.plywood = new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(c), roughness: 0.85 }); RM.plyEdge = new THREE.MeshStandardMaterial({ color: 0x8a6a42, roughness: 0.9 }); }
+    rvPlyMat();
     const board = new THREE.Mesh(new THREE.BoxGeometry(W, T, hyp), [RM.plyEdge, RM.plyEdge, RM.plywood, RM.plywood, RM.plyEdge, RM.plyEdge]);
     board.position.set(bx, top / 2 + T / 2, za + L / 2); board.rotation.x = -ang; board.castShadow = board.receiveShadow = true; scene.add(board);
     [-0.85, 0.85].forEach(dx => { const brace = new THREE.Mesh(new THREE.BoxGeometry(0.09, top * 0.55, 0.04), RM.plyEdge); brace.position.set(bx + dx, top * 0.275, za + L * 0.55); brace.castShadow = true; scene.add(brace); });   // a couple of 2x4s propping the middle
@@ -6867,6 +6929,11 @@ if (typeof junkLitter === 'function') {
   put(P_(junkSign, { kind: 'notrespass' }), RV.lipW - 1.4, 16.5, Math.PI / 2, null);
   put(P_(junkSign, { kind: 'notrespass' }), RV.lipE + 1.6, -181, -Math.PI / 2, null);
   put(P_(junkSign, { kind: 'street', bent: true }), -57.5, -98, 2.2, null);
+  // round the DIY halfpipe: a mattress to throw yourself onto, a cart, old tyres, a pallet, a barrel
+  put(P_(junkMattress), -66.8, 95.2, 0.35, [0.72, 0.99, 0.27, 0.6]); RV_BOUNCE.push({ x: -66.8, z: 95.2, c: Math.cos(0.35), s: Math.sin(0.35), hw: 0.72, hl: 0.99 });
+  rvKnock(put(P_(junkCart, { loaded: true }), -60.4, 96, 0.6, null), 'cart');
+  put(P_(junkTire, { lean: true }), -68.3, 111.6, 0.2, null); put(P_(junkTire), -70.4, 98.5, 0, null); put(P_(junkTire), -70.2, 99.1, 0.9, null);
+  put(P_(junkPallet, { lean: true }), -70.9, 113, 1.5, null); put(P_(junkBarrel), -59.6, 113.4, 0, [0.3, 0.3, 0.88]);
   put(P_(junkSign, { kind: 'street', down: true }), -66, -175, 0.9, null);
   put(P_(junkPallet), -36.5, -62, 0.4, null); put(P_(junkPallet, { lean: true }), -45.5, 64, -1.2, null);
   put(P_(junkCouch), -70.8, -128, Math.PI / 2, [1.05, 0.47, 0.9]);
@@ -7801,7 +7868,7 @@ const CONTROLS = () => {
       [['Ground'], 'Pops a flip straight off the ground.'],
       [['Rail'], 'On a rail: pop off into a flip. Grinds last as long as the rail; Space, a trick, or left / right gets you off.'],
     ]],
-    ['Other', [[[k('jump')], 'Into a wall mid-air: wallride, then ollie off it'], [[k('cam')], 'Switch camera'], [[k('spawn')], 'Next drop-in spot: mega ramp, halfpipe, bowl, pump track, tabletops'], [[k('reset'), k('pause'), k('mute')], 'Respawn, pause, mute'], [['Real mode'], 'Pick it on the menu. Land flips all the way round and roll away straight (or switch), never drop too far or slam walls at speed, and lean with ' + k('left') + ' / ' + k('right') + ' to keep grinds and manuals balanced. ' + k('jump') + ' hops off a rail.']]],
+    ['Other', [[[k('jump')], 'Into a wall mid-air: wallride, then ollie off it'], [[k('cam')], 'Switch camera'], [[k('spawn')], 'Next drop-in spot: mega ramp, halfpipe, bowl, pump track, tabletops'], [[k('reset'), k('pause'), k('mute')], 'Respawn, pause, mute'], [['Real mode'], 'Pick it on the menu. Land flips all the way round and roll away straight (or switch), never drop too far, and lean with ' + k('left') + ' / ' + k('right') + ' to keep grinds and manuals balanced. ' + k('jump') + ' hops off a rail.']]],
   ];
 };
 function renderControls(el) {
@@ -8670,7 +8737,6 @@ function stepGround(dt, st) {
   }
   const h = heightAt(nx, nz);
   if (h - P.pos.y > 0.4 + Math.abs(dy) || (h - P.pos.y > 0.02 && (isWallAt(nx, nz, fx * dirS, fz * dirS) || stepAhead(nx, nz, h)))) { const w = wallNormal(nx, nz, fx * dirS, fz * dirS), wl = Math.hypot(w[0], w[1]) || 1;
-    if (REAL && Math.abs(P.s) > 7 && (fx * dirS * w[0] + fz * dirS * w[1]) / wl > 0.75) { bail('Slammed into a wall'); return; }
     glance(w[0], w[1]); return; }
   // leave the ground when the surface ahead falls away from the board's current slope
   const aheadSlope = Math.abs(dh) > 1e-5 ? (h - P.pos.y) / Math.abs(dh) : m * dirS;

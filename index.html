@@ -6462,6 +6462,9 @@ function rvTrickle(x0, z0, x1, z1, w, seed) {
 {
   const B = RV.bridges[1];
   bowl([[RV.xc - 7.67, B.z - 5], [RV.xc - 7.67, B.z + 5]], 0.6, 2.0, 0.4, 2.0);
+  // its deck runs flat right across to the west pier (no outer bank dropping into a slot against the wall)
+  { const bx = RV.xc - 7.67, Hl = 2.0 - Math.sqrt(4 - (2.0 * 0.97) ** 2), xw = RV.xc - B.piers + 0.75, xe = bx - (0.6 + 2.0 * 0.97 + 0.4) + 0.05;
+    rvWedge(xw, xe, B.z - 5 - 2.94, B.z + 5 + 2.94, 0, () => Hl, RM.diy, RM.diySide); }
 }
 // bridge 3: the DIY pad (flat bar, ledges, little quarters, a pyramid wedge) and the camp up on the east deck
 {

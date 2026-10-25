@@ -2340,7 +2340,7 @@ function makeBeater(kind, color, opts) {
   });
   // wheels, dark wells behind them, underside
   // opts.wear (parked beaters): 'bricks' = a wheel or two stolen, that corner up on cinder blocks; 'flat' = a tyre or two gone flat;
-  //   'caps' = hubcaps popped off and lying on the ground beside it. Loose caps turn up on any of them.
+  //   'caps' = a few more hubcaps missing. The cars on blocks have the stolen wheel's hubcap lying beside them.
   const wear = clean ? null : opts.wear, corners = [];
   WZ.forEach(wz => [-1, 1].forEach(s => corners.push([wz, s])));
   const pickN = n => { const o = corners.map((c, i) => i).sort(() => rnd() - 0.5); return o.slice(0, n); };
@@ -2355,8 +2355,26 @@ function makeBeater(kind, color, opts) {
     makeBeater.cinder = [cores, cores, side, side, side, side];   // the holes on the top and bottom (+y / -y), like a block set on its side
   }
   const cinder = makeBeater.cinder, brickG = new THREE.BoxGeometry(0.39, 0.19, 0.19);
-  const capG = new THREE.CylinderGeometry(0.15, 0.17, 0.035, 16), looseCap = (lx, lz) => { const c = add(capG, chrome, lx, 0.018, lz, false); c.rotation.set((rnd() - 0.5) * 0.25, rnd() * 6.3, (rnd() - 0.5) * 0.25); if (rnd() < 0.4) { c.rotation.x = 1.3; c.position.y = 0.12; } };   // flat on the road, or one propped on its edge
-  let lostCaps = 0;
+  if (!makeBeater.cap) {
+    // a hubcap: a shallow chrome dish with a rolled rim, a ring of slots and a dark badge in the middle (axis +y = facing out)
+    const prof = [[0, 0.052], [0.035, 0.051], [0.05, 0.046], [0.09, 0.038], [0.13, 0.026], [0.158, 0.012], [0.172, 0.004], [0.176, -0.004], [0.168, -0.012]].map(([r, y]) => new THREE.Vector2(r, y));
+    const c = document.createElement('canvas'); c.width = 256; c.height = 64; const x = c.getContext('2d');
+    // lathe uv: u runs round the cap, v from the centre (canvas bottom) out to the rim (canvas top)
+    const gr = x.createLinearGradient(0, 64, 0, 0); gr.addColorStop(0, '#9aa0a6'); gr.addColorStop(0.3, '#e6e9ec'); gr.addColorStop(0.62, '#c3c8cd'); gr.addColorStop(0.8, '#f2f4f6'); gr.addColorStop(1, '#8a9096');
+    x.fillStyle = gr; x.fillRect(0, 0, 256, 64);
+    x.fillStyle = '#26292c'; x.fillRect(0, 56, 256, 8);                                          // the badge
+    x.fillStyle = '#5a6066'; x.fillRect(0, 52, 256, 3);                                          // its ring
+    for (let i = 0; i < 10; i++) { x.fillStyle = '#1e2124'; x.fillRect(i * 25.6 + 6, 20, 13, 18); x.fillStyle = 'rgba(255,255,255,0.5)'; x.fillRect(i * 25.6 + 6, 19, 13, 1.5); }   // the slots
+    x.fillStyle = 'rgba(40,40,40,0.55)'; x.fillRect(0, 9, 256, 2);                                // the step out to the rolled rim
+    for (let i = 0; i < 90; i++) { x.fillStyle = `rgba(60,50,40,${0.06 + Math.random() * 0.1})`; x.fillRect(Math.random() * 256, Math.random() * 64, 2 + Math.random() * 5, 1); }   // road scuffs
+    const t = new THREE.CanvasTexture(c); t.wrapS = THREE.RepeatWrapping;
+    makeBeater.cap = { geo: new THREE.LatheGeometry(prof, 24), mat: new THREE.MeshStandardMaterial({ map: t, roughness: 0.28, metalness: 0.35, side: THREE.DoubleSide }) };
+  }
+  const CAP = makeBeater.cap;
+  const looseCap = (lx, lz) => {   // a hubcap lying on the road: face up, or flipped over like a bowl, a hair of tilt
+    const c = add(CAP.geo, CAP.mat, lx, 0.013, lz, true), flip = rnd() < 0.35;
+    c.rotation.set(flip ? Math.PI : (rnd() - 0.5) * 0.08, rnd() * 6.3, (rnd() - 0.5) * 0.08); if (flip) c.position.y = 0.053;
+  };
   WZ.forEach(wz => {
     add(new THREE.BoxGeometry(W - 0.3, 0.42, 0.96), trim, 0, 0.5, wz, false);
     [-1, 1].forEach(s => {
@@ -2365,6 +2383,7 @@ function makeBeater(kind, color, opts) {
         // wheel's gone: a stack of cinder blocks holding the corner up, the brake drum showing
         for (let k = 0; k < 2; k++) { const b = add(brickG, cinder, wx, 0.095 + k * 0.19, wz, true); b.rotation.y = (k % 2 ? Math.PI / 2 : 0) + (rnd() - 0.5) * 0.25; }   // two blocks, cross-stacked
         const drum = add(new THREE.CylinderGeometry(0.13, 0.13, 0.12, 12), trim, wx - s * 0.03, R, wz, false); drum.rotation.z = Math.PI / 2;
+        if (ci === bricked[0]) looseCap(s * (W / 2 + 0.95 + rnd() * 0.5), wz - Math.sign(wz) * (0.9 + rnd() * 0.5));   // out past the spare block, toward the doors   // the stolen wheel's hubcap, left lying beside it
         if (rnd() < 0.6) { const b = add(brickG, cinder, s * (W / 2 + 0.35 + rnd() * 0.4), 0.095, wz + (rnd() - 0.5) * 0.8, true); b.rotation.y = rnd() * 3; }   // a spare block kicked aside
         return;
       }
@@ -2374,9 +2393,8 @@ function makeBeater(kind, color, opts) {
       if (fl) wh.scale.set(1, sq, 1.08);   // squashed down onto the road, bulging at the bottom
       const r2 = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.21, 0.25, 16), rim); r2.rotation.z = Math.PI / 2; wh.add(r2);
       if (fl) r2.scale.set(1 / sq, 1, 1 / 1.08);   // the rim stays round while the tyre goes flat
-      const capGone = !clean && (wear === 'caps' ? rnd() < 0.7 : rnd() < 0.3);
-      if (!capGone) { const hc = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.16, 0.26, 16), chrome); hc.rotation.z = Math.PI / 2; wh.add(hc); if (fl) hc.scale.set(1 / sq, 1, 1 / 1.08); }
-      else if (wear === 'caps' || rnd() < 0.35) { lostCaps++; looseCap(s * (W / 2 + 0.3 + rnd() * 0.9), wz + (rnd() - 0.5) * 1.6); }   // a hubcap gone, and here it is
+      const capGone = !clean && rnd() < (wear === 'caps' ? 0.5 : 0.2);   // most still have their caps; a few are gone (the bare steel wheel shows)
+      if (!capGone) { const hc = new THREE.Mesh(CAP.geo, CAP.mat); hc.rotation.z = -s * Math.PI / 2; hc.position.x = s * 0.122; hc.castShadow = true; wh.add(hc); if (fl) hc.scale.set(1, 1, 1 / 1.08), hc.scale.x = 1 / sq; }
     });
   });
   add(new THREE.BoxGeometry(W - 0.3, 0.1, L - 0.5), trim, 0, 0.27, 0, false);

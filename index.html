@@ -1,5 +1,6 @@
 <meta charset="utf-8">
 <title>Concrete Lines</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -174,21 +175,35 @@ kbd {
 .keybtn.listening { border-color: var(--hazard); color: var(--hazard); }
 @media (max-width: 620px) { .keylist { grid-template-columns: 1fr; } }
 
-/* Touch controls */
-#touch { position: fixed; inset: auto 0 0 0; pointer-events: none;
-  padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
-  padding-left: max(16px, env(safe-area-inset-left, 0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
-  display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
-#touch .pad { display: flex; gap: 10px; pointer-events: auto; }
-#touch .pad.right { display: grid; grid-template-columns: repeat(3, auto); gap: 8px; }
-#touch .pad.right button[data-action="jump"] { grid-column: span 2; width: auto; border-radius: 30px; }
-#touch button {
-  width: 60px; height: 60px; border-radius: 50%; border: 1px solid var(--line); background: rgba(14,18,24,.6); color: var(--chalk);
-  font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; touch-action: none; user-select: none; -webkit-user-select: none;
-}
-#touch button.on { background: rgba(255,176,0,.35); border-color: var(--hazard); }
-body.touch #combo { bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
+/* Touch controls: a floating analog stick on the left (steer; up = push, down = brake), big buttons in an arc under the right thumb */
+#touch { position: fixed; inset: 0; pointer-events: none; touch-action: none; --stk: clamp(120px, 34vmin, 170px); --bb: clamp(62px, 17vmin, 92px); }
+#stickZone { position: absolute; left: 0; bottom: 0; width: 50%; height: 72%; pointer-events: auto; touch-action: none; }
+#stick { position: absolute; width: var(--stk); height: var(--stk); margin: calc(var(--stk) / -2) 0 0 calc(var(--stk) / -2); border-radius: 50%;
+  left: calc(max(16px, env(safe-area-inset-left, 0px)) + var(--stk) / 2 + 6px); top: calc(100% - var(--stk) / 2 - 22px - env(safe-area-inset-bottom, 0px));
+  border: 2px solid rgba(242,237,228,.25); background: rgba(14,18,24,.32); transition: opacity .2s; opacity: .75; }
+#stick.on { opacity: 1; transition: none; }
+#stickKnob { position: absolute; left: 50%; top: 50%; width: 44%; height: 44%; margin: -22% 0 0 -22%; border-radius: 50%; background: rgba(242,237,228,.32); border: 2px solid rgba(255,176,0,.65); }
+#touch .pad.right { position: absolute; right: max(14px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); width: calc(var(--bb) * 2.75); height: calc(var(--bb) * 2.75); }
+#touch button { position: absolute; pointer-events: auto; width: var(--bb); height: var(--bb); border-radius: 50%; border: 2px solid rgba(242,237,228,.22); background: rgba(14,18,24,.55); color: var(--chalk);
+  font-size: clamp(13px, 3.4vmin, 17px); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+#touch .b-ollie { width: calc(var(--bb) * 1.32); height: calc(var(--bb) * 1.32); right: 0; bottom: 0; font-size: clamp(15px, 4vmin, 20px); border-color: rgba(255,176,0,.55); }
+#touch .b-grind { right: calc(var(--bb) * 1.5); bottom: 0; }
+#touch .b-trick { right: calc(var(--bb) * 0.16); bottom: calc(var(--bb) * 1.5); }
+#touch .b-flip { right: calc(var(--bb) * 1.42); bottom: calc(var(--bb) * 1.22); }
+#touch button.on { background: rgba(255,176,0,.38); border-color: var(--hazard); }
+body.touch { touch-action: none; overscroll-behavior: none; }
+#tunFade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; }
+/* on a phone the text stays small and out of the middle, so the skater and what's ahead stay in view */
+body.touch #combo { bottom: calc(clamp(62px, 17vmin, 92px) * 2.85 + 18px + env(safe-area-inset-bottom, 0px)); width: min(520px, calc(100% - 32px)); }
+body.touch #comboTricks { font-size: clamp(13px, 3.6vmin, 18px); }
+body.touch #comboPts { font-size: clamp(16px, 4.6vmin, 24px); }
+body.touch #toasts { top: 14%; }
+body.touch .toast b { font-size: clamp(22px, 6vmin, 32px); }
+body.touch .toast.good b { font-size: clamp(18px, 5vmin, 24px); }
+body.touch .toast.info b { font-size: clamp(18px, 5vmin, 26px); }
+body.touch .toast span { font-size: clamp(10px, 2.8vmin, 13px); }
+body.touch .readout b { font-size: clamp(17px, 4.6vmin, 22px); }
+body.touch .readout .lbl { font-size: 11px; }
 @media (max-width: 620px) {
   .hud-top { gap: 14px; }
   .readout b { font-size: 21px; }
@@ -207,6 +222,7 @@ body.touch #combo { bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
 </style>
 
 <div id="stage"></div>
+<div id="tunFade" aria-hidden="true"></div>
 
 <div id="hud" hidden>
   <div class="hud-top">
@@ -219,7 +235,7 @@ body.touch #combo { bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
     <button class="hud-btn" id="muteBtn" type="button">Sound on</button>
     <button class="hud-btn" id="pauseBtn" type="button">Pause</button>
   </div>
-  <div id="gbalance" class="balance" hidden><div class="track"><div class="zone"></div><div class="needle"></div></div><span>Balance with A / D</span></div>
+  <div id="gbalance" class="balance" hidden><div class="track"><div class="zone"></div><div class="needle"></div></div><span>Lean with A / D</span></div>
   <div id="mbalance" class="balance" hidden><div class="track"><div class="zone"></div><div class="needle"></div></div><span>Balance with W / S</span></div>
   <div id="toasts"></div>
   <div id="mpBar" class="mpbar" hidden></div>
@@ -242,10 +258,18 @@ body.touch #combo { bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
     <div class="row">
       <span class="stance-lbl">Map</span>
       <div class="stance" id="mapPick" role="group" aria-label="Map">
-        <button type="button" data-m="park" aria-pressed="true">Concrete Park</button>
-        <button type="button" data-m="river" aria-pressed="false">LA River</button>
+        <button type="button" data-m="river" aria-pressed="true">LA River</button>
+        <button type="button" data-m="park" aria-pressed="false">Concrete Park</button>
       </div>
       <span class="netstatus" id="mapNote"></span>
+    </div>
+    <div class="row">
+      <span class="stance-lbl">Mode</span>
+      <div class="stance" id="modePick" role="group" aria-label="Mode">
+        <button type="button" data-mode="arcade" aria-pressed="true">Arcade</button>
+        <button type="button" data-mode="real" aria-pressed="false">Real</button>
+      </div>
+      <span class="netstatus" id="modeNote"></span>
     </div>
     <div class="row">
       <span class="stance-lbl">Stance</span>
@@ -303,16 +327,12 @@ body.touch #combo { bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
 
 
 <div id="touch" hidden>
-  <div class="pad left">
-    <button type="button" data-action="left" aria-label="Left">◀</button>
-    <button type="button" data-action="right" aria-label="Right">▶</button>
-  </div>
+  <div id="stickZone"><div id="stick"><div id="stickKnob"></div></div></div>
   <div class="pad right">
-    <button type="button" data-action="trick">Trick</button>
-    <button type="button" data-action="grind">Grind</button>
-    <button type="button" data-action="brake">Brake</button>
-    <button type="button" data-action="push">Push</button>
-    <button type="button" data-action="jump">Ollie</button>
+    <button type="button" class="b-flip" data-action="trick2">Flip</button>
+    <button type="button" class="b-trick" data-action="trick">Trick</button>
+    <button type="button" class="b-grind" data-action="grind">Grind</button>
+    <button type="button" class="b-ollie" data-action="jump">Ollie</button>
   </div>
 </div>
 
@@ -835,6 +855,8 @@ function addRailPath(points, opts = {}) {
       }
       acc += s.len;
     });
+    const lastPost = nextPost - 3.2, e = segs.length ? segs[segs.length - 1].b : null;
+    if (e && acc - lastPost > 0.6) { const p = e.clone().addScaledVector(segs[segs.length - 1].dir, -0.15), gy = heightAt(p.x, p.z); if (p.y - gy > 0.15) cylBetween(new V3(p.x, gy, p.z), new V3(p.x, p.y - 2 * r, p.z), 0.035, mats.steel); }
   }
   return segs;
 }
@@ -2230,6 +2252,109 @@ var makeCop, makeBench, makePoliceCar;
 })();
 
 /*__END_cop__*/
+// ---------- parked beaters and traffic: sedan, wagon or pickup, built from a side profile (wheel arches cut in) plus a glass greenhouse ----------
+// returns { group (origin on the ground, front +z), top(lx, lz) -> height of the car's top there (0 = off it), rails [[a, b], ...] grind edges,
+//   setAlarm(on, t) flashes the lights, L, W }
+function makeBeater(kind, color, opts) {
+  opts = opts || {};
+  const clean = !!opts.clean; let sd = (opts.seed || 1) * 7919 % 2147483647 || 1; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  const L = kind === 'pickup' ? 5.0 : kind === 'wagon' ? 4.8 : 4.7, W = kind === 'pickup' ? 1.9 : 1.82, hl = L / 2, R = 0.35, WZ = [-hl + (kind === 'pickup' ? 1.15 : 1.05), hl - 1.0];
+  const B = 0.05;   // bevel: everything below is the profile before the rounded edge is added
+  if (!makeBeater.grime) makeBeater.grime = [false, true].map(cl => {
+    const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
+    g.fillStyle = '#fff'; g.fillRect(0, 0, 256, 256);
+    const img = g.getImageData(0, 0, 256, 256), d = img.data; for (let i = 0; i < d.length; i += 4) { const n = (Math.random() - 0.5) * (cl ? 6 : 16); d[i] += n; d[i + 1] += n; d[i + 2] += n; } g.putImageData(img, 0, 0);
+    if (!cl) {
+      const gr = g.createLinearGradient(0, 150, 0, 256); gr.addColorStop(0, 'rgba(110,95,70,0)'); gr.addColorStop(1, 'rgba(110,95,70,0.55)'); g.fillStyle = gr; g.fillRect(0, 150, 256, 106);   // road dirt up the sills
+      for (let k = 0; k < 16; k++) { const x = Math.random() * 256, y = 120 + Math.random() * 130, r = 3 + Math.random() * 14; g.fillStyle = `rgba(${120 + Math.random() * 30 | 0},${62 + Math.random() * 20 | 0},30,${(0.35 + Math.random() * 0.35).toFixed(2)})`; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); }   // rust
+      for (let k = 0; k < 10; k++) { g.fillStyle = 'rgba(255,255,255,0.18)'; g.fillRect(Math.random() * 256, Math.random() * 120, 30 + Math.random() * 60, 2); }   // faded, sun-chalked paint
+    }
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(0.22, 0.75); return t;
+  });
+  const base = new THREE.Color(color); if (!clean) base.offsetHSL(0, -0.08 * rnd(), -0.05 * rnd());
+  const body = new THREE.MeshStandardMaterial({ color: base, roughness: clean ? 0.35 : 0.72, metalness: clean ? 0.5 : 0.2, map: makeBeater.grime[clean ? 1 : 0] });
+  const glass = new THREE.MeshStandardMaterial({ color: 0x18212a, roughness: 0.12, metalness: 0.65 });
+  const trim = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.7 }), chrome = new THREE.MeshStandardMaterial({ color: 0xc8ccd0, roughness: 0.3, metalness: 0.9 });
+  const rubber = new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.9 }), rim = new THREE.MeshStandardMaterial({ color: clean ? 0xa9adb2 : 0x6d6a66, roughness: 0.5, metalness: 0.6 });
+  const g = new THREE.Group();
+  const add = (geo, m, x, y, z, cast = true) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = cast; o.receiveShadow = true; g.add(o); return o; };
+  const strut = (a, b, w, m) => { const d = new THREE.Vector3().subVectors(b, a), o = add(new THREE.BoxGeometry(w, d.length(), w), m, (a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2); o.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()); return o; };
+  // the lower body: side profile, front to back along the top
+  const top = {
+    sedan: [[hl, 0.66], [hl - 0.14, 0.8], [1.05, 0.88], [-1.3, 0.9], [-hl + 0.16, 0.88], [-hl, 0.7]],
+    wagon: [[hl, 0.66], [hl - 0.14, 0.8], [1.05, 0.88], [-hl + 0.06, 0.9], [-hl, 0.7]],
+    pickup: [[hl, 0.74], [hl - 0.14, 0.9], [1.15, 0.96], [-0.5, 0.96], [-0.52, 0.66], [-hl, 0.66]],
+  }[kind];
+  const sh = new THREE.Shape(); sh.moveTo(-hl, 0.3);
+  WZ.forEach(wz => { sh.lineTo(wz - 0.44, 0.3); sh.absarc(wz, 0.34, 0.44, Math.PI, 0, true); });
+  sh.lineTo(hl, 0.3); top.forEach(([z, y]) => sh.lineTo(z, y)); sh.closePath();
+  const lg = new THREE.ExtrudeGeometry(sh, { depth: W - 2 * B, bevelEnabled: true, bevelThickness: B, bevelSize: B, bevelSegments: 2, curveSegments: 10 });
+  lg.translate(0, 0, -(W - 2 * B) / 2); lg.rotateY(-Math.PI / 2); add(lg, body, 0, 0, 0);
+  // the greenhouse: glass all round, a painted roof skin and pillars
+  const CW = W - 0.22, cab = {
+    sedan: [[1.05, 0.9], [0.42, 1.33], [-0.82, 1.33], [-1.3, 0.92]],
+    wagon: [[1.05, 0.9], [0.42, 1.35], [-hl + 0.16, 1.35], [-hl + 0.07, 0.92]],
+    pickup: [[1.15, 0.98], [0.6, 1.47], [-0.42, 1.47], [-0.5, 0.98]],
+  }[kind];
+  const cs = new THREE.Shape(); cs.moveTo(cab[0][0], cab[0][1]); cab.slice(1).forEach(([z, y]) => cs.lineTo(z, y)); cs.closePath();
+  const cg = new THREE.ExtrudeGeometry(cs, { depth: CW, bevelEnabled: false }); cg.translate(0, 0, -CW / 2); cg.rotateY(-Math.PI / 2); add(cg, glass, 0, B * 0.6, 0);
+  const roofY = cab[1][1] + B * 0.6, rf = cab[1][0], rr = cab[2][0];
+  add(new THREE.BoxGeometry(CW + 0.04, 0.06, rf - rr + 0.06), body, 0, roofY + 0.02, (rf + rr) / 2);
+  [-1, 1].forEach(s => {
+    const x = s * (CW / 2 + 0.006), V = (z, y) => new THREE.Vector3(x, y + B * 0.6, z);
+    strut(V(cab[0][0], cab[0][1]), V(cab[1][0], cab[1][1]), 0.07, body);                              // A-pillar
+    strut(V(cab[3][0], cab[3][1]), V(cab[2][0], cab[2][1]), kind === 'pickup' ? 0.1 : 0.14, body);    // C (or D) pillar
+    const bz = kind === 'pickup' ? cab[2][0] + 0.05 : (rf + rr) / 2 - 0.15; strut(V(bz, cab[0][1]), V(bz, cab[1][1]), 0.08, body);   // B-pillar
+    [0.95, -0.15].forEach(z => { if (z < hl - 0.4 && z > -1.25) add(new THREE.BoxGeometry(0.008, 0.48, 0.012), trim, s * (W / 2 + 0.002), 0.62, z, false); });   // door seams
+    add(new THREE.BoxGeometry(0.03, 0.03, 0.13), chrome, s * (W / 2 + 0.01), 0.82, 0.5, false);                                // door handle
+    add(new THREE.BoxGeometry(0.1, 0.09, 0.15), body, s * (W / 2 + 0.07), 1.0, cab[0][0] - 0.12);                            // mirror
+  });
+  // wheels, dark wells behind them, underside
+  WZ.forEach(wz => {
+    add(new THREE.BoxGeometry(W - 0.3, 0.42, 0.96), trim, 0, 0.5, wz, false);
+    [-1, 1].forEach(s => {
+      const wh = new THREE.Group(); wh.position.set(s * (W / 2 - 0.15), R, wz); g.add(wh);
+      const t = new THREE.Mesh(new THREE.CylinderGeometry(R, R, 0.24, 20), rubber); t.rotation.z = Math.PI / 2; t.castShadow = true; wh.add(t);
+      const r2 = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.21, 0.25, 16), rim); r2.rotation.z = Math.PI / 2; wh.add(r2);
+      if (clean || rnd() > 0.3) { const hc = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.16, 0.26, 16), chrome); hc.rotation.z = Math.PI / 2; wh.add(hc); }   // a hubcap gone here and there
+    });
+  });
+  add(new THREE.BoxGeometry(W - 0.3, 0.1, L - 0.5), trim, 0, 0.27, 0, false);
+  // bumpers, grille, lights
+  const bm = !clean && rnd() < 0.6 ? chrome : trim, fy = top[0][1], ry = top[top.length - 1][1];
+  add(new THREE.BoxGeometry(W + 0.02, 0.15, 0.12), bm, 0, 0.4, hl + 0.06); add(new THREE.BoxGeometry(W + 0.02, 0.15, 0.12), bm, 0, 0.4, -hl - 0.06);
+  add(new THREE.BoxGeometry(W * 0.5, 0.15, 0.03), trim, 0, fy - 0.08, hl + B + 0.01, false);
+  const head = [-1, 1].map(s => { const m = new THREE.MeshStandardMaterial({ color: 0xe8e6dc, roughness: 0.2, emissive: 0xfff2d0, emissiveIntensity: 0.05 }); add(new THREE.BoxGeometry(0.28, 0.12, 0.03), m, s * (W / 2 - 0.3), fy - 0.06, hl + B + 0.01, false); return m; });
+  const tail = [-1, 1].map(s => { const m = new THREE.MeshStandardMaterial({ color: 0x7a1010, roughness: 0.3, emissive: 0xff2010, emissiveIntensity: 0.12 }); add(new THREE.BoxGeometry(0.26, 0.13, 0.03), m, s * (W / 2 - 0.26), ry - 0.1, -hl - B - 0.01, false); return m; });
+  // the pickup's bed
+  if (kind === 'pickup') {
+    [-1, 1].forEach(s => add(new THREE.BoxGeometry(0.08, 0.36, hl - 0.52), body, s * (W / 2 - 0.04), 0.66 + B + 0.18, (-hl - 0.52) / 2));
+    add(new THREE.BoxGeometry(W - 0.08, 0.36, 0.08), body, 0, 0.66 + B + 0.18, -hl + 0.04);
+    add(new THREE.BoxGeometry(W - 0.16, 0.02, hl - 0.6), trim, 0, 0.66 + B + 0.01, (-hl - 0.52) / 2, false);
+  }
+  g.traverse(o => { if (o.isMesh) o.receiveShadow = true; });
+  // what you can ride on
+  const lerpPoly = (pts, z) => { const p = pts.slice().sort((a, b) => a[0] - b[0]); if (z < p[0][0] || z > p[p.length - 1][0]) return 0; for (let i = 1; i < p.length; i++) if (z <= p[i][0]) { const t = (z - p[i - 1][0]) / Math.max(1e-6, p[i][0] - p[i - 1][0]); return p[i - 1][1] + (p[i][1] - p[i - 1][1]) * t; } return 0; };
+  const lowTop = top.filter(([z, y]) => kind !== 'pickup' || z > -0.51);
+  const topFn = (lx, lz) => {
+    if (Math.abs(lx) > W / 2 || Math.abs(lz) > hl + B) return 0;
+    let h = kind === 'pickup' && lz < -0.5 ? (Math.abs(lx) > W / 2 - 0.09 || lz < -hl + 0.09 ? 1.07 : 0.66 + B) : lerpPoly(lowTop, clamp(lz, -hl, hl)) + B;
+    if (Math.abs(lx) < CW / 2 + 0.02) { const c = lerpPoly([cab[0], cab[1], cab[2], cab[3]], lz); if (c > 0) h = Math.max(h, c + B * 0.6 + (lz <= rf && lz >= rr ? 0.05 : 0)); }
+    return h;
+  };
+  const rails = [];
+  [-1, 1].forEach(s => {
+    rails.push([[s * (CW / 2), roofY + 0.06, rr + 0.06], [s * (CW / 2), roofY + 0.06, rf - 0.06]]);   // roof edges
+    const hz0 = cab[0][0] + 0.04, hz1 = hl - 0.18; rails.push([[s * (W / 2 - 0.05), lerpPoly(lowTop, hz0) + B + 0.03, hz0], [s * (W / 2 - 0.05), lerpPoly(lowTop, hz1) + B + 0.03, hz1]]);   // hood edges
+    if (kind === 'sedan') { const tz0 = -1.32, tz1 = -hl + 0.2; rails.push([[s * (W / 2 - 0.05), lerpPoly(lowTop, tz0) + B + 0.03, tz0], [s * (W / 2 - 0.05), lerpPoly(lowTop, tz1) + B + 0.03, tz1]]); }   // trunk edges
+    if (kind === 'pickup') rails.push([[s * (W / 2 - 0.04), 1.09, -hl + 0.1], [s * (W / 2 - 0.04), 1.09, -0.6]]);   // bed rails
+  });
+  function setAlarm(on, t) {
+    const blink = on && (t * 2.6) % 1 < 0.5;
+    head.forEach(m => { m.emissiveIntensity = blink ? 2.2 : 0.05; }); tail.forEach(m => { m.emissiveIntensity = blink ? 2.4 : 0.12; });
+  }
+  return { group: g, top: topFn, rails, setAlarm, L, W };
+}
 /*__LIB_junk__*/
 // junk.js -- LA River street junk props for Concrete Lines (three r128, global THREE).
 // Every prop returns a THREE.Group: origin on the ground at the footprint centre, metres, +z = front.
@@ -2248,6 +2373,29 @@ function junkShoppingBags(opts) { return junkLitter('__kit').shoppingBags(opts |
 function junkPallet(opts)       { return junkLitter('__kit').pallet(opts || {}); }
 function junkTent(opts)         { return junkLitter('__kit').tent(opts || {}); }
 function junkBarrel(opts)       { return junkLitter('__kit').barrel(opts || {}); }
+// a plastic milk crate: open top, gridded sides with a hand-hole, origin on the ground
+function junkMilkCrate(o) {
+  o = o || {};
+  const W = o.w || 0.33, H = o.h || 0.28, col = o.color != null ? o.color : 0x1f5fa8;
+  if (!junkMilkCrate.tex) {
+    const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+    const rr = (x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); g.fill(); };
+    g.fillStyle = '#fff'; g.fillRect(0, 0, 128, 128);
+    g.fillStyle = 'rgba(70,70,70,0.25)'; for (let k = 0; k < 14; k++) g.fillRect(Math.random() * 128, 96 + Math.random() * 32, 2 + Math.random() * 12, 2);   // scuffs low down
+    g.globalCompositeOperation = 'destination-out'; g.fillStyle = '#000';
+    for (let row = 0; row < 4; row++) for (let cl = 0; cl < 5; cl++) rr(13 + cl * 21, 32 + row * 21, 15, 15, 3);   // the grid
+    rr(38, 9, 52, 13, 6.5);   // hand-hole under the rim
+    const t = new THREE.CanvasTexture(c); junkMilkCrate.tex = t;
+    junkMilkCrate.depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: t, alphaTest: 0.5 });
+  }
+  const m = new THREE.MeshStandardMaterial({ color: col, map: junkMilkCrate.tex, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.6 });
+  const hide = new THREE.MeshBasicMaterial({ visible: false });
+  const box = new THREE.Mesh(new THREE.BoxGeometry(W, H, W), [m, m, hide, m, m, m]); box.position.y = H / 2; box.castShadow = box.receiveShadow = true; box.customDepthMaterial = junkMilkCrate.depth;
+  const g = new THREE.Group(); g.add(box);
+  const rim = new THREE.MeshStandardMaterial({ color: col, roughness: 0.55 });   // a solid lip round the top
+  [[W, 0.02, 0.018, 0, W / 2 - 0.009], [W, 0.02, 0.018, 0, -W / 2 + 0.009], [0.018, 0.02, W, W / 2 - 0.009, 0], [0.018, 0.02, W, -W / 2 + 0.009, 0]].forEach(([a, b, c2, x, z]) => { const e = new THREE.Mesh(new THREE.BoxGeometry(a, b, c2), rim); e.position.set(x, H - 0.01, z); g.add(e); });
+  return g;
+}
 
 function junkLitter(spots, heightAt, seed) {
   if (spots === '__kit') return junkLitter.__kit || (junkLitter.__kit = buildJunkKit());
@@ -2439,24 +2587,25 @@ function junkLitter(spots, heightAt, seed) {
     // ---------- trash bag ----------
     var BAG_COLS = [0x18181a, 0x1e1f22, 0x252629, 0x2b2b2e, 0xcfcfc8, 0xb9bdb6, 0x3b4048];
     function bagMesh(r, rad, hex, cast) {
+      // a slumped, soft bag: wide flat bottom, a few folds, gathered up into a twisted neck with a little tuft
       var grp = new T.Group();
-      var geo = new T.IcosahedronGeometry(rad, 1);
-      var p = geo.attributes.position;
+      var geo = new T.SphereGeometry(rad, 20, 14), p = geo.attributes.position, k = r() * 6;
       for (var i = 0; i < p.count; i++) {
-        var y = p.getY(i);
-        if (y < -0.55 * rad) p.setY(i, -0.55 * rad + (y + 0.55 * rad) * 0.15);
+        var x = p.getX(i) / rad, y = p.getY(i) / rad, z = p.getZ(i) / rad;
+        var sp = (1 + 0.2 * Math.max(0, -y)) * (1 + 0.05 * Math.sin(x * 6 + k) * Math.sin(z * 5 + 2 * k) + 0.03 * Math.sin(y * 9 + k));
+        if (y > 0.5) { var t = (y - 0.5) / 0.5; sp *= 1 - 0.8 * t * t; y = 0.5 + (y - 0.5) * 0.8; }
+        if (y < -0.55) y = -0.55 + (y + 0.55) * 0.2;
+        p.setXYZ(i, x * sp * rad, y * rad, z * sp * rad);
       }
-      jitter(geo, rad * 0.13, r);
-      geo.scale(rr(r, 0.9, 1.1), rr(r, 0.78, 0.95), rr(r, 0.85, 1.05));
-      geo.computeBoundingBox();
-      geo.translate(0, -geo.boundingBox.min.y, 0);
+      geo.scale(rr(r, 0.95, 1.1), rr(r, 0.72, 0.86), rr(r, 0.9, 1.05));
+      geo.computeVertexNormals(); geo.computeBoundingBox(); geo.translate(0, -geo.boundingBox.min.y, 0);
       var light = hex === 0xcfcfc8 || hex === 0xb9bdb6;
-      var m = mat({ c: hex, rough: light ? 0.55 : 0.32, metal: 0.05, flat: true });
+      var m = mat({ c: hex, rough: light ? 0.55 : 0.3, metal: 0.05 });
       grp.add(mesh(geo, m, cast));
-      var knot = mesh(new T.ConeGeometry(rad * 0.16, rad * 0.32, 5), m, false);
-      knot.position.set(rr(r, -0.05, 0.05) * rad, geo.boundingBox.max.y - geo.boundingBox.min.y + rad * 0.08, 0);
-      knot.rotation.set(rr(r, -0.4, 0.4), 0, rr(r, -0.4, 0.4));
-      grp.add(knot);
+      var sc = rad / 0.25, top = geo.boundingBox.max.y - geo.boundingBox.min.y;
+      var neck = mesh(new T.LatheGeometry([[0.022, 0], [0.016, 0.025], [0.02, 0.045], [0.04, 0.065], [0.03, 0.075], [0, 0.07]].map(function (q) { return new T.Vector2(q[0] * sc, q[1] * sc); }), 8), m, false);
+      neck.position.set(0, top - 0.02 * sc, 0); neck.rotation.set(rr(r, -0.3, 0.3), r() * 3, rr(r, -0.3, 0.3));
+      grp.add(neck);
       return grp;
     }
 
@@ -2855,33 +3004,37 @@ function junkLitter(spots, heightAt, seed) {
     function tent(o) {
       var r = rng(seedOf(o));
       var root = new T.Group();
-      var SX = 1.05, SY = rr(r, 1.0, 1.15), SZ = 0.78;
+      var SX = 1.35, SY = rr(r, 1.0, 1.1), SZ = 1.0;
+      var prof = function (q) { return q >= 1 ? 0 : Math.pow(Math.cos(q * PI / 2), 1.15); };   // flares out onto the ground, so it rides like a bump
       var dome = new T.Group();
       dome.scale.set(SX, SY, SZ);
       root.add(dome);
       var col = dirty(pick(r, [0x5d7d99, 0x6b7f5a, 0x8c8f88, 0xb07a4a, 0x7a6a8c]), r, 0.45);
-      var fly = mat({ c: col, rough: 0.9, side: T.DoubleSide, flat: true });
-      var sg = new T.SphereGeometry(1, 14, 6, 0, PI * 2, 0, PI / 2);
-      var p = sg.attributes.position;
-      for (var i = 0; i < p.count; i++) {
-        var y = p.getY(i);
-        if (y > 0.05 && y < 0.95) { var s = 1 - 0.05 * Math.sin(y * PI) * (0.5 + r()); p.setXYZ(i, p.getX(i) * s, y * (0.97 + 0.03 * r()), p.getZ(i) * s); }
+      var fly = mat({ c: col, rough: 0.9, side: T.DoubleSide });
+      var NR = 14, NS = 36, pos = [], idx = [], ph = r() * 6, ir, is, i;
+      for (ir = 0; ir <= NR; ir++) for (is = 0; is <= NS; is++) {
+        var q = ir / NR, a = is / NS * PI * 2, wob = q > 0.05 && q < 0.95 ? 1 - 0.03 * Math.sin(q * PI) * (1 + Math.sin(a * 4 + ph)) : 1;   // sags a little between the poles
+        pos.push(Math.cos(a) * q, prof(q) * wob, Math.sin(a) * q);
       }
-      p.needsUpdate = true; sg.computeVertexNormals();
+      for (ir = 0; ir < NR; ir++) for (is = 0; is < NS; is++) { var v0 = ir * (NS + 1) + is, v1 = v0 + NS + 1; idx.push(v0, v1, v0 + 1, v0 + 1, v1, v1 + 1); }
+      var sg = new T.BufferGeometry(); sg.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); sg.setIndex(idx); sg.computeVertexNormals();
       dome.add(mesh(sg, fly, true));
-      // doorway (dark, open flap)
-      var door = mesh(new T.SphereGeometry(1.006, 6, 4, PI / 2 - 0.38, 0.76, 0.62, PI / 2 - 0.62), mat({ c: 0x161616, rough: 1, side: T.DoubleSide }), false);
-      dome.add(door);
-      // poles
+      // doorway (dark, open flap) on the +z side, laid on the fabric
+      var dp = [], di = [];
+      for (ir = 0; ir <= 6; ir++) for (is = 0; is <= 8; is++) { var dq = 0.5 + 0.47 * ir / 6, da = PI / 2 + (is / 8 - 0.5) * 0.8 * (1.1 - dq * 0.5); dp.push(Math.cos(da) * dq * 1.01, prof(dq) * 1.01 + 0.01, Math.sin(da) * dq * 1.01); }
+      for (ir = 0; ir < 6; ir++) for (is = 0; is < 8; is++) { var d0 = ir * 9 + is, d1 = d0 + 9; di.push(d0, d1, d0 + 1, d0 + 1, d1, d1 + 1); }
+      var dg = new T.BufferGeometry(); dg.setAttribute('position', new T.Float32BufferAttribute(dp, 3)); dg.setIndex(di); dg.computeVertexNormals();
+      dome.add(mesh(dg, mat({ c: 0x161616, rough: 1, side: T.DoubleSide }), false));
+      // poles: two arcs crossing over the top, following the fabric
       var poleM = mat({ c: 0x3a3a3a, rough: 0.5, metal: 0.3 });
-      for (var k = 0; k < 2; k++) {
-        var pole = mesh(new T.TorusGeometry(1.01, 0.012, 4, 18, PI), poleM, false);
-        pole.rotation.y = (k ? 1 : -1) * 0.62;
-        dome.add(pole);
-      }
+      [-0.62, 0.62].forEach(function (ang) {
+        var pts = []; for (var t = -1; t <= 1.0001; t += 0.1) { var qq = Math.min(1, Math.abs(t)); pts.push(new T.Vector3(t * Math.cos(ang) * 1.005, prof(qq) * 1.005 + 0.004, t * Math.sin(ang) * 1.005)); }
+        dome.add(mesh(new T.TubeGeometry(new T.CatmullRomCurve3(pts), 40, 0.011, 4, false), poleM, false));
+      });
       // floor
-      var fl = mesh(new T.CircleGeometry(1, 14), mat({ c: dirty(0x3a4a3a, r, 0.3), rough: 1 }), false);
+      var fl = mesh(new T.CircleGeometry(1, 24), mat({ c: dirty(0x3a4a3a, r, 0.3), rough: 1 }), false);
       fl.rotation.x = -PI / 2; fl.position.y = 0.005; dome.add(fl);
+      root.userData.dome = { SX: SX, SY: SY, SZ: SZ, prof: prof };
       // tarp
       if (o.tarp != null ? o.tarp : r() < 0.6) {
         var tg = new T.PlaneGeometry(2.4, 2.0, 10, 10);
@@ -2891,18 +3044,17 @@ function junkLitter(spots, heightAt, seed) {
         for (i = 0; i < tp.count; i++) {
           var lx = tp.getX(i), lz = tp.getZ(i);
           var wx = lx * cr - lz * sr + ox, wz = lx * sr + lz * cr + oz;
-          var q = 1 - (wx / SX) * (wx / SX) - (wz / SZ) * (wz / SZ);
-          var hgt = q > 0 ? SY * Math.sqrt(q) * 1.02 + 0.03 : 0;
+          var q = Math.hypot(wx / SX, wz / SZ);
+          var hgt = q < 1 ? SY * prof(q) * 1.02 + 0.03 : 0;
           tp.setXYZ(i, wx, Math.max(0.02 + r() * 0.03, hgt + r() * 0.03), wz);
         }
         tp.needsUpdate = true; tg.computeVertexNormals();
-        root.add(mesh(tg, mat({ c: dirty(0x3f74b3, r, 0.35), rough: 0.7, side: T.DoubleSide, flat: true }), true));
+        root.add(mesh(tg, mat({ c: dirty(0x3f74b3, r, 0.35), rough: 0.7, side: T.DoubleSide }), true));
       }
       // camp clutter
       var bucket = mesh(new T.CylinderGeometry(0.15, 0.13, 0.36, 10), mat({ c: dirty(pick(r, [0xe07a1e, 0xe0e0d8, 0x2a5aa0]), r, 0.4), rough: 0.6 }), true);
       bucket.position.set(SX + 0.25, 0.18, rr(r, -0.3, 0.4)); root.add(bucket);
-      var crate = boxM(0.33, 0.28, 0.33, mat({ c: dirty(pick(r, [0x2a6ab0, 0x2a2a2a, 0x3f7f3f]), r, 0.3), rough: 0.6 }), -SX - 0.2, 0.14, rr(r, 0, 0.5), true, root);
-      crate.rotation.y = r() * 1.5;
+      var crate = junkMilkCrate({ color: dirty(pick(r, [0x2a6ab0, 0x2a2a2a, 0x3f7f3f]), r, 0.3) }); crate.position.set(-SX - 0.25, 0, rr(r, 0, 0.5)); crate.rotation.y = r() * 1.5; root.add(crate);
       var bb = bagMesh(r, 0.24, pick(r, BAG_COLS), true);
       bb.position.set(rr(r, -0.6, 0.6), 0, SZ + 0.35); root.add(bb);
       root.rotation.y = 0;
@@ -3015,6 +3167,7 @@ function junkLitter(spots, heightAt, seed) {
           dummy.rotation.set(0, 0, 0);
           dummy.scale.set(1, crushed, 1);
           var y = hf(x, z);
+          if (y == null) continue;   // not here (inside a prop's footprint)
           if (r() < t.up[1] && !t.flat && !t.tumble) {
             dummy.rotation.set(0, yaw, 0, 'YXZ');
             y += t.up[0] * crushed;
@@ -3684,12 +3837,12 @@ function makeHomelessGuy() {
     return out;
   }
   function blobGeo(rx, ry, rz, k, knot) {   // a lumpy bag; knot = tied-off top
-    const g = new THREE.SphereGeometry(1, 12, 9), p = g.attributes.position;
+    const g = new THREE.SphereGeometry(1, 18, 13), p = g.attributes.position;
     for (let i = 0; i < p.count; i++) {
       let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
       const n = 1 + 0.12 * Math.sin(x * 5 + k) * Math.sin(y * 4 + 2 * k) * Math.cos(z * 6 + k) + 0.05 * Math.sin(x * 11 + z * 9 + k);
       x *= n; y *= n; z *= n;
-      if (knot && y > 0.85) { const t = (y - 0.85) / 0.15; x *= 1 - 0.55 * t; z *= 1 - 0.55 * t; y += t * 0.12; }
+      if (knot && y > 0.8) { const t = (y - 0.8) / 0.2; x *= 1 - 0.6 * t * t; z *= 1 - 0.6 * t * t; y += t * t * 0.06; }   // gathered softly into the tie
       if (y < -0.6) y = -0.6 - (y + 0.6) * 0.3;   // flattened where it sits
       p.setXYZ(i, x * rx, y * ry, z * rz);
     }
@@ -3876,12 +4029,13 @@ function makeHomelessGuy() {
       wheels.push(placed(new THREE.BoxGeometry(0.03, 0.06, 0.04), V(x, 0.1, z)));
     });
     add(cart, merge(wheels), wheelM);
-    add(cart, blobGeo(0.3, 0.22, 0.22, 1.3, true), bagBlack, 0.02, yT, 0);
-    add(cart, blobGeo(0.16, 0.14, 0.15, 2.7, true), bagBlue, 0.22, yT + 0.1, 0.12);
-    add(cart, blobGeo(0.13, 0.11, 0.12, 4.1, true), bagWhite, -0.24, yT + 0.06, -0.12);
-    add(cart, blobGeo(0.09, 0.13, 0.08, 5.3, true), bagWhite, -L / 2 - 0.12, yT - 0.12, 0.16);   // hanging off the handle
-    add(cart, rodGeo(V(-0.1, yT - 0.15, -0.15), V(0.18, yT + 0.45, -0.2), 0.015, 8), redPlastic);   // a broom handle sticking out
-    const roll = add(cart, new THREE.CylinderGeometry(0.1, 0.1, 0.55, 12), sleepM, 0, 0.3, 0); roll.rotation.z = PI / 2;   // sleeping bag on the lower rack
+    add(cart, blobGeo(0.3, 0.19, 0.21, 1.3, true), bagBlack, 0.0, yT - 0.05, 0.0);   // one big bag of his stuff filling the basket
+    const fold = add(cart, new THREE.BoxGeometry(0.44, 0.08, 0.34, 4, 1, 4), blanketM, -0.06, yT + 0.16, -0.01); fold.rotation.set(0.05, 0.18, -0.06);   // a folded blanket on top
+    add(cart, blobGeo(0.12, 0.09, 0.11, 2.7, true), bagBlue, 0.25, yT + 0.02, 0.13);   // a smaller bag in the front corner
+    add(cart, blobGeo(0.075, 0.1, 0.055, 5.3, false), bagWhite, -L / 2 - 0.1, yT - 0.13, 0.14);   // a grocery bag hung off the handle
+    [0.1, 0.18].forEach(z => add(cart, rodGeo(V(-L / 2 - 0.07, yT + 0.06, z), V(-L / 2 - 0.1, yT - 0.05, 0.14), 0.005, 4), bagWhite, 0, 0, 0, false));
+    const roll = add(cart, new THREE.CylinderGeometry(0.1, 0.1, 0.55, 14), sleepM, 0, 0.3, 0); roll.rotation.z = PI / 2;   // sleeping bag strapped on the lower rack
+    [-0.15, 0.15].forEach(x => { const st = add(cart, new THREE.TorusGeometry(0.102, 0.01, 4, 16), jacketDark, x, 0.3, 0, false); st.rotation.y = PI / 2; });
   }
   { // empties on his right
     const canG = new THREE.CylinderGeometry(0.033, 0.033, 0.122, 12);
@@ -5439,6 +5593,7 @@ const PARK_SET = { obstacles: obstacles.slice(), pits: PITS.slice(), rails: rail
 obstacles.length = 0; PITS.length = 0; rails.length = 0; BOOSTS.length = 0; TRAFFIC.length = 0;
 const RIVER_ROOT = new THREE.Group(); RIVER_ROOT.visible = false; scene.add(RIVER_ROOT);
 captureInto(RIVER_ROOT);
+const RV_CARS = [];   // parked cars (rvParkCar), for their alarms
 const RV = { xc: 10, floor: 17, bank: 12, deck: 5.5, sh: 2.6, sd: 0.36, slush: -0.11, wallX: -50, upper: 9, fenceX: 56.55, under: 13.8, top: 15.6,
   PX: 76, PZN: 120, PZS: -300, flow: -1 };
 RV.bridges = [{ z: 52, w: 20, piers: 8.5, pierL: 8 }, { z: -68, w: 22, piers: 13.5 }, { z: -196, w: 20, piers: 13.5 }];   // bridge 1's piers are short so lines run past them to the vert wall
@@ -5596,6 +5751,17 @@ function rvPiece(cx, cz, a, hw, hl, bump, mat = RM.diy, res = 0.15) {
     const lx = -hw + 2 * hw * i / nx, lz = -hl + 2 * hl * j / nz, b = bump(lx, lz), [x, z] = rvWorld(o, lx, lz);
     pos.push(lx, rvBase(x) + Math.max(0, b), lz); uv.push(x / 4, (z + rvBase(x) + Math.max(0, b)) / 4); B.push(b);
   }
+  // where the piece ends sharply, pull each outside grid point in to where the bump actually starts, so the edge is a clean wall on its
+  // outline instead of a see-through sawtooth of triangles stretched between the grid rows
+  for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) {
+    const v = j * W + i; if (B[v] > 0.003) continue;
+    let best = -1; [[i - 1, j], [i + 1, j], [i, j - 1], [i, j + 1]].forEach(([a, b]) => { if (a < 0 || b < 0 || a > nx || b > nz) return; const n = b * W + a; if (B[n] > 0.003 && (best < 0 || B[n] > B[best])) best = n; });
+    if (best < 0) continue;
+    const ox = pos[v * 3], oz = pos[v * 3 + 2], ix = pos[best * 3], iz = pos[best * 3 + 2]; let lo = 0, hi = 1;
+    for (let k = 0; k < 10; k++) { const t = (lo + hi) / 2; if (bump(lerp(ox, ix, t), lerp(oz, iz, t)) > 0.003) hi = t; else lo = t; }
+    const lx = lerp(ox, ix, hi), lz = lerp(oz, iz, hi), [x, z] = rvWorld(o, lx, lz), y = rvBase(x);
+    pos[v * 3] = lx; pos[v * 3 + 1] = y; pos[v * 3 + 2] = lz; uv[v * 2] = x / 4; uv[v * 2 + 1] = (z + y) / 4;
+  }
   for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
     const a0 = j * W + i, b0 = a0 + 1, c0 = a0 + W, d0 = c0 + 1;
     if (B[a0] > 0.003 || B[c0] > 0.003 || B[b0] > 0.003) idx.push(a0, c0, b0);
@@ -5712,7 +5878,8 @@ function rvDecalsFlush() {
   line(RV.fenceX + 0.2, 59, 320); line(-75, -73.4, 90, -36, 260); line(-75, -73.4, 160, RV.PZS - 60, -116);           // the dirt by the fences
   line(-41.1, -40.2, 200); line(-35.8, -34.9, 200);        // beside the tracks (TRACK.x = -38)
   line(RV.wallX - 0.6, RV.wallX - 0.1, 140);                                                 // along the top of the retaining wall
-  for (let i = spots.length - 1; i >= 0; i--) { const [x, z] = spots[i]; if (Math.abs(x - RV.lipE) < 1.6 && Math.abs(z - RV.bridges[0].z) < RV.bridges[0].w / 2 + 1) spots.splice(i, 1); }   // keep the foot of the vert wall clear
+  for (let i = spots.length - 1; i >= 0; i--) { const [x, z] = spots[i]; if ((Math.abs(x - RV.lipE) < 1.6 && Math.abs(z - RV.bridges[0].z) < RV.bridges[0].w / 2 + 1)   // keep the foot of the vert wall clear
+    || (x > RV.xc + RV.floor - 2 && x < RV.xc + RV.floor + 4 && z > -31 && z < -13) || (x < RV.xc - RV.floor + 2 && x > RV.xc - RV.floor - 4 && Math.abs(z + 126) < 5)) spots.splice(i, 1); }   // and nothing growing inside the culvert or the storm drain
   const im = new THREE.InstancedMesh(clumpG, gMat, spots.length), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new V3(), pp = new V3();
   spots.forEach(([x, z], i) => { const s = 0.35 + rnd() * rnd() * 1.1; q.setFromAxisAngle(UP, rnd() * TAU); sc.set(s * (0.8 + rnd() * 0.6), s, s); pp.set(x, heightAt(x, z) - 0.02, z); im.setMatrixAt(i, m4.compose(pp, q, sc)); });
   im.receiveShadow = true; scene.add(im);
@@ -5747,16 +5914,19 @@ RV.bridges.forEach((B, bi) => {
   // a few cars and a truck parked in the traffic on top, just for the silhouette
   // piers in the channel: long blade walls with round noses, lined up with the flow
   [-1, 1].forEach(sd => {
-    const x = RV.xc + sd * B.piers, L = B.pierL || B.w - 2, r = 0.75;
-    addObs({ cx: x, cz: B.z, a: 0, hw: r, hl: L / 2 + r, f: (lx, lz) => { const e = Math.max(0, Math.abs(lz) - L / 2); return lx * lx + e * e <= r * r ? RV.under : 0; } });
+    // the arched viaduct's piers are square walls right out to its faces, with rounded cutwaters only down at the riverbed
+    const arched = bi === 1, x = RV.xc + sd * B.piers, L = arched ? B.w : B.pierL || B.w - 2, r = 0.75, noseH = arched ? 2.4 : RV.under;
+    addObs({ cx: x, cz: B.z, a: 0, hw: r, hl: L / 2 + r, f: (lx, lz) => { const e = Math.max(0, Math.abs(lz) - L / 2); return lx * lx + e * e <= r * r ? (e > 0 ? noseH : RV.under) : 0; } });
     const body = new THREE.Mesh(new THREE.BoxGeometry(r * 2, RV.under, L), (bi + (sd > 0 ? 1 : 0)) % 2 ? RM.pillarB : RM.pillar); body.position.set(x, RV.under / 2, B.z); body.castShadow = body.receiveShadow = true; scene.add(body);
     rvBoxUV(body, 8, 16, 0, bi * 0.37 + sd * 0.21);   // world-scaled, so no stretched or repeated-per-face graffiti
-    [-1, 1].forEach(e => { const n = new THREE.Mesh(new THREE.CylinderGeometry(r, r, RV.under, 20), RM.column); n.position.set(x, RV.under / 2, B.z + e * L / 2); if (e > 0) n.rotation.y = Math.PI; n.castShadow = true; scene.add(n); rvCylUV(n, 16, 0, bi * 0.29 + e * 0.13 + sd * 0.25); });   // seams face into the pier; facing noses get opposite halves
+    [-1, 1].forEach(e => { const n = new THREE.Mesh(new THREE.CylinderGeometry(r, r, noseH, 20), RM.column); n.position.set(x, noseH / 2, B.z + e * L / 2); if (e > 0) n.rotation.y = Math.PI; n.castShadow = true; scene.add(n); rvCylUV(n, 16, 0, bi * 0.29 + e * 0.13 + sd * 0.25);   // seams face into the pier; facing noses get opposite halves
+      if (arched) { const cap = new THREE.Mesh(new THREE.SphereGeometry(r, 20, 8, 0, Math.PI * 2, 0, Math.PI / 2), RM.column); cap.scale.y = 0.5; cap.position.set(x, noseH, B.z + e * L / 2); cap.castShadow = true; scene.add(cap); } });   // a weathered cap on each cutwater
   });
   // columns up on the decks and the upper street
   [[-27, RV.deck], [48, RV.deck], [-62, RV.upper], [73, RV.deck], [91, 0]].forEach(([x, y]) => { rvColumn(x, B.z - B.w / 4, 0.7, y, RV.under, RM.column); rvColumn(x, B.z + B.w / 4, 0.7, y, RV.under, RM.column); });
 });
 // the middle bridge is an old arched viaduct: arch fascias on both faces, springing from the piers and the bank tops
+RM.bridgeIn = Object.assign(RM.bridge.clone(), { side: THREE.DoubleSide });
 {
   const B = RV.bridges[1], xs = [RV.lipW + 1, RV.xc - B.piers, RV.xc + B.piers, RV.lipE - 1];
   const yTop = RV.under, faceT = 0.8;
@@ -5771,9 +5941,12 @@ RV.bridges.forEach((B, bi) => {
     const sh = new THREE.Shape(pts);
     [B.z - B.w / 2, B.z + B.w / 2 - faceT].forEach(z => {
       const m = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: faceT, bevelEnabled: false }), RM.bridge); m.position.set((a + b) / 2, 0, z); m.castShadow = m.receiveShadow = true; scene.add(m);
-      // the outer spans land on the bank tops: a solid abutment under each end
-      if (i !== 1) { const ex = i === 0 ? a + 0.6 : b - 0.6, y0 = rvBase(ex) - 0.3, ab = new THREE.Mesh(new THREE.BoxGeometry(1.2, spring + 0.3 - y0, faceT), RM.bridge); ab.position.set(ex, (spring + 0.3 + y0) / 2, z + faceT / 2); ab.castShadow = ab.receiveShadow = true; scene.add(ab); }
     });
+    // the barrel: the arch's curve carried right through from face to face, so it's solid stone overhead, not two thin faces
+    { const curve = [[-span / 2, spring]]; for (let k = 1; k < 40; k++) { const t = lerp(a1, a0, k / 40); curve.push([Math.cos(t) * rr, cy + Math.sin(t) * rr]); } curve.push([span / 2, spring]);
+      const bar = rvSweep(curve.map(([x, y]) => [x + (a + b) / 2, y]), B.z - B.w / 2 + 0.05, B.z + B.w / 2 - 0.05, RM.bridgeIn); bar.receiveShadow = true; }
+    // the outer spans land on the bank tops: a solid abutment the full width of the bridge under each end
+    if (i !== 1) { const ex = i === 0 ? a + 0.6 : b - 0.6, y0 = rvBase(ex) - 0.3, ab = new THREE.Mesh(new THREE.BoxGeometry(1.2, yTop - y0, B.w), RM.bridge); ab.position.set(ex, (yTop + y0) / 2, B.z); ab.castShadow = ab.receiveShadow = true; scene.add(ab); }
   }
 }
 // under a bridge the girders are a ceiling: airs can't go up through them
@@ -5785,7 +5958,10 @@ const JB = { x: 56.2, h: 0.82, base: 0.31, top: 0.08 };
   const prof = d => { d = Math.abs(d); return d <= JB.top ? JB.h : d <= 0.16 ? lerp(JB.h, 0.28, (d - JB.top) / (0.16 - JB.top)) : d <= JB.base ? lerp(0.28, 0, (d - 0.16) / (JB.base - 0.16)) : 0; };
   addObs({ cx: JB.x, cz: 0, a: 0, hw: JB.base, hl: 900, f: lx => { const p = prof(lx); return p > 0 ? RV.deck + p : 0; } });
   const xs = [-JB.base, -0.16, -JB.top, JB.top, 0.16, JB.base].map(d => [JB.x + d, RV.deck + prof(d)]);
-  for (let z = ZA; z < ZB; z += 3.85) rvSweep(xs.map(p => p.slice()), z, z + 3.75, RM.wall);
+  for (let z = ZA; z < ZB; z += 3.85) rvSweep(xs.map(p => p.slice()), z, z + 3.85, RM.wall);   // sections butted end to end
+  { const jm = rvSweep(xs.map(([x, y]) => [JB.x + (x - JB.x) * 1.03, RV.deck + (y - RV.deck) * 1.006]), -0.012, 0.012, new THREE.MeshStandardMaterial({ color: 0x3a3632, roughness: 1, side: THREE.DoubleSide })); jm.parent.remove(jm);
+    const n = Math.ceil((ZB - ZA) / 3.85), ji = new THREE.InstancedMesh(jm.geometry, jm.material, n), m4 = new THREE.Matrix4();
+    for (let k = 1; k < n; k++) { m4.makeTranslation(0, 0, ZA + k * 3.85); ji.setMatrixAt(k, m4); } ji.receiveShadow = true; scene.add(ji); }   // a dark joint line between sections
   addRailPath([[JB.x, RV.deck + JB.h + 0.04, RV.PZS + 1.5], [JB.x, RV.deck + JB.h + 0.04, RV.PZN - 1.5]], { hidden: true, ledge: true });
   // DIY banks poured against the barrier: wallie up them or ride along the top
   [32, -40, -112, -175, -258].forEach((z, i) => {
@@ -5803,6 +5979,7 @@ const JB = { x: 56.2, h: 0.82, base: 0.31, top: 0.08 };
   for (let i = 0; i < posts; i++) { m4.makeTranslation(RV.fenceX, RV.deck + fh / 2, ZA + i * 3); ip.setMatrixAt(i, m4); }
   scene.add(ip);
   addObs({ cx: RV.fenceX, cz: 0, a: 0, hw: 0.12, hl: 900, f: () => RV.deck + fh });
+  addRailPath([[RV.fenceX, RV.deck + fh + 0.04, RV.PZS + 1], [RV.fenceX, RV.deck + fh + 0.04, RV.PZN - 1]], { hidden: true });   // the top rail grinds
   // the freeway: six lanes, a median barrier, a sound wall covered in tags, apartments and palms beyond
   const rc = document.createElement('canvas'); rc.width = 512; rc.height = 256; const rg = rc.getContext('2d');
   rg.fillStyle = '#3a3a3c'; rg.fillRect(0, 0, 512, 256);
@@ -5819,15 +5996,22 @@ const JB = { x: 56.2, h: 0.82, base: 0.31, top: 0.08 };
   rvSweep([[87.4, 0.01], [400, 0.01]], ZA, ZB, RM.dirt);
 }
 // chain-link across both ends of the map: the river, decks and street carry on past it into the haze
+const RV_GAP = 3.3, RV_TRACKX = -38;   // (TRACK isn't built yet here) half-width of the opening in the end fences where the tracks run through into the tunnels
 [RV.PZN + 0.2, RV.PZS - 0.2].forEach(zf => {
-  const xs = []; for (let x = -75.2; x <= RV.fenceX + 0.01; x += 0.5) xs.push(x);
-  const fh = 2.6, pos = [], uv = [], idx = [];
-  xs.forEach((x, i) => { const y = Math.max(rvBase(x), x > RV.xc - RV.sh && x < RV.xc + RV.sh ? rvTrench(x) : 0); pos.push(x, y, zf, x, y + fh, zf); uv.push(x / 0.3, y / 0.3, x / 0.3, (y + fh) / 0.3); if (i) { const a = (i - 1) * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); } });
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
-  const t = RM.chain.map.clone(); t.needsUpdate = true; t.repeat.set(1, 1);
-  scene.add(new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: t, transparent: true, alphaTest: 0.35, side: THREE.DoubleSide, roughness: 0.5, metalness: 0.6 })));
-  const top = xs.map(x => new V3(x, rvBase(x) + fh, zf)); scene.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(top), xs.length, 0.035, 5, false), RM.steel));
-  for (let x = -75.2; x <= RV.fenceX; x += 3) { const y = rvBase(x); cylBetween(new V3(x, y - 0.1, zf), new V3(x, y + fh + 0.05, zf), 0.045, RM.steel); }
+  const fh = 2.6, t = RM.chain.map.clone(); t.needsUpdate = true; t.repeat.set(1, 1);
+  const chainM = new THREE.MeshStandardMaterial({ map: t, transparent: true, alphaTest: 0.35, side: THREE.DoubleSide, roughness: 0.5, metalness: 0.6 });
+  [[-75.2, RV_TRACKX - RV_GAP], [RV_TRACKX + RV_GAP, RV.fenceX]].forEach(([xa, xb]) => {
+    const xs = []; for (let x = xa; x < xb - 0.01; x += 0.5) xs.push(x); xs.push(xb);
+    const pos = [], uv = [], idx = [];
+    xs.forEach((x, i) => { const y = Math.max(rvBase(x), x > RV.xc - RV.sh && x < RV.xc + RV.sh ? rvTrench(x) : 0); pos.push(x, y, zf, x, y + fh, zf); uv.push(x / 0.3, y / 0.3, x / 0.3, (y + fh) / 0.3); if (i) { const a = (i - 1) * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); } });
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+    scene.add(new THREE.Mesh(g, chainM));
+    const top = xs.map(x => new V3(x, rvBase(x) + fh, zf)); scene.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(top), xs.length, 0.035, 5, false), RM.steel));
+    addRailPath(xs.map(x => [x, rvBase(x) + fh + 0.035, zf]), { hidden: true });   // the top rail grinds, up and down the banks with it
+    addObs({ cx: (xa + xb) / 2, cz: zf, a: 0, hw: (xb - xa) / 2, hl: 0.12, f: lx => rvBase((xa + xb) / 2 + lx) + fh });   // and the fence is solid
+    const posts = []; for (let x = xa; x < xb - 1; x += 3) posts.push(x); posts.push(xb);
+    posts.forEach(x => { const y = rvBase(x); cylBetween(new V3(x, y - 0.1, zf), new V3(x, y + fh + 0.05, zf), x === xb || x === xa ? 0.06 : 0.045, RM.steel); });
+  });
 });
 // the traffic on the freeway
 {
@@ -5839,7 +6023,7 @@ const JB = { x: 56.2, h: 0.82, base: 0.31, top: 0.08 };
     const g = new THREE.Group(), body = new THREE.MeshStandardMaterial({ color, roughness: 0.35, metalness: 0.5 });
     if (kind === 'van') { box(2, 2.2, 5.6, body, 0, 1.4, 0, g); box(1.9, 0.7, 0.05, glassM, 0, 1.9, 2.81, g); }
     else if (kind === 'truck') { box(2.4, 3.2, 9, body, 0, 2.1, -1, g); box(2.3, 2.2, 2.2, new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.4 }), 0, 1.6, 4.6, g); }
-    else { box(1.85, 0.72, 4.4, body, 0, 0.72, 0, g); box(1.65, 0.6, 2.3, glassM, 0, 1.36, -0.2, g); }
+    else { const b = makeBeater(['sedan', 'wagon', 'pickup', 'sedan'][Math.floor(Math.random() * 4)], color, { clean: true, seed: Math.floor(Math.random() * 1e6) + 1 }).group; b.traverse(o => { o.castShadow = false; }); return b; }
     const L = kind === 'truck' ? 4.4 : kind === 'van' ? 2.3 : 1.4;
     [[-0.85, L], [0.85, L], [-0.85, -L], [0.85, -L]].forEach(([x, z]) => { const w = new THREE.Mesh(wheelG, tyreM); w.position.set(x, 0.36, z); g.add(w); });
     const f = kind === 'truck' ? 5.71 : kind === 'van' ? 2.81 : 2.21, b = kind === 'truck' ? -5.51 : -f;
@@ -5916,7 +6100,7 @@ const RV_PERCHES = [];
       const za = poles[i], zb = poles[i + 1], y = y0 + ph - 0.5, pts = [];
       for (let k = 0; k <= 12; k++) { const t = k / 12; pts.push(new V3(px + off, y - Math.sin(t * Math.PI) * 1.1, lerp(za, zb, t))); }
       scene.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.02, 4, false), new THREE.MeshBasicMaterial({ color: 0x151515 })));
-      if ((i + wi) % 2 === 0) RV_PERCHES.push({ pts: pts.slice(3, 10).map(p => [p.x, p.y + 0.02, p.z]) });
+      if ((i + wi) % 2 === 0) RV_PERCHES.push({ wire: true, pts: pts.slice(3, 10).map(p => [p.x, p.y + 0.02, p.z]) });
     }
   });
   // big steel transmission towers out past the warehouses, cables strung between them
@@ -5949,7 +6133,7 @@ const TRACK = { x: -38, gauge: 1.435, bed: 0.28 };
     const x = TRACK.x + sd * TRACK.gauge / 2;
     const r = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.16, ZB - ZA), RM.rust); r.position.set(x, railTop - 0.08, (ZA + ZB) / 2); r.castShadow = true; scene.add(r);
     const head = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.025, ZB - ZA), RM.steel); head.position.set(x, railTop - 0.01, (ZA + ZB) / 2); scene.add(head);
-    addRailPath([[x, railTop + 0.03, RV.PZS + 1.5], [x, railTop + 0.03, RV.PZN - 1.5]], { hidden: true });
+    addRailPath([[x, railTop + 0.03, RV.PZS + 0.3], [x, railTop + 0.03, RV.PZN - 0.3]], { hidden: true });   // right up to the tunnels: grinds carry on through them
   });
   // tunnel portals at both ends: a concrete face in a hillside, the bore pitch black inside
   [[RV.PZN + 1, 1], [RV.PZS - 1, -1]].forEach(([z, sd]) => {
@@ -5959,14 +6143,36 @@ const TRACK = { x: -38, gauge: 1.435, bed: 0.28 };
     const face = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: 1.2, bevelEnabled: false }), RM.wall); face.position.set(TRACK.x, y0, z + (sd > 0 ? 0 : -1.2)); face.castShadow = face.receiveShadow = true; scene.add(face);
     // the bore: a black box running into the hill, unlit and unfogged so it stays pitch black from any distance
     const bore = new THREE.Mesh(new THREE.BoxGeometry(W, H, 40), RM.black); bore.position.set(TRACK.x, y0 + H / 2, z + sd * 20.6); scene.add(bore);
-    // the hillside the tunnel bores into: a half dome behind the portal, its cut face filled with dirt round the arch
-    const hillM = new THREE.MeshStandardMaterial({ color: 0x8f7a52, roughness: 1, flatShading: true }), zb = z + (sd > 0 ? 1.2 : -1.2);
-    const hill = new THREE.Mesh(new THREE.SphereGeometry(40, 20, 10, sd > 0 ? 0 : Math.PI, Math.PI, 0, Math.PI / 2), hillM);
-    hill.scale.set(1.25, 0.52, 1); hill.position.set(TRACK.x - 4, y0 - 2, zb); scene.add(hill);
-    const cap = new THREE.Shape(); cap.moveTo(-50, 0); for (let k = 0; k <= 32; k++) { const a = Math.PI - k / 32 * Math.PI; cap.lineTo(Math.cos(a) * 50, Math.sin(a) * 20.8); }
-    const ch = new THREE.Path(); ch.moveTo(4 - W / 2, 2); ch.lineTo(4 - W / 2, 2 + H - W / 2); ch.absarc(4, 2 + H - W / 2, W / 2, Math.PI, 0, true); ch.lineTo(4 + W / 2, 2); ch.lineTo(4 - W / 2, 2); cap.holes.push(ch);
-    const capM = new THREE.Mesh(new THREE.ShapeGeometry(cap, 12), new THREE.MeshStandardMaterial({ color: 0x8a7550, roughness: 1, side: THREE.DoubleSide }));
-    capM.position.set(TRACK.x - 4, y0 - 2, zb + sd * 0.05); scene.add(capM);
+    // the hillside the tunnel bores into: it sits on the ground between the retaining wall and the river bank, full height right behind
+    // the portal (the face is set into it) and rolling down and away from it; nothing hangs out over the channel
+    const zb = z + (sd > 0 ? 1.2 : -1.2), fx = TRACK.x, half = faceW / 2;
+    const groundAt = x => x < RV.wallX ? RV.upper : x > RV.lipW ? rvBase(x) : RV.deck;
+    const lump = (x, d) => 0.9 * Math.sin(x * 0.31 + d * 0.17 + sd) * Math.sin(d * 0.23 - x * 0.12) + 0.5 * Math.sin(x * 0.9 + d * 0.7);
+    const bump = (x, d) => {
+      const across = Math.exp(-Math.pow((x - fx) / 17, 6)) * smoothT((RV.lipW + 1.5 - x) / 3.5) * smoothT((x + 58) / 5);   // fades out before the bank lip and the street
+      const inFace = smoothT((half - Math.abs(x - fx)) / 2.5), rise = lerp(smoothT(d / 14), 1, inFace);   // full height behind the face, rising from the ground beside it
+      return Math.max(0, (16 + lump(x, d)) * across * rise * Math.exp(-Math.pow(d / 75, 2)));
+    };
+    const NX = 60, ND = 50, X0 = -60, X1 = RV.lipW + 3, DMAX = 110, hp = [], hc = [], hi = [], B = [];
+    for (let j = 0; j <= ND; j++) for (let i = 0; i <= NX; i++) {
+      const x = lerp(X0, X1, i / NX), d = DMAX * Math.pow(j / ND, 1.35), b = bump(x, d), y = groundAt(x) + b - 0.12;
+      hp.push(x, y, zb + sd * d); B.push(b);
+      const n = 0.5 + 0.5 * Math.sin(x * 1.7 + d * 1.3) * Math.sin(d * 0.9 - x * 0.6), dry = 0.75 + 0.25 * n;   // patchy: bare dirt and dry scrub
+      hc.push(0.78 * dry, 0.66 * dry, 0.46 * dry + (n > 0.7 ? 0 : 0.03));
+    }
+    for (let j = 0; j < ND; j++) for (let i = 0; i < NX; i++) { const a = j * (NX + 1) + i, b = a + 1, c = a + NX + 1, e = c + 1; if (B[a] > 0.15 || B[b] > 0.15 || B[c] > 0.15 || B[e] > 0.15) { if (sd > 0) hi.push(a, c, b, b, c, e); else hi.push(a, b, c, b, e, c); } }
+    const hg = new THREE.BufferGeometry(); hg.setAttribute('position', new THREE.Float32BufferAttribute(hp, 3)); hg.setAttribute('color', new THREE.Float32BufferAttribute(hc, 3)); hg.setIndex(hi); hg.computeVertexNormals();
+    const hill = new THREE.Mesh(hg, new THREE.MeshStandardMaterial({ vertexColors: true, map: RM.dirt.map, roughness: 1 })); hill.receiveShadow = true; scene.add(hill);
+    // dry brush and a few rocks scattered over it
+    const brush = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ color: 0x6b6440, roughness: 1, flatShading: true }), 90), rocks = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ color: 0x8a8070, roughness: 1, flatShading: true }), 30);
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new V3(), pp = new V3(); let nb = 0, nr = 0, sdd = 917 + sd * 31; const rnd = () => (sdd = (sdd * 16807) % 2147483647) / 2147483647;
+    for (let k = 0; k < 600 && (nb < 90 || nr < 30); k++) {
+      const x = lerp(X0, X1, rnd()), d = 4 + rnd() * 70, b = bump(x, d); if (b < 1.5) continue;
+      const y = groundAt(x) + b - 0.12; q.setFromAxisAngle(UP, rnd() * 6.3);
+      if (nb < 90) { const s = 0.3 + rnd() * 0.5; sc.set(s * 1.3, s * 0.6, s); pp.set(x, y + s * 0.15, zb + sd * d); brush.setMatrixAt(nb++, m4.compose(pp, q, sc)); }
+      else { const s = 0.4 + rnd() * 0.8; sc.set(s, s * 0.6, s * 0.9); pp.set(x, y + s * 0.1, zb + sd * d); rocks.setMatrixAt(nr++, m4.compose(pp, q, sc)); }
+    }
+    brush.count = nb; rocks.count = nr; scene.add(brush); scene.add(rocks);
   });
 }
 // the upper street: a cracked old asphalt road with a curb, sidewalk, streetlights and a few parked beaters
@@ -5988,18 +6194,19 @@ const TRACK = { x: -38, gauge: 1.435, bed: 0.28 };
     const arm = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.1, 0.1), steelD); arm.position.set(x1 + 0.0, RV.upper + 8.1, z); scene.add(arm);
     const head = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.16, 0.45), glowM); head.position.set(x1 - 1.0, RV.upper + 8.0, z); scene.add(head);
   }
-  // parked beaters along the far curb (solid: ollie onto the roofs)
-  const COLS = [0x8a8270, 0x5a2e2a, 0x2f4a5f, 0xbdb6a6, 0x3b3b3b, 0x6b5a2e];
-  [[-69.6, -12], [-69.6, -58], [-69.6, -87], [-69.6, -172], [-69.6, 40], [-69.6, 88]].forEach(([x, z], k) => {
-    const g = new THREE.Group(), body = new THREE.MeshStandardMaterial({ color: COLS[k % COLS.length], roughness: 0.75, metalness: 0.25 }), glass = new THREE.MeshStandardMaterial({ color: 0x1c2630, roughness: 0.2, metalness: 0.5 });
-    const b = new THREE.Mesh(new THREE.BoxGeometry(1.85, 0.7, 4.5), body); b.position.y = 0.7; b.castShadow = true; g.add(b);
-    const cab = new THREE.Mesh(new THREE.BoxGeometry(1.62, 0.56, 2.3), glass); cab.position.set(0, 1.33, -0.2); cab.castShadow = true; g.add(cab);
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(1.64, 0.05, 2.0), body); roof.position.set(0, 1.62, -0.2); g.add(roof);
-    const wg = new THREE.CylinderGeometry(0.34, 0.34, 0.24, 12); wg.rotateZ(Math.PI / 2); const tm = new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.9 });
-    [[-0.86, 1.4], [0.86, 1.4], [-0.86, -1.4], [0.86, -1.4]].forEach(([wx, wz]) => { const w = new THREE.Mesh(wg, tm); w.position.set(wx, 0.34, wz); g.add(w); });
-    g.position.set(x, RV.upper, z); g.rotation.y = k % 2 ? Math.PI : 0; scene.add(g);
-    addObs({ cx: x, cz: z, a: 0, hw: 0.9, hl: 2.22, f: (lx, lz) => RV.upper + (Math.abs(lz + (k % 2 ? 0.2 : -0.2)) < 1.0 && Math.abs(lx) < 0.78 ? 1.64 : 1.05) });
-  });
+  // parked beaters along the far curb: solid, with grindable roof, hood, trunk and bed edges; ride or grind one and its alarm goes off
+  const COLS = [0x8a8270, 0x5a2e2a, 0x2f4a5f, 0xbdb6a6, 0x3b3b3b, 0x6b5a2e], KINDS = ['sedan', 'wagon', 'pickup', 'sedan', 'pickup', 'wagon'];
+  [[-69.6, -12], [-69.6, -58], [-69.6, -87], [-69.6, -172], [-69.6, 40], [-69.6, 88]].forEach(([x, z], k) => rvParkCar(KINDS[k], COLS[k], x, RV.upper, z, k % 2 ? Math.PI : 0, 11 + k * 17));
+}
+// a parked car: solid to ride on, grind edges, and an alarm (riverTick) when you're up on it
+function rvParkCar(kind, color, x, y0, z, yaw, seed) {
+  const car = makeBeater(kind, color, { seed }), c = Math.cos(yaw), s = Math.sin(yaw);
+  car.group.position.set(x, y0, z); car.group.rotation.y = yaw; scene.add(car.group);
+  addObs({ cx: x, cz: z, a: yaw, hw: car.W / 2, hl: car.L / 2 + 0.06, f: (lx, lz) => { const t = car.top(lx, lz); return t > 0 ? y0 + t : 0; } });
+  const Wp = p => [x + p[0] * c + p[2] * s, y0 + p[1], z - p[0] * s + p[2] * c];
+  car.rails.forEach(([a, b]) => addRailPath([Wp(a), Wp(b)], { hidden: true }));
+  RV_CARS.push({ x, z, c, s, y0, hw: car.W / 2, hl: car.L / 2, car, t: 0 });
+  return car;
 }
 // stair sets from the upper street down to the west deck, with handrails, a hubba and a bank
 function rvStairs(z, W, n, opts = {}) {
@@ -6029,12 +6236,72 @@ function rvStairs(z, W, n, opts = {}) {
 rvStairs(-20, 5, 9, { rails: [0], hubba: 3.1, bank: -5.2 });
 rvStairs(-150, 6, 11, { rails: [-2.6, 2.6], bank: 5.4 });
 
+// a solid poured piece running along x from x0 to x1, z0..z1 wide, its top yBase + hFn(x): top, both sides and both ends meshed, so it
+// always reads as a block of concrete (wall banks, the quarter up to the street, the sidewalk kicker)
+RM.pourTop = Object.assign(RM.wall.clone(), { side: THREE.DoubleSide });
+function rvWedge(x0, x1, z0, z1, yBase, hFn, topMat = RM.pourTop, sideMat = RM.rampWall) {
+  const n = Math.max(2, Math.ceil((x1 - x0) / 0.15)), tp = [], tu = [], ti = [], sp = [], su = [], si = [];
+  const quad = (arr, ix, a, b, c, d) => { const o = arr.length / 3; arr.push(...a, ...b, ...c, ...d); ix.push(o, o + 1, o + 2, o, o + 2, o + 3); };
+  for (let k = 0; k <= n; k++) { const x = lerp(x0, x1, k / n), y = yBase + hFn(x); tp.push(x, y, z0, x, y, z1); tu.push(x / 4, z0 / 4, x / 4, z1 / 4); if (k) { const a = (k - 1) * 2; ti.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } }
+  for (let k = 0; k < n; k++) { const xa = lerp(x0, x1, k / n), xb = lerp(x0, x1, (k + 1) / n), ya = yBase + hFn(xa), yb = yBase + hFn(xb);
+    [z0, z1].forEach(z => { quad(sp, si, [xa, yBase - 0.05, z], [xb, yBase - 0.05, z], [xb, yb, z], [xa, ya, z]); su.push(xa / 4, -0.01, xb / 4, -0.01, xb / 4, (yb - yBase) / 4, xa / 4, (ya - yBase) / 4); }); }
+  [x0, x1].forEach(x => { const y = yBase + hFn(x); if (y - yBase > 0.01) { quad(sp, si, [x, yBase - 0.05, z0], [x, yBase - 0.05, z1], [x, y, z1], [x, y, z0]); su.push(z0 / 4, 0, z1 / 4, 0, z1 / 4, (y - yBase) / 4, z0 / 4, (y - yBase) / 4); } });
+  [[tp, tu, ti, topMat], [sp, su, si, sideMat]].forEach(([p, u, ix, m]) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(u, 2)); g.setIndex(ix); g.computeVertexNormals();
+    const me = new THREE.Mesh(g, m); me.castShadow = me.receiveShadow = true; scene.add(me); });
+  const cx = (x0 + x1) / 2; addObs({ cx, cz: (z0 + z1) / 2, a: 0, hw: (x1 - x0) / 2, hl: (z1 - z0) / 2, f: lx => { const h = hFn(cx + lx); return h > 0.002 ? yBase + h : 0; } });
+}
+// ---- more ways up from the track deck to the street, spread along the wall so one's never far away ----
+{
+  const H = RV.upper + 0.15 - RV.deck, X = RV.wallX;
+  [[72, 6, 6.6], [-232, 7, 6.6]].forEach(([z, w, L]) => rvWedge(X, X + L, z - w / 2, z + w / 2, RV.deck, x => H * (1 - (x - X) / L)));   // smooth wall banks
+  // a curved quarter up the wall: carve it, or pop off the top lip onto the street
+  { const T = 4.81, R = 5; rvWedge(X, X + T, -118, -110, RV.deck, x => Math.min(H, qProf(T - (x - X), R))); }
+}
+// ---- up on the street ----
+{
+  const S = RV.upper + 0.15, x1 = -57.6;
+  // a kicker on the sidewalk edge: launch off the wall, over the drop, down onto the track deck
+  rvWedge(-52.5, -50.3, -6.5, -3.1, S, x => 0.55 * Math.pow((x + 52.5) / 2.2, 1.6), RM.diy, RM.diySide);
+  // a stretch of red-painted curb you can grind
+  { const red = new THREE.MeshStandardMaterial({ color: 0xa8322a, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+    [[-50, -27], [96, 116]].forEach(([za, zb]) => { rvSweep([[x1 + 0.02, RV.upper + 0.016], [x1 + 0.4, RV.upper + 0.152]], za, zb, red); addRailPath([[x1 + 0.38, RV.upper + 0.17, za + 0.2], [x1 + 0.38, RV.upper + 0.17, zb - 0.2]], { hidden: true, ledge: true }); }); }
+  // a bus stop: bench (grind the seat edge or the backrest), the stop sign, a couple of newspaper boxes to wallie
+  if (typeof makeBench === 'function') {
+    const bx = -53.4, bz = -40, yaw = Math.PI / 2, c = Math.cos(yaw), s = Math.sin(yaw), BL = (lx, y, lz) => [bx + lx * c + lz * s, S + y, bz - lx * s + lz * c];
+    const b = makeBench(); b.position.set(bx, S, bz); b.rotation.y = yaw; scene.add(b);
+    addObs({ cx: bx, cz: bz, a: yaw, hw: 0.95, hl: 0.32, f: () => S + 0.46 });
+    addRailPath([BL(-0.88, 0.47, 0.21), BL(0.88, 0.47, 0.21)], { hidden: true }); addRailPath([BL(-0.88, 0.86, -0.34), BL(0.88, 0.86, -0.34)], { hidden: true });
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.9, 8), RM.steel); pole.position.set(-56.9, S + 1.45, -37); scene.add(pole);
+    const sc = document.createElement('canvas'); sc.width = 128; sc.height = 160; const sg = sc.getContext('2d'); sg.fillStyle = '#e8e8e2'; sg.fillRect(0, 0, 128, 160); sg.fillStyle = '#d23a2a'; sg.fillRect(0, 0, 128, 44);
+    sg.fillStyle = '#fff'; sg.font = 'bold 30px Arial'; sg.textAlign = 'center'; sg.fillText('BUS', 64, 33); sg.fillStyle = '#222'; sg.font = 'bold 22px Arial'; sg.fillText('STOP', 64, 78); sg.fillText('94  96', 64, 118);
+    const sign = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.62, 0.5), [new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(sc), roughness: 0.6 }), new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(sc), roughness: 0.6 }), RM.steel, RM.steel, RM.steel, RM.steel]);
+    sign.position.set(-56.9, S + 2.55, -37); scene.add(sign);
+    [[-53.7, -36.8, 0x2a5aa8], [-53.7, -36.1, 0xc8322a]].forEach(([x, z, col]) => {
+      const nb = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.05, 0.46), new THREE.MeshStandardMaterial({ color: col, roughness: 0.6, metalness: 0.2 })); nb.position.set(x, S + 0.525, z); nb.castShadow = nb.receiveShadow = true; scene.add(nb);
+      const win = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.26), new THREE.MeshStandardMaterial({ color: 0x1a2028, roughness: 0.2, metalness: 0.5 })); win.rotation.y = -Math.PI / 2; win.position.set(x - 0.252, S + 0.78, z); scene.add(win);
+      addObs({ cx: x, cz: z, a: 0, hw: 0.25, hl: 0.23, f: () => S + 1.05 });
+    });
+  }
+  // a planter ledge: concrete box with a shrub, both long edges grind
+  { const px = -53.6, pz = -132, hx = 0.6, hz = 1.6, ph = 0.5;
+    const box = new THREE.Mesh(new THREE.BoxGeometry(hx * 2, ph, hz * 2), RM.wall); box.position.set(px, S + ph / 2, pz); box.castShadow = box.receiveShadow = true; scene.add(box); rvBoxUV(box, 4, 4, S, 0.2);
+    const dirt = new THREE.Mesh(new THREE.BoxGeometry(hx * 2 - 0.16, 0.02, hz * 2 - 0.16), RM.dirt); dirt.position.set(px, S + ph - 0.03, pz); scene.add(dirt);
+    const shrub = new THREE.Mesh(new THREE.IcosahedronGeometry(0.45, 1), new THREE.MeshStandardMaterial({ color: 0x4f6a2e, roughness: 1, flatShading: true })); shrub.scale.set(1, 0.8, 1.6); shrub.position.set(px, S + ph + 0.25, pz); shrub.castShadow = true; scene.add(shrub);
+    addObs({ cx: px, cz: pz, a: 0, hw: hx, hl: hz, f: () => S + ph });
+    [-1, 1].forEach(sd => addRailPath([[px + sd * (hx - 0.05), S + ph + 0.02, pz - hz + 0.1], [px + sd * (hx - 0.05), S + ph + 0.02, pz + hz - 0.1]], { hidden: true, ledge: true })); }
+  // another stretch of DIY tranny poured against the fence at the far side of the road
+  { const fx = -75.2, R = 2.2, D = 3.1, za = 10, zb = 33;
+    rvPiece(fx + 0.15 + D / 2, (za + zb) / 2, 0, D / 2, (zb - za) / 2, (lx, lz) => qProf(D / 2 - lx - 0.05, R) * taper((zb - za) / 2 - Math.abs(lz), 1.5), RM.diy, 0.12);
+    lipCoping(fx + 0.15 + D - 0.05 - R * 0.97, za + 1.6, fx + 0.15 + D - 0.05 - R * 0.97, zb - 1.6, RV.upper + qProf(R * 0.97, R) + 0.02, [1, 0]); }
+}
+
 // ---- banks: a curb and a low rail on the west bank, the U-ditch on the east bank ----
 {
   // parking block lying along the bank and a bent low pipe rail running down it (west bank)
   const z = 30, xb = RV.xc - RV.floor - 7;
   const pts = []; for (let k = 0; k <= 10; k++) { const t = k / 10, x = lerp(RV.lipW - 0.6, RV.xc - RV.floor + 0.5, t), zz = lerp(z + 14, z + 4, t); pts.push([x, rvBase(x) + 0.42, zz]); }
-  addRailPath(pts, {});
+  pts.push([RV.xc - RV.floor + 2.1, 0, z + 2.4]);   // the bottom end runs down into the floor like a pole jam
+  addRailPath(pts, {}); RV_PERCHES.push({ pts: pts.slice(1, 5).map(p => [p[0], p[1] + 0.05, p[2]]) });
 }
 {
   // the U-ditch: two berms down the east bank with a rounded trough between them
@@ -6077,30 +6344,91 @@ function rvAccessRamp(side, zLow, zHigh) {
   });
   // the guard rail along the drop on the inner side
   const pts = []; for (let k = 0; k <= 24; k++) { const z = lerp(zLow, zHigh, 0.08 + 0.92 * k / 24), h = hAt(z); if (h < 0.5) continue; pts.push([xIn(h) + side * 0.25, h + 0.75, z]); }
+  { const z = lerp(zLow, zHigh, 0.02), h = hAt(z); pts.unshift([xIn(Math.max(h, 0.3)) + side * 0.25, h, z]); }   // the low end bends down into the lane: ride straight onto it
   addRailPath(pts, {});
+  for (let k = 3; k + 6 < pts.length; k += 9) RV_PERCHES.push({ pts: pts.slice(k, k + 4).map(p => [p[0], p[1] + 0.05, p[2]]) });
 }
 rvAccessRamp(1, -128, -178);
 rvAccessRamp(-1, -36, 14);
 rvAccessRamp(-1, 66, 112);
+// the inside of a short tunnel running back (+x) from an opening at x = xf: walls and roof fade from shade at the mouth to black at the back
+function rvTunnelLining(dep, h, w, xf, zc) {
+  const g = new THREE.BoxGeometry(dep - 0.04, h - 0.02, w - 0.04, 8, 1, 1), P = g.attributes.position, col = [];
+  for (let i = 0; i < P.count; i++) { const t = (P.getX(i) + dep / 2) / dep, k = 0.42 * Math.pow(1 - t, 1.6); col.push(k, k * 0.97, k * 0.92); }
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  const lin = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: true }), hide = new THREE.MeshBasicMaterial({ visible: false });
+  const m = new THREE.Mesh(g, [hide, hide, lin, hide, lin, lin]); m.position.set(xf + dep / 2 + 0.02, h / 2, zc); return m;   // roof and side walls; the floor stays the wet concrete
+}
+// a wet trickle of sludge across the floor from (x0, z0) to (x1, z1): a wandering strip, soft wet edges, greenish muck down the middle,
+// widest at the outlet and thinning out as it goes
+function rvTrickle(x0, z0, x1, z1, w, seed) {
+  if (!rvTrickle.mat) {
+    const c = document.createElement('canvas'); c.width = 64; c.height = 256; const g = c.getContext('2d'), im = g.createImageData(64, 256), d = im.data;
+    for (let y = 0; y < 256; y++) for (let x = 0; x < 64; x++) {
+      const u = Math.abs(x - 31.5) / 31.5, n = Math.sin(y * 0.21 + x * 0.3) * Math.sin(y * 0.07 - x * 0.11), edge = 1 - Math.pow(Math.min(1, u * (1 + 0.25 * n)), 1.8);
+      const core = Math.max(0, 1 - u * 2.2 + 0.3 * n), i = (y * 64 + x) * 4;
+      d[i] = 46 + 30 * core + 10 * n; d[i + 1] = 50 + 38 * core + 8 * n; d[i + 2] = 30 + 10 * core; d[i + 3] = Math.max(0, Math.min(255, 255 * (0.62 * edge + 0.3 * core)));
+    }
+    g.putImageData(im, 0, 0);
+    for (let k = 0; k < 40; k++) { g.fillStyle = `rgba(${90 + Math.random() * 30 | 0},${105 + Math.random() * 30 | 0},40,0.7)`; g.beginPath(); g.arc(22 + Math.random() * 20, Math.random() * 256, 1 + Math.random() * 2.5, 0, Math.PI * 2); g.fill(); }   // moss flecks
+    const t = new THREE.CanvasTexture(c); t.wrapT = THREE.RepeatWrapping;
+    rvTrickle.mat = new THREE.MeshStandardMaterial({ map: t, transparent: true, depthWrite: false, roughness: 0.25, metalness: 0.1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  }
+  const L = Math.hypot(x1 - x0, z1 - z0), dx = (x1 - x0) / L, dz = (z1 - z0) / L, n = Math.ceil(L / 0.25), pos = [], uv = [], idx = [];
+  for (let k = 0; k <= n; k++) {
+    const t = k / n, wob = 0.35 * Math.sin(t * 7 + seed) + 0.15 * Math.sin(t * 19 + seed * 2), hw = w * (1 - 0.55 * t) * (0.8 + 0.2 * Math.sin(t * 13 + seed)) / 2;
+    const cx = x0 + dx * L * t - dz * wob, cz = z0 + dz * L * t + dx * wob;
+    pos.push(cx + dz * hw, 0.014, cz - dx * hw, cx - dz * hw, 0.014, cz + dx * hw); uv.push(0, t * L / 2, 1, t * L / 2);
+    if (k) { const a = (k - 1) * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+  }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); geo.setIndex(idx); geo.computeVertexNormals();
+  const N = geo.attributes.normal; for (let i = 0; i < N.count; i++) N.setXYZ(i, 0, 1, 0);
+  const m = new THREE.Mesh(geo, rvTrickle.mat); m.receiveShadow = true; m.renderOrder = 1; scene.add(m); return m;
+}
 // ---- bank-toe features: a box culvert (east) and a storm-drain outlet (west) ----
 {
   // box culvert: a flat-topped headwall out from the east toe with three dark openings, a DIY bank up its side
   const z0 = -30, z1 = -14, top = 2.6, xf = RV.xc + RV.floor - 1.5, xb = rvBankX(top, 1);
   addObs({ cx: (xf + xb) / 2, cz: (z0 + z1) / 2, a: 0, hw: (xb - xf) / 2, hl: (z1 - z0) / 2, f: () => top });
-  const m = new THREE.Mesh(new THREE.BoxGeometry(xb - xf, top, z1 - z0), RM.pillar); m.position.set((xf + xb) / 2, top / 2, (z0 + z1) / 2); m.castShadow = m.receiveShadow = true; scene.add(m); rvBoxUV(m, 8, 16, 0, 0.13);
-  [-5, 0, 5].forEach(dz => { const o = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.9, 3.6), RM.black); o.position.set(xf + 0.58, 0.95, (z0 + z1) / 2 + dz); scene.add(o); });
+  // the headwall is built round three real openings: short concrete tunnels running back into the dark, each barred off with a rusty grate
+  const zc = (z0 + z1) / 2, OW = 3.6, OH = 1.9, DEP = 3.2, cBox = (xa, xb2, za, zb, ya, yb) => { const b = new THREE.Mesh(new THREE.BoxGeometry(xb2 - xa, yb - ya, zb - za), RM.pillar); b.position.set((xa + xb2) / 2, (ya + yb) / 2, (za + zb) / 2); b.castShadow = b.receiveShadow = true; scene.add(b); rvBoxUV(b, 8, 16, 0, 0.13); };
+  cBox(xf + DEP, xb, z0, z1, 0, top);   // the solid back, sunk into the bank
+  cBox(xf, xf + DEP, z0, z1, OH, top);  // the band over the openings
+  const edges = [z0]; [-5, 0, 5].forEach(dz => edges.push(zc + dz - OW / 2, zc + dz + OW / 2)); edges.push(z1);
+  for (let k = 0; k < edges.length; k += 2) cBox(xf, xf + DEP, edges[k], edges[k + 1], 0, OH);   // the walls between the openings
+  const barG = new THREE.CylinderGeometry(0.022, 0.022, OH, 6), nb = Math.floor(OW / 0.16), bars = new THREE.InstancedMesh(barG, RM.rust, nb * 3), m4 = new THREE.Matrix4();
+  [-5, 0, 5].forEach((dz, oi) => {
+    const zz = zc + dz;
+    const end = new THREE.Mesh(new THREE.PlaneGeometry(OW, OH), RM.black); end.rotation.y = Math.PI / 2; end.position.set(xf + DEP - 0.01, OH / 2, zz); scene.add(end);   // it carries on into the dark
+    scene.add(rvTunnelLining(DEP, OH, OW, xf, zz));
+    const wet = new THREE.Mesh(new THREE.PlaneGeometry(DEP, OW), RM.trench); wet.rotation.x = -Math.PI / 2; wet.position.set(xf + DEP / 2, 0.008, zz); wet.receiveShadow = true; scene.add(wet);
+    for (let b = 0; b < nb; b++) { m4.makeTranslation(xf + 0.14, OH / 2, zz - OW / 2 + (b + 0.5) * OW / nb); bars.setMatrixAt(oi * nb + b, m4); }
+    [0.08, 0.75, 1.45, OH - 0.06].forEach(y => { const fb = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.07, OW), RM.rust); fb.position.set(xf + 0.14, y, zz); fb.castShadow = true; scene.add(fb); });
+  });
+  bars.castShadow = true; scene.add(bars);
   addRailPath([[xf + 0.04, top + 0.02, z0 + 0.1], [xf + 0.04, top + 0.02, z1 - 0.1]], { hidden: true, ledge: true });
   rvPiece((xf + xb) / 2 - 0.5, z0 - 3, 0, (xb - xf) / 2 + 0.5, 3, (lx, lz) => Math.max(0, top * Math.pow(clamp((lz + 3) / 6, 0, 1), 1.3) * taper((xb - xf) / 2 + 0.5 - Math.abs(lx + 0.5), 0.6) - rvBase((xf + xb) / 2 - 0.5 + lx)), RM.diy, 0.12);
   // storm-drain outlet on the west: a headwall with a big round pipe, transition walls flaring off both sides
   const sz = -126, sw = 9, stop = 3.4, sxf = RV.xc - RV.floor + 1.4, sxb = rvBankX(stop, -1);
   addObs({ cx: (sxf + sxb) / 2, cz: sz, a: 0, hw: (sxf - sxb) / 2, hl: sw / 2, f: () => stop });
-  const hw = new THREE.Mesh(new THREE.BoxGeometry(sxf - sxb, stop, sw), RM.pillarB); hw.position.set((sxf + sxb) / 2, stop / 2, sz); hw.castShadow = hw.receiveShadow = true; scene.add(hw); rvBoxUV(hw, 8, 16, 0, 0.61);
-  const pipe = new THREE.Mesh(new THREE.CircleGeometry(1.45, 32), RM.black); pipe.rotation.y = Math.PI / 2; pipe.position.set(sxf + 0.02, 1.55, sz); scene.add(pipe);
+  // the headwall with a real round bore through it: a short pipe you can see into, dark at the back, behind a grate
+  const PR = 1.45, PY = 1.55;
+  { const sh = new THREE.Shape([new THREE.Vector2(-sw / 2, 0), new THREE.Vector2(sw / 2, 0), new THREE.Vector2(sw / 2, stop), new THREE.Vector2(-sw / 2, stop)]);
+    const hole = new THREE.Path(); hole.absarc(0, PY, PR, 0, Math.PI * 2, false); sh.holes.push(hole);
+    const hw = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: sxf - sxb, bevelEnabled: false, curveSegments: 32 }), RM.pillarB); hw.rotation.y = Math.PI / 2; hw.position.set(sxb, 0, sz);
+    hw.castShadow = hw.receiveShadow = true; scene.add(hw); rvBoxUV(hw, 8, 16, 0, 0.61); }
+  const pipe = new THREE.Mesh(new THREE.CircleGeometry(PR, 32), RM.black); pipe.rotation.y = Math.PI / 2; pipe.position.set(sxf - 2.6, PY, sz); scene.add(pipe);
+  { const g = new THREE.CylinderGeometry(PR - 0.01, PR - 0.01, 2.6, 32, 8, true), P = g.attributes.position, col = [];   // the bore fading to black
+    for (let i = 0; i < P.count; i++) { const k = 0.4 * Math.pow((P.getY(i) + 1.3) / 2.6, 1.6); col.push(k, k * 0.97, k * 0.92); }
+    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    const b = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })); b.rotation.z = -Math.PI / 2; b.position.set(sxf - 1.3, PY, sz); scene.add(b); }
+  { for (let zz = -PR + 0.12; zz < PR; zz += 0.17) { const h = Math.sqrt(PR * PR - zz * zz) - 0.04; const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 2 * h, 6), RM.rust); bar.position.set(sxf + 0.05, PY, sz + zz); bar.castShadow = true; scene.add(bar); }
+    [-0.55, 0.55].forEach(dy => { const w = Math.sqrt(PR * PR - dy * dy) * 2 - 0.08, fb = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.07, w), RM.rust); fb.position.set(sxf + 0.05, PY + dy, sz); scene.add(fb); }); }
   const ring = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.1, 8, 32), RM.rust); ring.rotation.y = Math.PI / 2; ring.position.set(sxf + 0.05, 1.55, sz); scene.add(ring);
   addRailPath([[sxf - 0.04, stop + 0.02, sz - sw / 2 + 0.1], [sxf - 0.04, stop + 0.02, sz + sw / 2 - 0.1]], { hidden: true, ledge: true });
   [-1, 1].forEach(sd => quarter(sxf + 1.0, sz + sd * (sw / 2 + 1.7), sd > 0 ? Math.PI : 0, 3.4, 2.4, 0.25));
   // and a thin trickle of sludge coming out of it, across the floor to the trench
-  const tr = new THREE.Mesh(new THREE.PlaneGeometry(RV.xc - RV.sh - sxf, 0.8), SLUDGE.mat); tr.rotation.x = -Math.PI / 2; tr.position.set((sxf + RV.xc - RV.sh) / 2, 0.012, sz); scene.add(tr);
+  rvTrickle(sxf + 0.1, sz, RV.xc - RV.sh + 0.3, sz + 1.2, 1.1, 3);
 }
 
 // ---- DIY spots under the bridges ----
@@ -6144,7 +6472,7 @@ rvAccessRamp(-1, 66, 112);
   { const px = RV.xc + B.piers - 0.75, R = 1.6, D = 0.4, hl = (R * 0.97 + D) / 2; quarter(px - hl, B.z, Math.PI / 2, 8, R, D); }
   funbox(RV.xc - 6.5, B.z - 2, 0, 1.4, 1.4, 1.0, 1.7);
   funbox(RV.xc - 6, B.z + 7, Math.PI / 4, 0.4, 2.6, 0.75, { xn: 1.4, xp: 1.4, zn: 0.02, zp: 1.2 });
-  addRail(RV.xc - 9.5, 0.5, B.z + 11, RV.xc - 9.5, 0.95, B.z + 6, {});
+  addRail(RV.xc - 9.5, 0.0, B.z + 12.6, RV.xc - 9.5, 0.95, B.z + 6, {});   // a pole jam up out of the floor
 }
 // ---- filler lines on the floor between the bridges, so every stretch has something to hit ----
 // the sludge gap: a kicker on the west side of the trench and a landing ramp on the east
@@ -6168,7 +6496,7 @@ funbox(RV.xc + 7, -262, 0.3, 1.4, 1.4, 0.9, 1.6);
 // up north: a bump to bar
 { const bx = RV.xc + 7, bz = 100;
   rvPiece(bx, bz + 1.6, 0, 1.8, 1.6, (lx, lz) => 0.6 * Math.max(0, Math.cos(lz / 1.6 * Math.PI / 2)) ** 2 * taper(1.8 - Math.abs(lx), 0.4), RM.diy, 0.1);
-  addRail(bx - 1.6, 0.62, bz - 1.4, bx + 1.6, 0.62, bz - 1.4, {}); }
+  addRail(bx - 1.6, 0.62, bz - 1.4, bx + 2.3, 0.0, bz - 1.4, {}); }   // a pole jam: held up at one end, the other end runs into the ground
 // ---- the graffiti, placed like a real spot: big worn roller letters on the banks, throw-ups and tags along the barriers, the
 // sound wall and the retaining wall, worn heaven spots on the bridge faces, a few fresh pieces on the piers under the bridges,
 // tags round the DIY spots and the camp. Nothing on the vert wall: that one's the user's. ----
@@ -6251,7 +6579,7 @@ if (typeof makeGraffitiDecal === 'function') {
     (k, zc, w, h) => rvDecal(k, RV.wallX + 0.02, Math.min(RV.deck + 0.35 + h / 2 + grr(0, 0.7), RV.upper - 0.15 - h / 2), zc, w, h, PI2));
   // the fence tranny (curves up toward -x; read from the street, so right is -z)
   { const prof = []; for (let k = 0; k <= 12; k++) { const t = lerp(0.12, 2.0, k / 12); prof.push([-72 - t, RV.upper + qProf(t, 2.2)]); }
-    [-104, -91, -78, -65, -52].forEach((z, i) => rvProfDecal(i % 2 ? TUS() : TAGS(), prof, z - 2.5, z + 2.5, -1, 0.025)); }
+    [-106, -97, -88, -48, -40, 15.5, 27.5].forEach((z, i) => rvProfDecal(i % 2 ? TUS() : TAGS(), prof, z - 2.5, z + 2.5, -1, 0.025)); }   // only where the tranny is (it breaks for the bridge)
   // the tunnel portals: a heaven spot over each arch, tags by the bore
   rvDecal('bb6', TRACK.x, RV.deck + 8.75, RV.PZN + 1 - 0.02, 10, 2.5, Math.PI); rvDecal('tg3', TRACK.x - 8, RV.deck + 1.5, RV.PZN + 1 - 0.02, 4, 2, Math.PI); rvDecal('tg9', TRACK.x + 8.5, RV.deck + 1.6, RV.PZN + 1 - 0.02, 4, 2, Math.PI);
   rvDecal('tu2', TRACK.x, RV.deck + 9.4, RV.PZS - 1 + 0.02, 6, 3, 0); rvDecal('tg6', TRACK.x + 8, RV.deck + 1.5, RV.PZS - 1 + 0.02, 4, 2, 0); rvDecal('tu8', TRACK.x - 8.5, RV.deck + 1.7, RV.PZS - 1 + 0.02, 4.4, 2.2, 0);
@@ -6313,11 +6641,10 @@ const BUM = { x: 51.5, z: -199, yaw: Math.PI * 0.55, state: 'idle', nextOk: 20, 
 if (typeof makeHomelessGuy === 'function') {
   BUM.rig = makeHomelessGuy(); BUM.rig.group.position.set(BUM.x, RV.deck, BUM.z); BUM.rig.group.rotation.y = BUM.yaw; scene.add(BUM.rig.group);
 }
-addObs({ cx: BUM.x, cz: BUM.z, a: BUM.yaw, hw: 0.5, hl: 1.0, f: () => RV.deck + 0.45 });
 // his boombox, on a milk crate by his head
 {
   const g = new THREE.Group(), dark = new THREE.MeshStandardMaterial({ color: 0x24262a, roughness: 0.5, metalness: 0.3 }), chrome = new THREE.MeshStandardMaterial({ color: 0xb9bec4, roughness: 0.25, metalness: 0.9 });
-  const crate = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.3, 0.36), new THREE.MeshStandardMaterial({ color: 0x1f5fa8, roughness: 0.7 })); crate.position.y = 0.15; crate.castShadow = true; g.add(crate);
+  g.add(junkMilkCrate({ w: 0.36, h: 0.3, color: 0x1f5fa8 }));
   const body = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.3, 0.16), dark); body.position.y = 0.45; body.castShadow = true; g.add(body);
   BUM.cones = [-0.19, 0.19].map(x => { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.075, 0.02, 20), new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 })); c.rotation.x = Math.PI / 2; c.position.set(x, 0.43, 0.085); g.add(c);
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.012, 6, 20), chrome); ring.position.set(x, 0.43, 0.09); g.add(ring); return c; });
@@ -6326,7 +6653,7 @@ addObs({ cx: BUM.x, cz: BUM.z, a: BUM.yaw, hw: 0.5, hl: 1.0, f: () => RV.deck + 
   const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.5, 4), chrome); ant.position.set(0.26, 0.82, 0); ant.rotation.z = -0.5; g.add(ant);
   BUM.box = new V3(BUM.x - 0.9, RV.deck, BUM.z + 1.6);
   g.position.copy(BUM.box); g.rotation.y = -2.2; scene.add(g);
-}   // he's in the way: you bump off him, you don't ride over him
+}   // no hitbox on him: you skate straight through
 {
   const bg = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 0.24, 8), new THREE.MeshStandardMaterial({ color: 0x5a3410, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.92 }));
   const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.03, 0.09, 8), bg.material); neck.position.y = 0.16; bg.add(neck);
@@ -6352,7 +6679,7 @@ if (typeof junkLitter === 'function') {
   put(P_(junkTire), 5, -20, 0.3, null); put(P_(junkTire, { lean: true }), RV.xc + 16.2, -60, 1.9, null); put(P_(junkTire), RV.xc - 0.3, 25, 0, null);
   put(P_(junkTire), -1, -230, 0.7, null); put(P_(junkTire, { lean: true }), RV.xc - 16.4, -238, -1.4, null);
   put(P_(junkMattress), -4, -150, 0.4, [0.72, 0.99, 0.27, 0.6]);
-  put(P_(junkMattress, { lean: true }), RV.xc - RV.floor + 0.5, 0, Math.PI / 2, null);
+  put(P_(junkMattress, { lean: true }), -6.55, -12.5, 1.384, null);   // leaning on the side wall of the maintenance ramp
   put(P_(junkCouch), -1, 74, Math.PI, [1.05, 0.47, 0.9]);                       // front-row seats for the pier quarters
   put(P_(junkCone, { knocked: true }), 26.5, -34, 0.4, null); put(P_(junkCone, { knocked: false }), 24.6, -12, 0, null);
   put(P_(junkBarrel), -2, -116, 0, [0.3, 0.3, 0.88]); put(P_(junkBarrel, { tipped: true }), -4.4, -133, 1.1, null);
@@ -6360,9 +6687,12 @@ if (typeof junkLitter === 'function') {
   put(P_(junkShoppingBags), 6, -196, 0, null); put(P_(junkShoppingBags), -2, 40, 0, null);
   put(junkBags(3, { seed: seed++ }), RV.xc - 14, -100, 0.5, null);
   // the decks and the upper street
-  put(P_(junkTent, { tarp: true }), BUM.x + 3.4, BUM.z - 3, -Math.PI / 2, [1.1, 0.8, 1.1]);
-  put(junkBags(5, { seed: seed++ }), BUM.x + 2.6, BUM.z + 3.2, 0.3, null);
-  put(P_(junkMattress, { lean: true }), 48.9, -199 + 5, -Math.PI / 2, null);
+  { // his tent: a rounded dome you can ride up and over like a bump
+    const t = put(P_(junkTent, { tarp: true }), BUM.x + 3.25, BUM.z - 3, -Math.PI / 2, null), D = t.userData.dome, ty = t.position.y;
+    addObs({ cx: t.position.x, cz: t.position.z, a: -Math.PI / 2, hw: D.SX, hl: D.SZ, f: (lx, lz) => { const q = Math.hypot(lx / D.SX, lz / D.SZ); return q < 1 ? ty + D.SY * D.prof(q) + 0.0001 : 0; } });
+  }
+  put(junkBags(5, { seed: seed++ }), BUM.x + 3.4, BUM.z + 1.7, 0.3, null);   // piled against the barrier
+  put(P_(junkMattress), BUM.x + 1.4, BUM.z + 4.4, 0.12, [0.72, 0.99, 0.27, 0.6]);   // his bed, flat on the deck
   put(P_(junkBarrel), BUM.x + 1, BUM.z - 6.2, 0, [0.3, 0.3, 0.88]);
   put(junkBags(4, { seed: seed++ }), 54.6, 40, 0, null);
   put(P_(junkCart, { tipped: true, loaded: true }), 53.8, -60, -0.6, null);
@@ -6375,22 +6705,32 @@ if (typeof junkLitter === 'function') {
   put(P_(junkCouch), -70.8, -128, Math.PI / 2, [1.05, 0.47, 0.9]);
   put(P_(junkTire, { lean: true }), -73.9, -20, Math.PI / 2, null); put(junkBags(3, { seed: seed++ }), -60, -32, 1, null);
   put(P_(junkCart), -61.5, -146, 0.9, [0.32, 0.5, 1.0]);
-  // litter: under the bridges, round the camp, along the barriers, wherever people sit
+  // litter: under the bridges, round the camp, along the barriers, wherever people sit; on the ground only (never on a prop, a ramp or the guy)
+  const smallObs = obstacles.filter(o => o.hw < 3 && o.hl < 3);
+  const litterGround = (x, z) => {
+    if (Math.hypot(x - BUM.x, z - BUM.z) < 2 || Math.hypot(x - BUM.box.x, z - BUM.box.z) < 0.5) return null;
+    for (const o of smallObs) { const dx = x - o.cx, dz = z - o.cz, lx = dx * o.c - dz * o.s, lz = dx * o.s + dz * o.c; if (Math.abs(lx) < o.hw + 0.12 && Math.abs(lz) < o.hl + 0.12) return null; }
+    return heightAt(x, z);
+  };
   scene.add(junkLitter([
     { x: RV.xc, z: RV.bridges[0].z, r: 15, n: 70 }, { x: RV.xc, z: RV.bridges[1].z, r: 15, n: 70 }, { x: RV.xc, z: RV.bridges[2].z, r: 15, n: 80 },
     { x: BUM.x, z: BUM.z, r: 5, n: 60 }, { x: 54, z: 10, r: 2.5, n: 30 }, { x: 54, z: -120, r: 2.5, n: 30 }, { x: 54, z: -260, r: 2.5, n: 25 },
     { x: 3, z: -10, r: 10, n: 25 }, { x: -60, z: -22, r: 6, n: 35 }, { x: -48, z: -150, r: 8, n: 35 }, { x: RV.xc + 9.5, z: -88, r: 7, n: 30 },
     { x: -5, z: -126, r: 5, n: 25 }, { x: -71, z: -70, r: 4, n: 25 }, { x: -2, z: 70, r: 4, n: 25 }, { x: -38, z: 30, r: 3, n: 15 },
-  ], heightAt, 777));
+  ], litterGround, 777));
 }
 // ---- the cop: on a bench on the east bike path with a donut, his cruiser parked by the fence ----
-const COP = { benchX: 45.6, benchZ: 101, benchYaw: -Math.PI / 2, carX: 51.6, carZ: 106, carYaw: Math.PI, carHW: 0.93, carHL: 2.45,
+const COP = { benchX: 45.6, benchZ: 101, benchYaw: -Math.PI / 2, carX: 46.8, carZ: 84, carYaw: Math.PI - 0.35, carHW: 0.93, carHL: 2.45,   // parked out on the open path, room all round
   state: 'idle', hasDonut: true, nextThrow: 0, lightsT: 0, refillAt: 0 };
 if (typeof makeCop === 'function') {
   const bench = makeBench(); bench.position.set(COP.benchX, RV.deck, COP.benchZ); bench.rotation.y = COP.benchYaw; scene.add(bench);
   addObs({ cx: COP.benchX, cz: COP.benchZ, a: COP.benchYaw, hw: 0.95, hl: 0.32, f: () => RV.deck + 0.46 });   // the bench seat is a little ledge
-  COP.rig = makeCop(); COP.rig.group.position.copy(bench.position); COP.rig.group.rotation.y = COP.benchYaw; scene.add(COP.rig.group);
-  addObs({ cx: COP.benchX + 0.05, cz: COP.benchZ, a: COP.benchYaw, hw: 0.45, hl: 0.4, f: () => RV.deck + 1.3 });   // and he's in the way
+  // he sits at one end; the other half of the seat's front edge and the backrest top grind, and grinding them winds him up
+  const bc = Math.cos(COP.benchYaw), bs = Math.sin(COP.benchYaw), BL = (lx, y, lz) => [COP.benchX + lx * bc + lz * bs, RV.deck + y, COP.benchZ - lx * bs + lz * bc];
+  const seat = BL(-0.45, 0, 0);
+  COP.rig = makeCop(); COP.rig.group.position.set(seat[0], RV.deck, seat[2]); COP.rig.group.rotation.y = COP.benchYaw; scene.add(COP.rig.group);
+  addObs({ cx: seat[0], cz: seat[2], a: COP.benchYaw, hw: 0.4, hl: 0.4, f: () => RV.deck + 1.3 });   // and he's in the way
+  COP.benchRails = [...addRailPath([BL(0.02, 0.47, 0.21), BL(0.88, 0.47, 0.21)], { hidden: true }), ...addRailPath([BL(0.02, 0.86, -0.34), BL(0.88, 0.86, -0.34)], { hidden: true })];
   COP.car = makePoliceCar(); COP.car.group.position.set(COP.carX, RV.deck, COP.carZ); COP.car.group.rotation.y = COP.carYaw; scene.add(COP.car.group);
   // the car's top in its own frame (front +z): trunk, rear window, roof, windshield, hood; bumpers lower; the light bar sticks up off the roof
   const D = { roof: [-0.92, 0.52, 1.5] };
@@ -6428,6 +6768,9 @@ const RIVER_SPAWNS = [
   { name: 'Fence tranny', x: -70.5, z: -30, heading: Math.PI },
   { name: 'U-ditch', x: RV.lipE + 2.5, z: 92, heading: -Math.PI / 2 },
   { name: 'Bank rail', x: RV.lipW - 1.2, z: 46.5, heading: 2.2 },
+  { name: 'Wall gap', x: -61, z: -4.8, heading: Math.PI / 2 },
+  { name: 'Bus stop', x: -62, z: -46, heading: 0 },
+  { name: 'Wall quarter', x: -42.5, z: -100, heading: Math.PI },
 ];
 
 
@@ -7227,7 +7570,7 @@ const tapped = c => !!pressed[c];
 // which trick key was just hit: +1 = E (right-side tricks), -1 = Q (left-side tricks), 0 = neither
 const trickTap = () => tapped(K.trick) ? 1 : tapped(K.trick2) ? -1 : 0;
 const trickHeld = side => side < 0 ? held(K.trick2) : held(K.trick);
-const steerInput = () => (held(K.left) ? 1 : 0) - (held(K.right) ? 1 : 0);
+const steerInput = () => TOUCH.active ? TOUCH.steer : (held(K.left) ? 1 : 0) - (held(K.right) ? 1 : 0);   // the touch stick steers by how far it's pushed
 const dirKey = () => held(K.up) ? 'up' : held(K.down) ? 'down' : held(K.left) ? 'left' : held(K.right) ? 'right' : 'none';
 const dirKey2 = () => {
   const v = held(K.up) ? 'up' : held(K.down) ? 'down' : '', h = held(K.left) ? 'left' : held(K.right) ? 'right' : '';
@@ -7235,15 +7578,40 @@ const dirKey2 = () => {
 };
 
 const isTouch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+const TOUCH = { active: false, steer: 0, id: null, cx: 0, cy: 0 };
 if (isTouch) {
   document.body.classList.add('touch');
+  const setKey = (action, on) => { const c = BIND[action]; if (on && !keys[c]) { pressed[c] = true; keys[c] = true; } else if (!on && keys[c]) { keys[c] = false; released[c] = true; } };
   document.querySelectorAll('#touch button').forEach(b => {
-    const code = () => BIND[b.dataset.action];
-    const down = e => { e.preventDefault(); const c = code(); if (!keys[c]) pressed[c] = true; keys[c] = true; b.classList.add('on'); try { b.setPointerCapture(e.pointerId); } catch (_) {} };
-    const up = e => { e.preventDefault(); const c = code(); keys[c] = false; released[c] = true; b.classList.remove('on'); };
+    const down = e => { e.preventDefault(); setKey(b.dataset.action, true); b.classList.add('on'); try { b.setPointerCapture(e.pointerId); } catch (_) {} };
+    const up = e => { e.preventDefault(); setKey(b.dataset.action, false); b.classList.remove('on'); };
     b.addEventListener('pointerdown', down);
     b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up);
   });
+  // the stick: it appears wherever your thumb lands on the left side; left/right steers (how far = how hard), up pushes, down brakes,
+  // and its direction also picks the flip or grind like the arrow keys do
+  const zone = $('stickZone'), stick = $('stick'), knob = $('stickKnob');
+  const move = e => {
+    const R = stick.offsetWidth * 0.42, dx0 = e.clientX - TOUCH.cx, dy0 = e.clientY - TOUCH.cy, len = Math.hypot(dx0, dy0), k = len > R ? R / len : 1;
+    const dx = dx0 * k / R, dy = dy0 * k / R;
+    knob.style.transform = `translate(${dx * R}px, ${dy * R}px)`;
+    const ax = Math.abs(dx); TOUCH.steer = ax < 0.12 ? 0 : -Math.sign(dx) * Math.min(1, (ax - 0.12) / 0.75);
+    setKey('push', dy < -0.45); setKey('brake', dy > 0.45); setKey('left', dx < -0.5); setKey('right', dx > 0.5);
+  };
+  const end = e => {
+    if (e.pointerId !== TOUCH.id) return;
+    TOUCH.id = null; TOUCH.active = false; TOUCH.steer = 0; stick.classList.remove('on'); stick.style.left = stick.style.top = ''; knob.style.transform = '';
+    ['push', 'brake', 'left', 'right'].forEach(a => setKey(a, false));
+  };
+  zone.addEventListener('pointerdown', e => {
+    e.preventDefault(); if (TOUCH.id != null) return;
+    TOUCH.id = e.pointerId; TOUCH.active = true; try { zone.setPointerCapture(e.pointerId); } catch (_) {}
+    const r = zone.getBoundingClientRect(); TOUCH.cx = e.clientX; TOUCH.cy = e.clientY;
+    stick.style.left = (e.clientX - r.left) + 'px'; stick.style.top = (e.clientY - r.top) + 'px'; stick.classList.add('on'); move(e);
+  });
+  zone.addEventListener('pointermove', e => { if (e.pointerId === TOUCH.id) { e.preventDefault(); move(e); } });
+  zone.addEventListener('pointerup', end); zone.addEventListener('pointercancel', end);
+  document.addEventListener('gesturestart', e => e.preventDefault());   // no pinch-zooming the page mid-line
 }
 
 // ---------- Controls reference ----------
@@ -7260,13 +7628,13 @@ const CONTROLS = () => {
       [[k('trick')], 'Right-side flips: kickflip, FS shove-it, impossible, anti-bigspin, inward heelflip and more. Also left click.'],
       [[k('trick2')], 'Left-side flips: heelflip, BS shove-it, hardflip, 360 shove-it, tre flip and more. Also right click.'],
       [['Air'], 'The game picks a flip from that side that fits your hang time. Tap again for a double, hold to keep it spinning.'],
-      [[k('grind')], 'Lock onto grind: press near a rail, ledge or coping (up to about 4 m away) and he jumps onto it and locks in. Works in the air too. With no rail nearby on the ground, it starts a manual or nose manual; press again or press W to roll out and push. Press S to revert and keep manualing.'],
+      [[k('grind')], 'Lock onto grind: press near a rail, ledge or coping (up to about 4 m away) and he jumps onto it and locks in. Works in the air too. With no rail nearby on the ground, it starts a manual or nose manual; press it again to revert and keep manualing. W rolls out and pushes; S drops out and brakes or powerslides.'],
       [['Grinds'], 'Hold a direction as you land on a rail: nothing = a random grind, W = Nosegrind, S = 5-0, A = Boardslide, D = Lipslide, W+A = Crooked, W+D = Noseslide, S+A = Smith, S+D = Tailslide. FS or BS comes from the side you approach. Press R on the rail to flip into a Darkslide, R again to flip back into a random grind, and so on.'],
       [['Landing'], 'Tap just before you land: manual on flat, revert on a ramp. Keeps the combo going.'],
       [['Ground'], 'Pops a flip straight off the ground.'],
       [['Rail'], 'On a rail: pop off into a flip. Grinds last as long as the rail; Space, a trick, or left / right gets you off.'],
     ]],
-    ['Other', [[[k('jump')], 'Into a wall mid-air: wallride, then ollie off it'], [[k('cam')], 'Switch camera'], [[k('spawn')], 'Next drop-in spot: mega ramp, halfpipe, bowl, pump track, tabletops'], [[k('reset'), k('pause'), k('mute')], 'Respawn, pause, mute']]],
+    ['Other', [[[k('jump')], 'Into a wall mid-air: wallride, then ollie off it'], [[k('cam')], 'Switch camera'], [[k('spawn')], 'Next drop-in spot: mega ramp, halfpipe, bowl, pump track, tabletops'], [[k('reset'), k('pause'), k('mute')], 'Respawn, pause, mute'], [['Real mode'], 'Pick it on the menu. Land flips all the way round and roll away straight (or switch), never drop too far or slam walls at speed, and lean with ' + k('left') + ' / ' + k('right') + ' to keep grinds and manuals balanced. ' + k('jump') + ' hops off a rail.']]],
   ];
 };
 function renderControls(el) {
@@ -7349,6 +7717,17 @@ const P = {
   switchSt: false, special: 0, lastTapT: -9, lastTapKey: null, push: { phase: -1 }, sliding: false, slideDir: 0, snapYaw: false,
   anim: { ollieT: -1, takeoff: 'roll', airT: 0, impact: 0, ay: 0, vyG: 0 }
 };
+// Real mode (picked on the menu): landings have to be clean, big drops and wall slams take you out, grinds and manuals need balancing.
+// Arcade stays as forgiving as ever.
+let REAL = false; try { REAL = localStorage.getItem('concrete-lines-mode') === 'real'; } catch (e) {}
+function realBalance(o, st, dt) {   // a needle that wants to fall over; lean back against it with A / D. true = you've lost it
+  if (o.bv === undefined) { o.bv = (Math.random() - 0.5) * 0.3; o.bal = (Math.random() - 0.5) * 0.1; }
+  const hard = 1 + Math.min(1.5, o.t * 0.12);
+  o.bv += (o.bal * 2.4 * hard + Math.sin(o.t * 1.7 + o.bv) * 0.5 * hard - st * 3.2) * dt;
+  o.bv *= 1 - Math.min(1, 1.5 * dt);
+  o.bal += o.bv * dt;
+  return Math.abs(o.bal) > 1;
+}
 const game = { running: false, paused: false, clock: 0, score: 0, best: 0,
   stats: { tricks: 0, bails: 0, bestCombo: 0 } };
 try { game.best = parseInt(localStorage.getItem('concrete-lines-best') || '0', 10) || 0; } catch (e) { game.best = 0; }
@@ -7393,7 +7772,7 @@ const MAPS = {
   park: { name: 'Concrete Park', set: PARK_SET, spawns: SPAWNS.slice(), gaps: GAPS.slice(), bounds: [136, 84, -278], attract: { x: 0, y: 6, z: 0, r: 115, h: 48 },
     lede: 'Mega park. Drop in from a 22-metre tower, clear the mega gap, carve the arena, then head south to the sky zone: ride the giant spiral rails up into a bowl floating 25 m in the air. Out on the wings: a 230 m mega half pipe with a loop-de-loop, sky rails, and a pool. Find the S-K-A-T-E letters and the secret tape.',
     eyebrow: 'Lot 9 skatepark · after hours' },
-  river: { name: 'LA River', set: RIVER_SET, spawns: RIVER_SPAWNS, gaps: [{ name: 'Sludge Gap', pts: 400, from: [RV.xc - 8, RV.xc - 4.4, -24, -20], to: [RV.xc + 2.8, RV.xc + 12, -25, -19] }], bounds: [RV.PX, RV.PZN, RV.PZS], attract: { x: RV.xc, y: 4, z: -60, r: 95, h: 34 },
+  river: { name: 'LA River', set: RIVER_SET, spawns: RIVER_SPAWNS, gaps: [{ name: 'Sludge Gap', pts: 400, from: [RV.xc - 8, RV.xc - 4.4, -24, -20], to: [RV.xc + 2.8, RV.xc + 12, -25, -19] }, { name: 'Wall Gap', pts: 350, from: [-53, -50.1, -7.3, -2.3], to: [-48.5, -39, -14, 4] }], bounds: [RV.PX, RV.PZN + 0.6, RV.PZS - 0.6], attract: { x: RV.xc, y: 4, z: -60, r: 95, h: 34 },
     lede: 'A dry flood channel at golden hour. Bomb the banks, carve across the sludge, and hit the DIY spots poured under the freeway bridges: pier quarters, a graffiti bowl, a ceiling quarter, ledges and a flat bar. Stairs and handrails up top, a U-ditch, a storm drain, a burning car. Leave the guy under the third bridge alone.',
     eyebrow: 'LA River · under the 5' },
 };
@@ -7411,7 +7790,7 @@ function setMap(id, opts = {}) {
   TRAFFIC.length = 0; TRAFFIC.push(...MAPS[id].set.traffic);
   SPAWNS.length = 0; SPAWNS.push(...MAPS[id].spawns); GAPS.length = 0; GAPS.push(...MAPS[id].gaps);
   [PX, PZN, PZS] = MAPS[id].bounds; PZC = (PZN + PZS) / 2; PZH = (PZN - PZS) / 2; LIMX = PX - 0.5; LIMZN = PZN - 0.5; LIMZS = PZS + 0.5;
-  MAPID = id; spawnIdx = 0; inSky = false; inDome = false; inTunnel = false;
+  MAPID = id; spawnIdx = 0; if ($("tunFade")) $("tunFade").style.opacity = "0"; inSky = false; inDome = false; inTunnel = false;
   if (id === 'river' && typeof grafFlush === 'function') grafFlush();   // any graffiti not painted yet in idle time
   PARK_ROOT.visible = id === 'park'; RIVER_ROOT.visible = id === 'river';
   if (RVB.birds) RVB.birds.setVisible(id === 'river');
@@ -7432,9 +7811,19 @@ function setMap(id, opts = {}) {
 // ---------- LA River: per-frame life (sludge, the fire, the guy with the beer, birds) ----------
 const RVB = { birds: null, threats: [{ x: 0, y: 0, z: 0, speed: 0 }], wasSludge: false, sprayT: 0, crackleT: 0 };
 if (typeof makeBirds === 'function') {
-  const perches = RV_PERCHES.slice();
-  RV.bridges.forEach(B => [B.z - B.w / 2 + 0.25, B.z + B.w / 2 - 0.25].forEach(z => [-40, 0, 40, 75].forEach(x0 => perches.push({ pts: [[x0, RV.top + 1.62, z], [x0 + 6, RV.top + 1.62, z]] }))));
-  RVB.birds = makeBirds(perches, { seed: 4242, flocks: 9, parent: RIVER_ROOT, groundY: (x, z) => heightAt(x, z) });
+  // mostly down where you skate (fence tops, the barriers, rails, the bank lips, the top of the retaining wall) so you can scare them off;
+  // only a few stay up on the wires and the bridge railings
+  const perches = RV_PERCHES.filter((p, i) => !p.wire || i % 4 === 0), seg = (x0, y0, z0, x1, y1, z1) => perches.push({ pts: [[x0, y0, z0], [x1, y1, z1]] });
+  RV.bridges.forEach((B, bi) => seg(bi * 30 - 20, RV.top + 1.62, B.z + B.w / 2 - 0.25, bi * 30 - 14, RV.top + 1.62, B.z + B.w / 2 - 0.25));
+  for (let z = RV.PZS + 12; z < RV.PZN - 8; z += 26) {
+    seg(RV.fenceX, RV.deck + 3.34, z, RV.fenceX, RV.deck + 3.34, z + 3.4);                        // the east fence top
+    seg(JB.x, RV.deck + JB.h + 0.01, z + 11, JB.x, RV.deck + JB.h + 0.01, z + 14.4);               // the jersey barriers
+    seg(RV.lipE + 0.25, RV.deck, z + 6, RV.lipE + 0.25, RV.deck, z + 9.4);                          // the bank lips
+    seg(RV.lipW - 0.25, RV.deck, z + 19, RV.lipW - 0.25, RV.deck, z + 22.4);
+    seg(RV.wallX - 0.2, RV.upper + 0.15, z + 15, RV.wallX - 0.2, RV.upper + 0.15, z + 18.4);       // the top of the retaining wall
+  }
+  [RV.PZN + 0.2, RV.PZS - 0.2].forEach(zf => [[-60, -56.6], [-30, -26.6], [44, 47.4]].forEach(([a, b]) => seg(a, rvBase(a) + 2.64, zf, b, rvBase(b) + 2.64, zf)));   // the end fences
+  RVB.birds = makeBirds(perches, { seed: 4242, flocks: 12, parent: RIVER_ROOT, groundY: (x, z) => heightAt(x, z) });
   RVB.birds.setVisible(false);
 }
 // green-brown sludge droplets
@@ -7548,12 +7937,30 @@ function riverTick(dt) {
     }
   }
   if (COP.proj) copTick(dt);
+  carAlarmTick(dt);
+  tunnelFade(dt);
   if (game.running) gooTick(dt);
   // birds on the wires and bridge rails scatter when you roll past
   if (RVB.birds) { const th = RVB.threats[0], sp = game.running ? (P.state === 'ground' ? Math.abs(P.s) : P.state === 'grind' ? Math.abs(P.grind.vr) : Math.hypot(P.vel.x, P.vel.z) + (P.state === 'air' ? 3 : 0)) : 0;
     th.x = P.pos.x; th.y = P.pos.y; th.z = P.pos.z; th.speed = game.running ? sp : 0; RVB.birds.tick(dt, game.running ? RVB.threats : []); }
 }
 // the cop on his bench: skate on his car and the lights and siren go off, and he lobs his donut at you
+function carAlarm() {   // a couple of seconds of the classic rising whoop, kept quiet under the skating
+  if (!sfx.ctx || !sfx.master || sfx.muted) return;
+  const ctx = sfx.ctx, t0 = ctx.currentTime + 0.01, o = ctx.createOscillator(), g = ctx.createGain(), f = ctx.createBiquadFilter();
+  o.type = 'square'; f.type = 'lowpass'; f.frequency.value = 1800;
+  for (let k = 0; k < 7; k++) { const a = t0 + k * 0.3; o.frequency.setValueAtTime(650, a); o.frequency.linearRampToValueAtTime(1350, a + 0.24); o.frequency.setValueAtTime(650, a + 0.28); }
+  g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(0.028, t0 + 0.05); g.gain.setValueAtTime(0.028, t0 + 2.0); g.gain.linearRampToValueAtTime(0, t0 + 2.12);
+  o.connect(f); f.connect(g); g.connect(sfx.master); o.start(t0); o.stop(t0 + 2.2);
+}
+function carAlarmTick(dt) {
+  for (const C of RV_CARS) {
+    const dx = P.pos.x - C.x, dz = P.pos.z - C.z, lx = dx * C.c - dz * C.s, lz = dx * C.s + dz * C.c;
+    const on = game.running && (P.state === 'ground' || P.state === 'grind') && Math.abs(lx) < C.hw + 0.15 && Math.abs(lz) < C.hl + 0.15 && P.pos.y > C.y0 + 0.5;
+    if (on && C.t <= 0) { C.t = 2.2; carAlarm(); }
+    if (C.t > 0) { C.t -= dt; C.car.setAlarm(C.t > 0, game.clock); }
+  }
+}
 function copSiren() {   // a short, quiet whoop-whoop
   if (!sfx.ctx || !sfx.master || sfx.muted) return;
   const ctx = sfx.ctx, t0 = ctx.currentTime + 0.01, o = ctx.createOscillator(), g = ctx.createGain(), f = ctx.createBiquadFilter();
@@ -7610,6 +8017,8 @@ function gooTick(dt) {
 }
 function copTick(dt) {
   const C = COP, t = game.clock, pr = C.proj;
+  // grinding his bench: he's had enough, here comes a donut
+  if (game.running && P.state === 'grind' && P.grind && C.benchRails && C.benchRails.includes(P.grind.r) && C.rig && C.state === 'idle' && C.hasDonut && t > C.nextThrow) { C.state = 'throw'; C.throwT = 0; C.nextThrow = t + 6; }
   if (C.car) {
     // on his car: lights and siren, and (if he's got a donut and isn't mid-throw) he throws it
     const dx = P.pos.x - C.carX, dz = P.pos.z - C.carZ, lx = dx * Math.cos(C.carYaw) - dz * Math.sin(C.carYaw), lz = dx * Math.sin(C.carYaw) + dz * Math.cos(C.carYaw);
@@ -7639,10 +8048,32 @@ function copTick(dt) {
   }
 }
 // river walls: the fence on each side stops you at any height, and the bridge girders are a ceiling
+// the train tunnels connect: ride (or grind the rails) into one and you roll out of the other at the far end of the map,
+// same speed and heading, through a quick dip to black
+const TUNW = { zn: RV.PZN - 0.45, zs: RV.PZS + 0.45, fadeOut: 0 };
+function tunnelVz() { return P.state === 'ground' ? Math.cos(P.heading) * P.s : P.state === 'grind' ? P.grind.r.dir.z * P.grind.vr : P.vel ? P.vel.z : 0; }
+function tunnelWarp() {
+  const p = P.pos; if (Math.abs(p.x - TRACK.x) > RV_GAP - 0.4 || P.state === 'bail') return;
+  const vz = tunnelVz(), span = TUNW.zn - TUNW.zs;
+  const dz = p.z > TUNW.zn && vz > 0 ? -span : p.z < TUNW.zs && vz < 0 ? span : 0;
+  if (!dz) return;
+  p.z += dz; camera.position.z += dz; rider.position.z += dz;
+  if (P.state === 'grind') { const g = P.grind, u = (p.z - g.r.a.z) / (g.r.dir.z * g.r.len); if (u > 0 && u < 1) g.u = u; else exitGrind(0.8); }
+  TUNW.fadeOut = 1;
+}
+function tunnelFade(dt) {   // darken as you head into a portal, then fade back up on the other side
+  let a = 0; const p = P.pos;
+  if (MAPID === 'river' && Math.abs(p.x - TRACK.x) < RV_GAP) { const vz = tunnelVz(); a = vz > 0 ? clamp(1 - (TUNW.zn - p.z) / 3, 0, 1) : vz < 0 ? clamp(1 - (p.z - TUNW.zs) / 3, 0, 1) : 0; }
+  TUNW.fadeOut = Math.max(0, TUNW.fadeOut - dt / 0.35);
+  const o = Math.max(a * a, TUNW.fadeOut); $('tunFade').style.opacity = o > 0.004 ? o.toFixed(3) : '0';
+}
 function riverStop() {
   if (MAPID !== 'river') return;
+  tunnelWarp();
   const p = P.pos, lim = RV.fenceX - 0.35;
-  if (p.x > lim && P.state !== 'bail') {
+  if (P.state === 'grind') { if (p.x > RV.fenceX + 0.1) p.x = RV.fenceX + 0.1; }   // the top of the fence grinds
+  else if (P.state === 'air' && p.x > lim) { p.x = Math.max(lim, p.x - 2.5 * (1 / 60)); if (P.vel.x > 0) P.vel.x = 0; }   // off the fence top: eased back over the barrier
+  else if (p.x > lim && P.state !== 'bail') {
     p.x = lim;
     if (P.state === 'ground') { const vx = Math.sin(P.heading) * P.s, vz = Math.cos(P.heading) * P.s; if (vx > 0) { const sp = Math.abs(vz); if (sp > 0.3) { P.heading = Math.atan2(0, vz) + (P.s < 0 ? Math.PI : 0); P.s = Math.sign(P.s) * sp * 0.9; } else P.s = 0; if (vx > 3) { sfx.bump(); shake = Math.max(shake, 0.3); } } }
     else if (P.vel && P.vel.x > 0) { P.vel.x *= -0.3; }
@@ -7727,7 +8158,7 @@ const grindName = g => (g.fs ? 'FS ' : 'BS ') + GRINDS[g.type].name;
 
 // ---------- Combo / UI ----------
 const ui = { score: $('score'), speed: $('speed'), best: $('best'), tricks: $('comboTricks'), pts: $('comboPts'),
-  toasts: $('toasts'), gbal: $('gbalance'), mbal: $('mbalance'), meter: $('meter'), fill: $('specialFill'), stanceTag: $('stanceTag'),
+  toasts: $('toasts'), gbal: $('gbalance'), gbalNeedle: document.querySelector('#gbalance .needle'), mbal: $('mbalance'), meter: $('meter'), fill: $('specialFill'), stanceTag: $('stanceTag'),
   letters: [...document.querySelectorAll('#letters span:not(.tape)')], tapeTag: $('tapeTag') };
 let liveLabel = '';
 function renderCombo() {
@@ -8030,21 +8461,22 @@ function stepGround(dt, st) {
   if (sp > 0.3) P.heading -= clamp(G * (lat / Math.sqrt(1 + lat * lat)) / Math.max(sp, 2) * 0.6, -3, 3) * dt * dirS;
 
   P.s -= G * sinT * dt;
-  // no kick-push: holding push just builds speed, strongest from a standstill and fading toward top speed
-  const topSpeed = 13.5 * (P.special >= 1 ? 1.1 : 1);
+  // no kick-push: holding push just builds speed, strongest from a standstill and fading toward top speed (~24 mph; a few seconds to get there)
+  const topSpeed = 10.7 * (P.special >= 1 ? 1.1 : 1);
   P.tuck = !man && !slide && P.charge === 0 && held(K.up) && sp >= 7;
   const uphill = Math.max(0, m * dirS);
   if (!man && !slide && held(K.up) && sp < topSpeed) {
-    P.s += dirS * (sp < 9.5 ? 8 : 2) * (1 + Math.min(1.2, uphill)) * dt;
+    P.s += dirS * (sp < 6.5 ? 4 : 1.6) * (1 + Math.min(1.2, uphill)) * dt;
   }
   // holding the ollie crouch is a speed tuck: builds speed on its own and tops out higher
-  if (!man && !slide && P.charge > 0 && sp < topSpeed * 1.2) {
-    P.s += dirS * (sp < 9.5 ? 7 : 3.5) * (1 + Math.min(1.2, uphill)) * dt;
+  if (!man && !slide && P.charge > 0 && sp < topSpeed * 1.13) {
+    P.s += dirS * (sp < 6.5 ? 3.5 : 1.8) * (1 + Math.min(1.2, uphill)) * dt;
   }
   P.push.phase = -1;
   if (man) {
     man.t += dt;
-    man.bal = Math.sin(man.t * 2.6) * 0.15;   // no balancing: just a little wobble for looks
+    if (REAL) { if (realBalance(man, st, dt)) { bail('Lost the manual'); return; } }
+    else man.bal = Math.sin(man.t * 2.6) * 0.15;   // no balancing: just a little wobble for looks
     combo.base += 140 * dt;
     if (sp < 0.8) endManual();
   } else if (held(K.down) && !P.revertBrakeHold) {
@@ -8070,7 +8502,9 @@ function stepGround(dt, st) {
     P.pos.set(nx, Math.max(ny, DOME.Hl + 0.01), nz); enterDome(P.vel); return;
   }
   const h = heightAt(nx, nz);
-  if (h - P.pos.y > 0.4 + Math.abs(dy) || (h - P.pos.y > 0.02 && (isWallAt(nx, nz, fx * dirS, fz * dirS) || stepAhead(nx, nz, h)))) { const w = wallNormal(nx, nz, fx * dirS, fz * dirS); glance(w[0], w[1]); return; }
+  if (h - P.pos.y > 0.4 + Math.abs(dy) || (h - P.pos.y > 0.02 && (isWallAt(nx, nz, fx * dirS, fz * dirS) || stepAhead(nx, nz, h)))) { const w = wallNormal(nx, nz, fx * dirS, fz * dirS), wl = Math.hypot(w[0], w[1]) || 1;
+    if (REAL && Math.abs(P.s) > 7 && (fx * dirS * w[0] + fz * dirS * w[1]) / wl > 0.75) { bail('Slammed into a wall'); return; }
+    glance(w[0], w[1]); return; }
   // leave the ground when the surface ahead falls away from the board's current slope
   const aheadSlope = Math.abs(dh) > 1e-5 ? (h - P.pos.y) / Math.abs(dh) : m * dirS;
   if (ny > h + 0.004 && m * dirS - aheadSlope > 0.55) {
@@ -8411,7 +8845,7 @@ function land(nx, h, nz) {
   let sketchy = false;
   finalizeSpecial();
   if (A.flip) {
-    if (A.flip.t >= 0.35) { sketchy = A.flip.t < 0.85; completeFlip(A); }
+    if (A.flip.t >= (REAL ? 0.8 : 0.35)) { sketchy = A.flip.t < (REAL ? 0.95 : 0.85); completeFlip(A); }
     else { bail('Landed mid-flip'); return; }
   }
   if (A.grab) { if (late && game.clock - A.grab.start < 0.3) { A.grab = null; liveLabel = ''; } else finalizeGrab(); }
@@ -8421,7 +8855,7 @@ function land(nx, h, nz) {
   const hl = Math.hypot(vt.x, vt.z), sp = vt.length();
   // how hard a landing he can take: a full special meter lets you drop from much higher; without it big drops take you out sooner
   // (dropping out of the floating bowl is the way down, so that landing never takes you out)
-  if (!(A.fromSky && !inSky) && Math.abs(vn) > (P.special >= 1 ? 32 : 22)) { bail('Too much impact'); return; }
+  if (!(A.fromSky && !inSky) && Math.abs(vn) > (REAL ? (P.special >= 1 ? 15 : 12) : (P.special >= 1 ? 32 : 22))) { bail('Too much impact'); return; }
   let note = '';
   if (hl > 0.8) {
     const yaw = Math.atan2(vt.x, vt.z), d = angDiff(P.heading, yaw);
@@ -8432,6 +8866,7 @@ function land(nx, h, nz) {
       if (Math.PI - Math.abs(d) > 0.65) sketchy = true;
       note = P.switchSt ? ' · rolling switch' : '';
     }
+    else if (REAL && hl > 2.5) { bail('Landed sideways'); return; }   // in Real mode you have to land it straight (or switch)
     else {
       // landed sideways: scrub it out with a powerslide and keep rolling
       const sw = Math.abs(d) > Math.PI / 2;
@@ -8581,7 +9016,7 @@ function grindTrick() {
     return;
   }
   // steer left or right to hop off the rail that way
-  const side = (tapped(K.right) ? 1 : 0) - (tapped(K.left) ? 1 : 0);
+  const side = REAL ? 0 : (tapped(K.right) ? 1 : 0) - (tapped(K.left) ? 1 : 0);   // (in Real mode A / D balance instead; ollie off)
   if (side) {
     const g = P.grind, sg = Math.sign(g.vr) || 1, hx = g.r.dir.x * sg, hz = g.r.dir.z * sg, hl = Math.hypot(hx, hz) || 1;
     const rx = -hz / hl * side, rz = hx / hl * side;           // the side you pressed, relative to where you're going
@@ -8698,7 +9133,8 @@ function stepGrind(dt, st) {
   else if (Math.abs(g.vr) > 19) g.vr -= Math.sign(g.vr) * Math.min(Math.abs(g.vr) - 19, 12 * dt);
   g.u += g.vr * dt / r.len;
   combo.base += (GRINDS[g.type].rate || 180) * dt;
-  g.bal = Math.sin(g.t * 2.3) * 0.12;   // no balancing: just a little sway for looks
+  if (REAL) { if (realBalance(g, st, dt)) { bail('Lost balance'); return; } }
+  else g.bal = Math.sin(g.t * 2.3) * 0.12;   // no balancing: just a little sway for looks
   // rails are chains of segments: roll straight onto the next one
   if (g.u > 1 && r.next) { const over = (g.u - 1) * r.len; g.r = r.next; g.u = over / g.r.len; }
   else if (g.u < 0 && r.prev) { const over = -g.u * r.len; g.r = r.prev; g.u = 1 - over / g.r.len; }
@@ -8735,6 +9171,15 @@ function stepBail(dt) {
   }
 }
 
+// R in a manual: revert and stay in the manual. The board spins round, you keep your speed, line and manual, now switch
+function manualRevert() {
+  P.switchSt = !P.switchSt;   // (no whole-body snap: your line doesn't change, only the board and stance turn)
+  addTrick('Revert', 100); P.manual.t = 0;
+  // spin the way you're steering (A turns left, D right; no steer picks one), showing the whole half-turn at a readable pace
+  const dir = P.steer ? Math.sign(P.steer) : (Math.random() < 0.5 ? -1 : 1);
+  P.recover = { t: 0, off: -dir * Math.PI, dur: 0.42 }; pose.yaw = pose.charYaw = P.recover.off;
+  P.manual.nose = !P.manual.nose;   // it pivots on the wheels that are down, so that end leads afterwards (manual <-> nose manual)
+}
 function physics(dt) {
   // once you're in the tunnel you stay in it until you leave by an end, whatever height you reach inside
   // the floating bowl switches on once you're up at its rim, and off once you've dropped well below it
@@ -8755,13 +9200,8 @@ function physics(dt) {
   if (tapped(K.spawn)) { spawnIdx = (spawnIdx + 1) % SPAWNS.length; respawn(); toast(SPAWNS[spawnIdx].name, 'drop-in spot', 'info'); return; }
   if (P.state === 'wall' && tapped(K.grind)) wallToGrind();   // from a wallride, R hops up onto the rail on top
   else if (P.state === 'ground' && P.manual && tapped(K.down)) {
-    // S in a manual: revert and stay in the manual. The board spins round, you keep your speed, line and manual, now switch
-    P.switchSt = !P.switchSt; P.revertBrakeHold = true;   // (no whole-body snap: your line doesn't change, only the board and stance turn)
-    addTrick('Revert', 100); P.manual.t = 0;
-    // spin the way you're steering (A + S turns left, D + S right; no steer picks one), showing the whole half-turn at a readable pace
-    const dir = P.steer ? Math.sign(P.steer) : (Math.random() < 0.5 ? -1 : 1);
-    P.recover = { t: 0, off: -dir * Math.PI, dur: 0.42 }; pose.yaw = pose.charYaw = P.recover.off;
-    P.manual.nose = !P.manual.nose;   // it pivots on the wheels that are down, so that end leads afterwards (manual <-> nose manual)
+    // S in a manual: drop the wheels and bank it; still holding S carries straight on into the usual powerslide / brake
+    endManual();
   }
   else if (P.state === 'ground' && P.manual && tapped(K.up)) {
     // W out of a manual: drop the wheels and push straight away; the combo stays open a moment to link into something else
@@ -8769,9 +9209,9 @@ function physics(dt) {
   }
   else if (P.state === 'ground' && tapped(K.grind)) {
     P.rArmT = game.clock;
-    // R on the ground: lock onto a rail if one's close, otherwise manual (R again to roll out of it)
+    // R on the ground: lock onto a rail if one's close, otherwise manual (R again reverts in it)
     if (!lockGrind()) {
-      if (P.manual) endManual();
+      if (P.manual) manualRevert();
       else if (Math.abs(P.s) > 1.5) { const nose = (combo.counts['Nose Manual'] || 0) + Math.random() * 0.9 < (combo.counts['Manual'] || 0) + Math.random() * 0.9; startManual(nose); }
     }
   }
@@ -8812,6 +9252,7 @@ function physics(dt) {
     if (P.pending <= 0) bankCombo(P.pendingNote || '');
   }
   P.revertable = Math.max(0, P.revertable - dt);
+  if (!combo.tricks.length && P.pending <= 0 && P.state !== 'bail') P.special = Math.max(0, P.special - dt / 1.5);   // out of a combo the special meter drains: keep the line going to keep it
 
   const sub = Math.max(2, Math.ceil(dt * 150)), h = dt / sub;
   for (let i = 0; i < sub; i++) {
@@ -9477,6 +9918,8 @@ function updateHUD(dt = 1 / 60) {
   ui.fill.style.width = (P.special * 100).toFixed(1) + '%';
   ui.meter.classList.toggle('full', P.special >= 1);
   ui.mbal.hidden = true;
+  { const o = REAL && game.running ? (P.state === 'grind' ? P.grind : P.state === 'ground' && P.manual ? P.manual : null) : null;
+    ui.gbal.hidden = !o; if (o) ui.gbalNeedle.style.left = (50 + clamp(o.bal || 0, -1, 1) * 50).toFixed(1) + '%'; }
   if (P.state === 'ground' || P.state === 'pipe' || P.state === 'dome') P.wheelSpin = Math.min(1, Math.abs(P.s) / 14);
   else P.wheelSpin = (P.wheelSpin || 0) * Math.exp(-dt / (P.state === 'air' ? 1.8 : 0.25));
   {
@@ -9564,7 +10007,7 @@ $('stGoofy').onclick = () => setStance('goofy');
 respawn();
 ui.best.textContent = fmt(game.best);
 if (location.hash === '#debug') {
-  window.__cl = { P, keys, pressed, released, combo, game, letters, tape, heightAt,
+  window.__cl = { P, keys, pressed, released, combo, game, letters, tape, heightAt, renderer, scene, render: () => renderer.render(scene, camera),
     step: dt => { game.clock += dt; physics(dt); for (const k in pressed) delete pressed[k]; for (const k in released) delete released[k]; },
     anim: dt => animate(dt), fx: dt => fxTick(dt), cam: dt => updateCamera(dt), rails, startGrind, legs, arms, pose, rider, camera,
     sfx, SPAWNS, RIM, setMap, get MAPID() { return MAPID; }, RV, BUM, WRECK, COP, obstacles, river: dt => { game.clock += dt; physics(dt); riverTick(dt); for (const k in pressed) delete pressed[k]; for (const k in released) delete released[k]; }, get camYaw() { return camYaw; }, set camYaw(v) { camYaw = v; }, get SPIRALS() { return SPIRALS; }, get inSky() { return inSky; }, get mp() { return { MP, mpPeers, mpTick, mpPresenceObj, mpCrash, NET }; }, snap: () => [P.state, +P.pos.x.toFixed(2), +P.pos.y.toFixed(2), +P.pos.z.toFixed(2), +P.s.toFixed(2), +P.vel.y.toFixed(2), +P.heading.toFixed(2), P.switchSt ? 'sw' : ''] };
@@ -9847,11 +10290,18 @@ function netJoin(raw) {
 
 // the map picker on the menu
 function mapNote(t) { const el = $('mapNote'); if (el) el.textContent = t; }
+function setMode(real) {
+  REAL = real; try { localStorage.setItem('concrete-lines-mode', real ? 'real' : 'arcade'); } catch (e) {}
+  document.querySelectorAll('#modePick button').forEach(b => b.setAttribute('aria-pressed', String((b.dataset.mode === 'real') === real)));
+  if ($('modeNote')) $('modeNote').textContent = real ? 'Land clean, watch the drops, balance grinds and manuals' : '';
+}
+document.querySelectorAll('#modePick button').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode === 'real')));
+setMode(REAL);
 document.querySelectorAll('#mapPick button').forEach(b => b.addEventListener('click', () => {
   if (NET.lockMap && b.dataset.m !== NET.lockMap) { mapNote('The host picks the map'); return; }
   setMap(b.dataset.m);
 }));
-{ let sv = 'park'; try { sv = localStorage.getItem('concrete-lines-map') || 'park'; } catch (e) {} setMap(MAPS[sv] ? sv : 'park', { quiet: true }); }
+{ let sv = 'river'; try { sv = localStorage.getItem('concrete-lines-map') || 'river'; } catch (e) {} setMap(MAPS[sv] ? sv : 'river', { quiet: true }); }
 
 function frame(now) {
   requestAnimationFrame(frame);

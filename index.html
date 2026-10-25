@@ -2746,6 +2746,7 @@ function junkLitter(spots, heightAt, seed) {
           basket.parent.add(m);
         });
         settle(root, inner, true);
+        root.userData.load = loads;   // so it can be knocked out of the basket
       }
       return root;
     }
@@ -5622,6 +5623,82 @@ obstacles.length = 0; PITS.length = 0; rails.length = 0; BOOSTS.length = 0; TRAF
 const RIVER_ROOT = new THREE.Group(); RIVER_ROOT.visible = false; scene.add(RIVER_ROOT);
 captureInto(RIVER_ROOT);
 const RV_CARS = [];   // parked cars (rvParkCar), for their alarms
+const RV_BOUNCE = [];   // mattresses lying flat: landing on one bounces you back up
+// carts and cones you can knock about: run into a cart and it rolls off (hit it fast and it goes over), cones go flying and tumble
+const RV_KNOCK = [];
+function rvKnock(g, kind, down) {
+  RV_KNOCK.push({ g, kind, down: !!down, x: g.position.x, y: g.position.y, z: g.position.z, vx: 0, vy: 0, vz: 0, r: kind === 'cart' ? 0.5 : 0.24, edge: kind === 'cart' ? 0.3 : 0.16,
+    base: g.quaternion.clone(), a: 0, tv: 0, tipDir: null, spin: 0, cool: 0 });
+  return g;
+}
+const _kv = new V3(), _kq = new THREE.Quaternion(), _kAx = new V3(), _kOff = new V3();
+// a loaded cart hit hard: everything in it bursts out in a poof of trash, the bags and cans land and stay, shreds of paper flutter down and fade
+const RV_DEBRIS = [];
+function trashPoof(k, pv) {
+  const at = new V3(k.x, k.y + 0.9, k.z);
+  k.g.userData.load.forEach(m => {
+    RIVER_ROOT.attach(m);
+    RV_DEBRIS.push({ m, v: new V3(pv.x * 0.6 + (Math.random() - 0.5) * 4, 3 + Math.random() * 3, pv.z * 0.6 + (Math.random() - 0.5) * 4), w: new V3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(10), keep: true, t: 0 });
+  });
+  k.g.userData.load = [];
+  const cols = [0xe8e4d8, 0xd8d0b8, 0x1b1b1d, 0x8a6a42, 0xc8322a, 0x2a5aa8];
+  for (let i = 0; i < 26; i++) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.08 + Math.random() * 0.12, 0.06 + Math.random() * 0.1), new THREE.MeshStandardMaterial({ color: cols[i % cols.length], roughness: 0.9, side: THREE.DoubleSide, transparent: true }));
+    m.position.copy(at).add(new V3((Math.random() - 0.5) * 0.5, Math.random() * 0.3, (Math.random() - 0.5) * 0.5)); RIVER_ROOT.add(m);
+    RV_DEBRIS.push({ m, v: new V3(pv.x * 0.5 + (Math.random() - 0.5) * 6, 1.5 + Math.random() * 2.5, pv.z * 0.5 + (Math.random() - 0.5) * 6), w: new V3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(16), keep: false, t: 0, flutter: true });
+  }
+  dust(at, 22, 1.4); sfx.bump();
+}
+function debrisTick(dt) {
+  for (let i = RV_DEBRIS.length - 1; i >= 0; i--) {
+    const d = RV_DEBRIS[i], m = d.m; d.t += dt;
+    if (!d.landed) {
+      d.v.y -= (d.flutter ? 3.5 : 9.8) * dt; if (d.flutter) { d.v.x *= 1 - 1.5 * dt; d.v.z *= 1 - 1.5 * dt; }
+      m.position.addScaledVector(d.v, dt); m.rotation.x += d.w.x * dt; m.rotation.y += d.w.y * dt; m.rotation.z += d.w.z * dt;
+      const gy = heightAt(m.position.x, m.position.z);
+      if (m.position.y <= gy + 0.02 && d.v.y < 0) { d.landed = true; m.position.y = gy + (d.flutter ? 0.01 : 0.03); if (d.flutter) m.rotation.set(-Math.PI / 2, 0, Math.random() * 6); else { m.rotation.x = Math.round(m.rotation.x / (Math.PI / 2)) * Math.PI / 2; m.rotation.z = Math.round(m.rotation.z / (Math.PI / 2)) * Math.PI / 2; } d.t = 0; }
+    } else if (!d.keep && d.t > 3) {
+      m.material.opacity = Math.max(0, 1 - (d.t - 3) / 1.5);
+      if (d.t > 4.5) { m.parent && m.parent.remove(m); m.geometry.dispose(); m.material.dispose(); RV_DEBRIS.splice(i, 1); }
+    } else if (d.keep) RV_DEBRIS.splice(i, 1);   // the bags and cans stay where they land
+  }
+}
+function knockTick(dt) {
+  if (!RV_KNOCK.length) return;
+  if (P.state === 'ground') groundVel(_kv); else if (P.vel && P.state !== 'bail') _kv.copy(P.vel); else _kv.set(0, 0, 0);
+  const psp = Math.hypot(_kv.x, _kv.z);
+  for (const k of RV_KNOCK) {
+    k.cool = Math.max(0, k.cool - dt);
+    const dx = k.x - P.pos.x, dz = k.z - P.pos.z, d = Math.hypot(dx, dz);
+    if (game.running && k.cool <= 0 && psp > 1 && d < k.r + 0.3 && Math.abs(P.pos.y - k.y) < 1.2 && (_kv.x * dx + _kv.z * dz) > 0) {
+      const nx = dx / (d || 1), nz = dz / (d || 1);
+      if (k.kind === 'cone') { k.vx = _kv.x * 1.1 + nx * 1.5; k.vz = _kv.z * 1.1 + nz * 1.5; k.vy = 1.5 + psp * 0.25; k.spin = (Math.random() - 0.5) * 14; }
+      else { k.vx = _kv.x * 0.85 + nx * 0.8; k.vz = _kv.z * 0.85 + nz * 0.8; k.spin = (Math.random() - 0.5) * 3; if (P.state === 'ground') P.s *= 0.8; }
+      if (!k.down && (k.kind === 'cone' || psp > 4.5)) { k.down = true; k.tipDir = new V3(_kv.x, 0, _kv.z).normalize(); k.tv = k.kind === 'cone' ? 6 : 1.5; }
+      k.cool = 0.25; sfx.bump(); shake = Math.max(shake, k.kind === 'cart' ? 0.15 : 0.05);
+      if (k.kind === 'cart' && k.g.userData.load && k.g.userData.load.length && !k.burst) { k.burst = true; trashPoof(k, _kv); }
+    }
+    const moving = Math.abs(k.vx) + Math.abs(k.vz) + Math.abs(k.vy) > 0.02 || (k.tipDir && k.a < Math.PI / 2 - 0.01);
+    if (!moving) continue;
+    const nx2 = k.x + k.vx * dt, nz2 = k.z + k.vz * dt, ground = heightAt(nx2, nz2);
+    if (ground > k.y + 0.3 && k.vy <= 0) { k.vx *= -0.3; k.vz *= -0.3; }   // bumped into something solid
+    else { k.x = nx2; k.z = nz2; }
+    const gy = heightAt(k.x, k.z);
+    if (k.y > gy + 0.01 || k.vy > 0) { k.vy -= 9.8 * dt; k.y += k.vy * dt; if (k.y <= gy) { k.y = gy; k.vy = Math.abs(k.vy) > 2 ? -k.vy * 0.3 : 0; } }
+    else { k.y = gy; const f = Math.max(0, 1 - (k.kind === 'cart' ? 1.6 : 3) * dt); k.vx *= f; k.vz *= f; k.spin *= f; }
+    if (k.tipDir && k.a < Math.PI / 2) { k.tv += 9 * dt; k.a = Math.min(Math.PI / 2, k.a + k.tv * dt); }
+    k.yawAdd = (k.yawAdd || 0) + k.spin * dt;
+    // pose: spun about the vertical, then tipped over its leading bottom edge
+    _kq.setFromAxisAngle(UP, k.yawAdd); k.g.quaternion.copy(_kq).multiply(k.base);
+    k.g.position.set(k.x, k.y, k.z);
+    if (k.tipDir && k.a > 0) {
+      _kAx.crossVectors(UP, k.tipDir).normalize(); _kq.setFromAxisAngle(_kAx, k.a);
+      k.g.quaternion.premultiply(_kq);
+      _kOff.copy(k.tipDir).multiplyScalar(-k.edge).applyQuaternion(_kq).addScaledVector(k.tipDir, k.edge); k.g.position.add(_kOff);
+    }
+  }
+}
+const onBouncy = (x, z) => MAPID === 'river' && RV_BOUNCE.some(b => { const dx = x - b.x, dz = z - b.z; return Math.abs(dx * b.c - dz * b.s) < b.hw && Math.abs(dx * b.s + dz * b.c) < b.hl; });
 const RV = { xc: 10, floor: 17, bank: 12, deck: 5.5, sh: 2.6, sd: 0.36, slush: -0.11, wallX: -50, upper: 9, fenceX: 56.55, under: 13.8, top: 15.6,
   PX: 76, PZN: 120, PZS: -300, flow: -1 };
 RV.bridges = [{ z: 52, w: 20, piers: 8.5, pierL: 8 }, { z: -68, w: 22, piers: 13.5 }, { z: -196, w: 20, piers: 13.5 }];   // bridge 1's piers are short so lines run past them to the vert wall
@@ -6438,7 +6515,18 @@ function rvTrickle(x0, z0, x1, z1, w, seed) {
   });
   bars.castShadow = true; scene.add(bars);
   addRailPath([[xf + 0.04, top + 0.02, z0 + 0.1], [xf + 0.04, top + 0.02, z1 - 0.1]], { hidden: true, ledge: true });
-  rvWedge(z0 - 6, z0 - 0.015, xf - 1, xb, 0, z => top * Math.pow(clamp((z - z0 + 6) / 6, 0, 1), 1.3), RM.diy, RM.diySide, true);   // a solid pour up the culvert's side (where it runs into the bank, the bank covers it)
+  // a big sheet of plywood leaned up against the culvert's side: a straight board to ride up onto the top
+  { const L = 6.2, W = 2.4, T = 0.06, bx = xf + 1.05, za = z0 - L, ang = Math.atan2(top, L), hyp = Math.hypot(L, top);
+    if (!RM.plywood) { const c = document.createElement('canvas'); c.width = 256; c.height = 512; const g = c.getContext('2d');
+      g.fillStyle = '#b08a5a'; g.fillRect(0, 0, 256, 512);
+      for (let k = 0; k < 70; k++) { g.strokeStyle = `rgba(${90 + Math.random() * 40 | 0},${60 + Math.random() * 25 | 0},30,${(0.12 + Math.random() * 0.2).toFixed(2)})`; g.lineWidth = 1 + Math.random() * 2; g.beginPath(); const x = Math.random() * 256; g.moveTo(x, 0); for (let y = 0; y <= 512; y += 32) g.lineTo(x + Math.sin(y * 0.02 + k) * 6, y); g.stroke(); }   // grain
+      for (let k = 0; k < 18; k++) { g.fillStyle = `rgba(40,32,22,${(0.08 + Math.random() * 0.15).toFixed(2)})`; g.beginPath(); g.ellipse(Math.random() * 256, Math.random() * 512, 6 + Math.random() * 30, 3 + Math.random() * 10, Math.random() * 3, 0, Math.PI * 2); g.fill(); }   // water stains and scuffs
+      g.fillStyle = 'rgba(25,22,18,0.55)'; for (let k = 0; k < 10; k++) g.fillRect(Math.random() * 250, Math.random() * 500, 3 + Math.random() * 30, 2);   // board-slide wax marks
+      RM.plywood = new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(c), roughness: 0.85 }); RM.plyEdge = new THREE.MeshStandardMaterial({ color: 0x8a6a42, roughness: 0.9 }); }
+    const board = new THREE.Mesh(new THREE.BoxGeometry(W, T, hyp), [RM.plyEdge, RM.plyEdge, RM.plywood, RM.plywood, RM.plyEdge, RM.plyEdge]);
+    board.position.set(bx, top / 2 + T / 2, za + L / 2); board.rotation.x = -ang; board.castShadow = board.receiveShadow = true; scene.add(board);
+    [-0.85, 0.85].forEach(dx => { const brace = new THREE.Mesh(new THREE.BoxGeometry(0.09, top * 0.55, 0.04), RM.plyEdge); brace.position.set(bx + dx, top * 0.275, za + L * 0.55); brace.castShadow = true; scene.add(brace); });   // a couple of 2x4s propping the middle
+    addObs({ cx: bx, cz: za + L / 2, a: 0, hw: W / 2, hl: L / 2, f: (lx, lz) => top * (lz + L / 2) / L + T * smoothT((lz + L / 2) / 0.4) + 0.0001 }); }   // the board edge at the toe is feathered so you roll on
   // storm-drain outlet on the west: a headwall with a big round pipe, transition walls flaring off both sides
   const sz = -126, sw = 9, stop = 3.4, sxf = RV.xc - RV.floor + 1.4, sxb = rvBankX(stop, -1);
   addObs({ cx: (sxf + sxb) / 2, cz: sz, a: 0, hw: (sxf - sxb) / 2, hl: sw / 2, f: () => stop });
@@ -6654,7 +6742,6 @@ const WRECK = { x: RV.xc + 9.5, z: -92, yaw: 0.35 };
   const P2 = (lx, lz, y) => [W.x + lx * c + lz * s, y, W.z - lx * s + lz * c];
   addRailPath([P2(-0.8, -1.33, 1.42), P2(-0.8, 0.83, 1.42)], { hidden: true }); addRailPath([P2(0.8, -1.33, 1.42), P2(0.8, 0.83, 1.42)], { hidden: true });
   addRailPath([P2(-0.9, 0.95, 0.9), P2(-0.9, 2.2, 0.9)], { hidden: true }); addRailPath([P2(0.9, 0.95, 0.9), P2(0.9, 2.2, 0.9)], { hidden: true });
-  kicker(W.x - 3.4 * s, W.z - 3.4 * c, W.yaw, 2.2, 1.6, 0.8);   // a scrap-plank ramp to get up onto the hood
   W.fires = [P2(0, 1.6, 1.0), P2(0, -0.2, 1.4), P2(0.3, -1.6, 0.95)].map(p => new V3(...p));
   W.light = new THREE.PointLight(0xff8a3a, 2.2, 22, 2); W.light.position.copy(W.fires[0]).add(new V3(0, 1.2, 0)); scene.add(W.light);
   // scorch on the concrete
@@ -6706,16 +6793,16 @@ if (typeof junkLitter === 'function') {
   };
   const P_ = (fn, opts) => fn(Object.assign({ seed: seed++ }, opts || {}));
   // down in the channel
-  put(P_(junkCart, { tipped: true, loaded: true }), 2, 8, 0.8, [0.5, 0.5, 0.55]);
-  put(P_(junkCart), -3, -45, 2.1, [0.32, 0.5, 1.0]);
-  put(P_(junkCart, { tipped: true }), RV.xc + 0.4, -30, 1.3, null);           // dumped in the sludge
-  put(P_(junkCart, { loaded: true }), RV.xc + 15.5, 18, -2.4, [0.32, 0.5, 1.1]);
+  rvKnock(put(P_(junkCart, { tipped: true, loaded: true }), 2, 8, 0.8, null), 'cart', true);
+  rvKnock(put(P_(junkCart), -3, -45, 2.1, null), 'cart');
+  rvKnock(put(P_(junkCart, { tipped: true }), RV.xc + 0.4, -30, 1.3, null), 'cart', true);           // dumped in the sludge
+  rvKnock(put(P_(junkCart, { loaded: true }), RV.xc + 15.5, 18, -2.4, null), 'cart');
   put(P_(junkTire), 5, -20, 0.3, null); put(P_(junkTire, { lean: true }), RV.xc + 16.2, -60, 1.9, null); put(P_(junkTire), RV.xc - 0.3, 25, 0, null);
   put(P_(junkTire), -1, -230, 0.7, null); put(P_(junkTire, { lean: true }), RV.xc - 16.4, -238, -1.4, null);
-  put(P_(junkMattress), -4, -150, 0.4, [0.72, 0.99, 0.27, 0.6]);
+  put(P_(junkMattress), -4, -150, 0.4, [0.72, 0.99, 0.27, 0.6]); RV_BOUNCE.push({ x: -4, z: -150, c: Math.cos(0.4), s: Math.sin(0.4), hw: 0.72, hl: 0.99 });
   put(P_(junkMattress, { lean: true }), -6.55, -12.5, 1.384, null);   // leaning on the side wall of the maintenance ramp
   put(P_(junkCouch), -1, 74, Math.PI, [1.05, 0.47, 0.9]);                       // front-row seats for the pier quarters
-  put(P_(junkCone, { knocked: true }), 23.2, -37.5, 0.4, null); put(P_(junkCone, { knocked: false }), 24.6, -12, 0, null);
+  rvKnock(put(P_(junkCone, { knocked: true }), 23.2, -37.5, 0.4, null), 'cone', true); rvKnock(put(P_(junkCone, { knocked: false }), 24.6, -12, 0, null), 'cone', false);
   put(P_(junkBarrel), -2, -116, 0, [0.3, 0.3, 0.88]); put(P_(junkBarrel, { tipped: true }), -4.4, -133, 1.1, null);
   put(P_(junkPallet), RV.xc + 8, -184.5, 0.2, null);
   put(P_(junkShoppingBags), 6, -196, 0, null); put(P_(junkShoppingBags), -2, 40, 0, null);
@@ -6727,10 +6814,11 @@ if (typeof junkLitter === 'function') {
   }
   put(junkBags(5, { seed: seed++ }), BUM.x + 3.4, BUM.z + 1.7, 0.3, null);   // piled against the barrier
   put(P_(junkMattress), BUM.x + 1.4, BUM.z + 4.4, 0.12, [0.72, 0.99, 0.27, 0.6]);   // his bed, flat on the deck
+  RV_BOUNCE.push({ x: BUM.x + 1.4, z: BUM.z + 4.4, c: Math.cos(0.12), s: Math.sin(0.12), hw: 0.72, hl: 0.99 });
   put(P_(junkBarrel), BUM.x + 1, BUM.z - 6.2, 0, [0.3, 0.3, 0.88]);
   put(junkBags(4, { seed: seed++ }), 54.6, 40, 0, null);
-  put(P_(junkCart, { tipped: true, loaded: true }), 53.8, -60, -0.6, null);
-  put(P_(junkCone, { knocked: true }), RV.lipE + 1.4, -172, 0.5, null); put(P_(junkCone), RV.lipW - 1.6, 10, 0, null);
+  rvKnock(put(P_(junkCart, { tipped: true, loaded: true }), 53.8, -60, -0.6, null), 'cart', true);
+  rvKnock(put(P_(junkCone, { knocked: true }), RV.lipE + 1.4, -172, 0.5, null), 'cone', true); rvKnock(put(P_(junkCone), RV.lipW - 1.6, 10, 0, null), 'cone', false);
   put(P_(junkSign, { kind: 'notrespass' }), RV.lipW - 1.4, 16.5, Math.PI / 2, null);
   put(P_(junkSign, { kind: 'notrespass' }), RV.lipE + 1.6, -181, -Math.PI / 2, null);
   put(P_(junkSign, { kind: 'street', bent: true }), -57.5, -98, 2.2, null);
@@ -6738,7 +6826,7 @@ if (typeof junkLitter === 'function') {
   put(P_(junkPallet), -36.5, -62, 0.4, null); put(P_(junkPallet, { lean: true }), -45.5, 64, -1.2, null);
   put(P_(junkCouch), -70.8, -128, Math.PI / 2, [1.05, 0.47, 0.9]);
   put(P_(junkTire, { lean: true }), -73.9, -20, Math.PI / 2, null); put(junkBags(3, { seed: seed++ }), -60, -32, 1, null);
-  put(P_(junkCart), -61.5, -146, 0.9, [0.32, 0.5, 1.0]);
+  rvKnock(put(P_(junkCart), -61.5, -146, 0.9, null), 'cart');
   // litter: under the bridges, round the camp, along the barriers, wherever people sit; on the ground only (never on a prop, a ramp or the guy)
   const smallObs = obstacles.filter(o => o.hw < 3 && o.hl < 3);
   const litterGround = (x, z) => {
@@ -7972,6 +8060,8 @@ function riverTick(dt) {
   }
   if (COP.proj) copTick(dt);
   carAlarmTick(dt);
+  knockTick(dt);
+  debrisTick(dt);
   tunnelFade(dt);
   if (game.running) gooTick(dt);
   // birds on the wires and bridge rails scatter when you roll past
@@ -8280,6 +8370,7 @@ function groundVel(out) {
   return out.set(fx * P.s * inv, P.s * m * inv, fz * P.s * inv);
 }
 function ollie(vy, spacePop, escape) {
+  if (onBouncy(P.pos.x, P.pos.z)) vy *= 1.4;   // popping off a mattress springs you higher
   groundVel(P.vel);
   const [gx, gz] = grad(P.pos.x, P.pos.z), gl = Math.hypot(gx, gz);
   let vert = false, xfer = false;
@@ -8861,7 +8952,8 @@ function stepAir(dt, st) {
       const [wx0, wz0] = wallNormal(nx, nz, P.vel.x, P.vel.z), wl = Math.hypot(wx0, wz0) || 1, wx = wx0 / wl, wz = wz0 / wl;
       const into = P.vel.x * wx + P.vel.z * wz, vhw = Math.hypot(P.vel.x, P.vel.z);
       const wallTop = Math.max(h, heightAt(P.pos.x + wx * 0.2, P.pos.z + wz * 0.2));
-      if (!inTunnel && P.wallCD <= 0 && wallTop > P.pos.y + 0.7 && vhw > 2.8 && into > 0 && into / vhw < 0.995 && !(A.flip && A.flip.t < 0.45)) { startWall(wx, wz); return; }
+      // (only proper walls: anything low like a couch or a car side just bumps you off)
+      if (!inTunnel && P.wallCD <= 0 && wallTop > P.pos.y + 0.7 && wallTop - heightAt(P.pos.x, P.pos.z) > 1.3 && vhw > 2.8 && into > 0 && into / vhw < 0.995 && !(A.flip && A.flip.t < 0.45)) { startWall(wx, wz); return; }
       if (into > 0) { P.vel.x -= wx * into * 1.1; P.vel.z -= wz * into * 1.1; }
       P.pos.y = Math.max(ny, heightAt(P.pos.x, P.pos.z)); return;
     }
@@ -8872,6 +8964,12 @@ function stepAir(dt, st) {
 
 function land(nx, h, nz) {
   const A = P.air;
+  // a mattress: boing. You stay in the air (a flip carries on), each bounce a bit lower until you settle
+  if (P.vel.y < -2.5 && onBouncy(nx, nz)) {
+    P.pos.set(nx, h + 0.02, nz); P.vel.y = Math.min(12, -P.vel.y * 0.72); P.vel.x *= 0.9; P.vel.z *= 0.9;
+    A.bounces = (A.bounces || 0) + 1; if (A.bounces === 1) addTrick('Mattress Bounce', 120);
+    sfx.land(0.2); P.anim.impact = 0.45; dust(P.pos, 4, 0.4); return;
+  }
   P.pos.set(nx, h, nz); P.landedAt = game.clock;
   const late = game.clock - P.lastTapT < 0.3;
   const tapKey = P.lastTapKey;

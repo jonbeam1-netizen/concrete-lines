@@ -1857,6 +1857,13 @@ var makeCop, makeBench, makePoliceCar;
     const map = kind === 'choc' ? chocoTex : kind === 'glaze' ? glazeTex : donutTex;
     const frost = add(g, new THREE.TorusGeometry(0.045, 0.026, 10, 22), std(0xffffff, 0.45, { map }));
     frost.rotation.x = -Math.PI / 2; frost.scale.set(1, 1, 0.62); frost.position.y = 0.011;   // a thick cap of icing over the top half
+    // a big chomp out of one side (shown after the first bite): the ring stops short there, with tooth-bump scallops on the bitten ends
+    const A = TAU * 0.68, gapMid = A + (TAU - A) / 2, chomp = new THREE.Group(); chomp.visible = false; g.add(chomp);
+    const cd = add(chomp, new THREE.TorusGeometry(0.044, 0.024, 10, 16, A), doughM); cd.rotation.x = Math.PI / 2;
+    const cf = add(chomp, new THREE.TorusGeometry(0.045, 0.026, 10, 16, A), frost.material); cf.rotation.set(-Math.PI / 2, 0, -A); cf.scale.set(1, 1, 0.62); cf.position.y = 0.011;
+    [A + 0.1, TAU - 0.1].forEach(a => [-1, 1].forEach(k => add(chomp, new THREE.SphereGeometry(0.011, 8, 6), doughM, Math.cos(a) * (0.044 + k * 0.009), k * 0.003, Math.sin(a) * (0.044 + k * 0.009), false)));
+    chomp.rotation.y = gapMid + Math.PI / 2;   // the missing bite turned to the edge that's on top as he holds it up to his mouth
+    g.userData.bitten = on => { dough.visible = frost.visible = !on; chomp.visible = on; };
     return g;   // ~0.14 m across, origin at its centre, frosting on +y
   }
 
@@ -1895,7 +1902,7 @@ var makeCop, makeBench, makePoliceCar;
   makeCop = function makeCop() {
     const navy = std(0x1f2b4d, 0.8), navyDark = std(0x161e36, 0.85), skin = std(0xe0a581, 0.65), black = std(0x111114, 0.45);
     const leather = std(0x0c0c0e, 0.35, { metalness: 0.1 }), gold = std(0xd8b04a, 0.3, { metalness: 0.85 }), white = std(0xf4f2ee, 0.5);
-    const hairM = std(0x5a4030, 0.9), cheekM = std(0xe98a7c, 0.7), mouthM = std(0x6b2a2a, 0.8), stache = std(0x6a4a34, 0.95);
+    const hairM = std(0x5a4030, 0.9), cheekM = std(0xe98a7c, 0.7), mouthM = std(0x2e1010, 0.9), stache = std(0x6a4a34, 0.95);
     const silver = std(0xc9ccd1, 0.3, { metalness: 0.8 });
 
     const root = new THREE.Group(); root.name = 'cop';
@@ -1939,31 +1946,32 @@ var makeCop, makeBench, makePoliceCar;
       add(torso, new THREE.BoxGeometry(0.05, 0.12, 0.03), black, 0.33, 0.0, -0.06);
       add(torso, new THREE.CylinderGeometry(0.006, 0.006, 0.08, 5), black, 0.33, 0.09, -0.06); }
 
-    // head: round face, rosy cheeks, bushy brows, mustache, peaked cap. front is +z
+    // head, built like the skater's and the bum's: a round skull with a chunky jaw under it, black beady eyes, little box brows,
+    // a cone nose, a push-broom mustache, short hair round the back under a peaked cap. front is +z
     const head = new THREE.Group(); head.position.set(0, 0.7, 0.03); torso.add(head);
-    const skull = add(head, new THREE.SphereGeometry(0.155, 20, 16), skin, 0, 0.12, 0); skull.scale.set(1, 1.02, 0.96);
-    add(head, new THREE.SphereGeometry(0.12, 14, 10), skin, 0, 0.035, 0.03).scale.set(1.15, 0.72, 1.05);   // jowls / double chin
-    add(head, new THREE.SphereGeometry(0.034, 12, 10), skin, 0, 0.115, 0.158).scale.set(1, 0.9, 1);         // bulb nose
+    const skull = add(head, new THREE.SphereGeometry(0.135, 20, 16), skin, 0, 0.12, 0); skull.scale.set(0.94, 1.08, 1);
+    add(head, new THREE.SphereGeometry(0.105, 16, 10), skin, 0, 0.045, 0.03).scale.set(1.12, 0.8, 1);        // the jaw (a heavy one)
     [-1, 1].forEach(s => {
-      add(head, new THREE.SphereGeometry(0.022, 10, 8), white, s * 0.055, 0.155, 0.13).scale.set(1, 1.15, 0.6);
-      add(head, new THREE.SphereGeometry(0.011, 8, 6), black, s * 0.055, 0.152, 0.143);
-      const brow = add(head, new THREE.BoxGeometry(0.06, 0.016, 0.02), hairM, s * 0.058, 0.19, 0.135); brow.rotation.z = -s * 0.15;
-      add(head, new THREE.SphereGeometry(0.03, 10, 8), cheekM, s * 0.085, 0.09, 0.115).scale.set(1, 0.75, 0.5);
-      add(head, new THREE.SphereGeometry(0.035, 10, 8), skin, s * 0.152, 0.12, 0.0).scale.set(0.45, 1, 0.7);    // ears
-      add(head, new THREE.SphereGeometry(0.05, 10, 8), hairM, s * 0.12, 0.13, -0.06).scale.set(0.5, 0.8, 1);   // short hair at the sides
-      const st = add(head, new THREE.SphereGeometry(0.04, 10, 8), stache, s * 0.033, 0.083, 0.152); st.scale.set(1.1, 0.42, 0.55); st.rotation.z = s * 0.25;
+      add(head, new THREE.SphereGeometry(0.016, 10, 8), black, s * 0.046, 0.137, 0.118);                       // black beady eyes
+      const brow = add(head, new THREE.BoxGeometry(0.046, 0.012, 0.014), hairM, s * 0.047, 0.166, 0.116); brow.rotation.z = -s * 0.12;
+      add(head, new THREE.SphereGeometry(0.034, 10, 8), skin, s * 0.127, 0.115, -0.005).scale.set(0.45, 1, 0.62);   // ears
+      const st = add(head, new THREE.BoxGeometry(0.05, 0.022, 0.024), stache, s * 0.023, 0.079, 0.128); st.rotation.z = s * 0.2;   // the mustache, in two halves drooping at the ends
     });
-    const mouth = new THREE.Group(); mouth.position.set(0, 0.05, 0.142); head.add(mouth);
-    const mouthOpen = add(mouth, new THREE.SphereGeometry(0.026, 10, 8), mouthM, 0, -0.018, -0.006); mouthOpen.scale.set(1, 0.15, 0.5);
-    // peaked cap
-    const cap = new THREE.Group(); cap.position.set(0, 0.205, -0.01); cap.rotation.x = -0.08; head.add(cap);
-    add(cap, new THREE.CylinderGeometry(0.162, 0.16, 0.05, 24), black, 0, 0, 0);
-    add(cap, new THREE.CylinderGeometry(0.19, 0.163, 0.075, 24), navy, 0, 0.06, 0);
-    add(cap, new THREE.CylinderGeometry(0.19, 0.19, 0.01, 24), navyDark, 0, 0.1, 0);
-    { const visor = add(cap, new THREE.CylinderGeometry(0.17, 0.17, 0.012, 20, 1, false, -Math.PI / 2, Math.PI), leather, 0, -0.02, 0.03);
-      visor.scale.z = 0.62; visor.rotation.x = 0.28; }
-    add(cap, new THREE.CylinderGeometry(0.022, 0.022, 0.01, 6), gold, 0, 0.055, 0.178).rotation.x = Math.PI / 2 - 0.25;   // cap badge
-    add(cap, new THREE.BoxGeometry(0.2, 0.008, 0.01), gold, 0, 0.006, 0.158).rotation.x = 0;                          // chin-strap cord
+    add(head, new THREE.ConeGeometry(0.021, 0.048, 8), skin, 0, 0.104, 0.142).rotation.x = Math.PI / 2;        // nose
+    // short hair round the back and sides, a band from under the cap down to the nape (the face side stays open)
+    add(head, new THREE.SphereGeometry(0.141, 18, 10, Math.PI * 1.06, Math.PI * 0.88, Math.PI * 0.26, Math.PI * 0.36), hairM, 0, 0.12, 0).scale.set(0.95, 1.08, 1.0);
+    // the mouth: a dark slot that opens wide for a bite and works when he chews
+    const mouth = new THREE.Group(); mouth.position.set(0, 0.054, 0.131); head.add(mouth);
+    const mouthOpen = add(mouth, new THREE.BoxGeometry(0.044, 0.01, 0.014), mouthM, 0, 0, 0, false);
+    // peaked cap, sitting up on the crown clear of the brows
+    const cap = new THREE.Group(); cap.position.set(0, 0.228, -0.012); cap.rotation.x = -0.06; head.add(cap);
+    add(cap, new THREE.CylinderGeometry(0.148, 0.146, 0.05, 24), black, 0, 0, 0);
+    add(cap, new THREE.CylinderGeometry(0.178, 0.149, 0.075, 24), navy, 0, 0.06, 0);
+    add(cap, new THREE.CylinderGeometry(0.178, 0.178, 0.01, 24), navyDark, 0, 0.1, 0);
+    { const visor = add(cap, new THREE.CylinderGeometry(0.155, 0.155, 0.012, 20, 1, false, -Math.PI / 2, Math.PI), leather, 0, -0.022, 0.03);
+      visor.scale.z = 0.62; visor.rotation.x = 0.2; }
+    add(cap, new THREE.CylinderGeometry(0.022, 0.022, 0.01, 6), gold, 0, 0.055, 0.166).rotation.x = Math.PI / 2 - 0.25;   // cap badge
+    add(cap, new THREE.BoxGeometry(0.19, 0.008, 0.01), gold, 0, 0.006, 0.146);                                          // chin-strap cord
 
     // arms (IK-driven, in torso space). His right is -x.
     const UA = 0.3, FA = 0.29, SH = 0.31;
@@ -2052,7 +2060,7 @@ var makeCop, makeBench, makePoliceCar;
     // ---- poses (torso space)
     const P = {
       holdR: new V3(-0.13, 0.29, 0.44), holdL: new V3(0.13, 0.29, 0.44),
-      biteR: new V3(-0.09, 0.63, 0.31), biteL: new V3(0.09, 0.63, 0.31),
+      biteR: new V3(-0.075, 0.58, 0.3), biteL: new V3(0.075, 0.58, 0.3),   // hands under the donut, pushing it up to his mouth
       restR: new V3(-0.22, 0.1, 0.38), restL: new V3(0.22, 0.1, 0.38),
     };
     const RELEASE_TIME = 0.62, TOTAL_TIME = 1.8;
@@ -2078,17 +2086,17 @@ var makeCop, makeBench, makePoliceCar;
     let time = 0, holdW = 1, nextBite = 3 + Math.random() * 4, biteT = -1;
     let throwT = -1, released = false, latch = false;
     const startR = new V3(), startL = new V3(), aimLocal = new V3(), tmpD = new V3(), tmpE = new V3();
-    let aimYaw = 0;
+    let aimYaw = 0, lookW = 0, lookYawS = 0, lookPitchS = 0, lookSide = 0;
 
-    root.userData.giveDonut = () => { hasDonut = true; held.visible = true; bites = 0; held.scale.setScalar(1); };
-    // eating: three messy bites per donut (crumbs everywhere, frosting on the mustache), then he reaches into the box for another
+    root.userData.giveDonut = () => { hasDonut = true; held.visible = true; bites = 0; held.userData.bitten(false); };
+    // eating: two big bites per donut (a chomp out of it, then the rest; crumbs everywhere, frosting on the mustache), then he reaches into the box for another
     let bites = 0, reachT = -1, crumbI = 0;
     const BOX = new V3(0.64, 0.5, 0.02), boxT = new V3(), mouthW = new V3();
-    const smear = add(head, new THREE.SphereGeometry(0.03, 8, 6), std(0xf7a8c8, 0.6), 0.02, 0.07, 0.158, false); smear.scale.set(1.2, 0.45, 0.4); smear.visible = false;
+    const smear = add(head, new THREE.SphereGeometry(0.03, 8, 6), std(0xf7a8c8, 0.6), 0.03, 0.074, 0.14, false); smear.scale.set(0.55, 0.28, 0.3);   // a dab of frosting caught in the mustache smear.visible = false;
     const crumbM = std(0xc8955a, 0.9), crumbs = [];
     for (let k = 0; k < 14; k++) { const c = add(root, new THREE.IcosahedronGeometry(0.012, 0), k % 3 ? crumbM : std(0xf7a8c8, 0.7), 0, -1, 0, false); c.visible = false; crumbs.push({ m: c, v: new V3(), t: 9 }); }
     const crumb = () => {
-      const c = crumbs[crumbI++ % crumbs.length]; root.updateWorldMatrix(true, true); head.localToWorld(mouthW.set(0, 0.03, 0.17)); root.worldToLocal(mouthW);
+      const c = crumbs[crumbI++ % crumbs.length]; root.updateWorldMatrix(true, true); head.localToWorld(mouthW.set(0, 0.054, 0.15)); root.worldToLocal(mouthW);
       c.m.position.copy(mouthW); c.v.set((Math.random() - 0.5) * 0.6, 0.3 + Math.random() * 0.4, 0.3 + Math.random() * 0.5); c.t = 0; c.m.visible = true;
     };
     const crumbTick = dt => crumbs.forEach(c => { if (c.t > 8) return; c.t += dt;
@@ -2108,7 +2116,7 @@ var makeCop, makeBench, makePoliceCar;
       // ---- breathing
       const br = Math.sin(time * 1.6);
       belly.scale.set(1 + br * 0.008, 1 + br * 0.005, 1 + br * 0.014);
-      let stand = 0, lean = 0, twist = 0, aimW = 0, headPitch = 0, chew = 0, donutBlend = 0;
+      let stand = 0, lean = 0, twist = 0, aimW = 0, headPitch = 0, chew = 0, donutBlend = 0, gape = 0;
       if (throwT >= 0) {
         throwT += dt; const t = throwT;
         stand = env(t, [[0, 0], [0.35, 1], [0.95, 1], [1.6, 0]]);
@@ -2127,10 +2135,11 @@ var makeCop, makeBench, makePoliceCar;
         let b = 0;
         if (biteT >= 0) {
           const was = biteT; biteT += dt; b = env(biteT, [[0, 0], [0.5, 1], [1.3, 1], [1.8, 0]]);
+          gape = env(biteT, [[0.15, 0], [0.45, 1], [0.55, 1], [0.62, 0.1]]);   // his jaw drops wide as the donut comes up, then chomp
           if (biteT > 0.5 && biteT < 1.65) chew = Math.abs(Math.sin((biteT - 0.5) * 11));
-          if (was < 0.55 && biteT >= 0.55) { bites++; held.scale.setScalar(Math.max(0.35, 1 - bites * 0.24)); smear.visible = true; for (let k = 0; k < 4; k++) crumb(); }   // chomp
+          if (was < 0.55 && biteT >= 0.55) { bites++; if (bites === 1) held.userData.bitten(true); else held.visible = false; smear.visible = true; for (let k = 0; k < 5; k++) crumb(); }   // CHOMP
           if (biteT > 0.6 && biteT < 1.6 && Math.floor(was * 6) !== Math.floor(biteT * 6)) crumb();   // and more falling out as he chews
-          if (biteT >= 1.8) { biteT = -1; if (bites >= 3) { hasDonut = false; held.visible = false; reachT = 0; nextBite = 2.5; } }
+          if (biteT >= 1.8) { biteT = -1; if (bites >= 2) { hasDonut = false; held.visible = false; reachT = 0; nextBite = 2.5; } }
         }
         // reach over into the box for the next one
         let reach = 0;
@@ -2152,18 +2161,42 @@ var makeCop, makeBench, makePoliceCar;
       const aim = root.userData.aimAt;
       if (aim && aimW > 0) { root.updateWorldMatrix(true, false); aimLocal.copy(aim); root.worldToLocal(aimLocal); targetYaw = clamp(Math.atan2(aimLocal.x, aimLocal.z - 0.2), -1.25, 1.25); }
       aimYaw = lerp(aimYaw, targetYaw, Math.min(1, dt * 8));
+      // keeping an eye on any skater nearby: the head turns to follow, and if you go round behind him he twists to look back over his shoulder
+      const look = root.userData.lookAt;
+      let lookYaw = 0, lookPitch = 0, lookOn = 0;
+      if (look && throwT < 0) {
+        root.updateWorldMatrix(true, false); aimLocal.copy(look); root.worldToLocal(aimLocal);
+        const dx = aimLocal.x, dz = aimLocal.z - 0.1, dist = Math.hypot(dx, dz);
+        if (dist < 14) {
+          lookOn = 1; let ang = Math.atan2(dx, dz);
+          if (Math.abs(ang) > 2.6) ang = Math.sign(lookSide || ang) * 2.6;   // straight behind: keep looking over the same shoulder instead of flipping
+          lookSide = ang; lookYaw = ang; lookPitch = clamp(-Math.atan2(aimLocal.y - 1.2, Math.max(0.5, dist)), -0.35, 0.3);
+        }
+      }
+      lookW = lerp(lookW, lookOn, Math.min(1, dt * 2.5));
+      lookYawS = lerp(lookYawS, lookYaw, Math.min(1, dt * 5)); lookPitchS = lerp(lookPitchS, lookPitch, Math.min(1, dt * 5));
+      const ly = lookYawS * lookW, headLook = clamp(ly, -1.35, 1.35), bodyLook = ly - headLook;   // the neck does what it can, the shoulders do the rest
       pelvis.position.lerpVectors(PELVIS_SIT, PELVIS_UP, stand);
       pelvis.rotation.set(0.32 * stand, aimYaw * aimW * 0.35, 0);
-      torso.rotation.set(lean, aimYaw * aimW * 0.55 + twist, -twist * 0.15);
-      head.rotation.set(headPitch, aimYaw * aimW * 0.15 - twist * 0.5, 0);
-      mouth.scale.set(1 - chew * 0.15, 1 + chew * 0.9, 1);
-      mouthOpen.scale.y = 0.15 + chew * 0.6;
+      torso.rotation.set(lean, aimYaw * aimW * 0.55 + twist + bodyLook * 0.8, -twist * 0.15);
+      head.rotation.set(headPitch + lookPitchS * lookW * 0.7, aimYaw * aimW * 0.15 - twist * 0.5 + headLook, 0);
+      mouth.scale.set(1 - chew * 0.12 + gape * 0.15, 1, 1);
+      mouthOpen.scale.y = 1 + chew * 1.6 + gape * 4.2;
+      mouthOpen.position.y = -0.006 * (chew * 0.6 + gape * 2.4);   // it opens downward, with the jaw
       solveLegs(); solveArm(armR); solveArm(armL); crumbTick(dt);
       // ---- donut placement: between both hands when holding, in his right hand while throwing
       if (held.visible) {
         tmpE.addVectors(armR.grip, armL.grip).multiplyScalar(0.5);
         if (throwT >= 0) { tmpE.lerp(armR.grip, donutBlend); held.position.copy(tmpE); held.rotation.set(1.2 + throwT * 4, 0.3, 0); }
-        else { held.position.copy(tmpE); held.position.z += 0.03; held.position.y += 0.03; held.rotation.set(1.3 + (held.userData.bite || 0) * 0.35, 0, 0); }
+        else {
+          held.position.copy(tmpE); held.position.z += 0.03; held.position.y += 0.03;
+          const bb = held.userData.bite || 0;
+          if (bb > 0) {   // up to his open mouth: the top edge of the ring goes right in for the chomp
+            root.updateWorldMatrix(true, true); torso.worldToLocal(head.localToWorld(mouthW.set(0, -0.012, 0.165)));
+            held.position.lerp(mouthW, smooth(bb));
+          }
+          held.rotation.set(1.3 + bb * 0.25, 0, 0);
+        }
       }
       return result;
     }
@@ -6713,6 +6746,16 @@ function rvAccessRamp(side, zLow, zHigh) {
 rvAccessRamp(1, -128, -178);
 rvAccessRamp(-1, -36, 14);
 rvAccessRamp(-1, 66, 112);
+// a floor overlay for a short tunnel: clear at the mouth, pure black by the back (along the plane's +x)
+function culvertFloorDark() {
+  if (!RM.floorDark) {
+    const c = document.createElement('canvas'); c.width = 64; c.height = 4; const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 64, 0);
+    gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(0.35, 'rgba(0,0,0,0.55)'); gr.addColorStop(0.7, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,1)');
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 4);
+    RM.floorDark = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, fog: false });
+  }
+  return RM.floorDark;
+}
 // the inside of a short tunnel running back (+x) from an opening at x = xf: walls and roof fade from shade at the mouth to black at the back
 function rvTunnelLining(dep, h, w, xf, zc) {
   const g = new THREE.BoxGeometry(dep - 0.04, h - 0.02, w - 0.04, 8, 1, 1), P = g.attributes.position, col = [];
@@ -6779,7 +6822,8 @@ function rvTrickle(x0, z0, x1, z1, w, seed) {
   const barG = new THREE.CylinderGeometry(0.022, 0.022, OH, 6), nb = Math.floor(OW / 0.16), bars = new THREE.InstancedMesh(barG, RM.rust, nb * 3), m4 = new THREE.Matrix4();
   [-5, 0, 5].forEach((dz, oi) => {
     const zz = zc + dz;
-    const end = new THREE.Mesh(new THREE.PlaneGeometry(OW, OH), RM.black); end.rotation.y = Math.PI / 2; end.position.set(xf + DEP - 0.01, OH / 2, zz); scene.add(end);   // it carries on into the dark
+    const end = new THREE.Mesh(new THREE.PlaneGeometry(OW, OH), RM.black); end.rotation.y = -Math.PI / 2; end.position.set(Math.min(xf + DEP - 0.03, RV.xc + RV.floor - 0.05), OH / 2, zz); scene.add(end);   // (in front of the bank toe, which would otherwise show as a pale slant at the back)   // it carries on into the dark (facing out, so you see black, not the concrete behind)
+    const dd = end.position.x - xf, dark = new THREE.Mesh(new THREE.PlaneGeometry(dd, OW - 0.05), culvertFloorDark()); dark.rotation.x = -Math.PI / 2; dark.position.set(xf + dd / 2, 0.014, zz); scene.add(dark);   // and the floor sinks into the black too
     scene.add(rvTunnelLining(DEP, OH, OW, xf, zz));
     const wet = new THREE.Mesh(new THREE.PlaneGeometry(DEP, OW), RM.trench); wet.rotation.x = -Math.PI / 2; wet.position.set(xf + DEP / 2, 0.008, zz); wet.receiveShadow = true; scene.add(wet);
     for (let b = 0; b < nb; b++) { m4.makeTranslation(xf + 0.14, OH / 2, zz - OW / 2 + (b + 0.5) * OW / nb); bars.setMatrixAt(oi * nb + b, m4); }
@@ -8427,6 +8471,7 @@ function copTick(dt) {
   }
   if (C.rig) {
     if (C.state === 'throw') C.rig.group.userData.aimAt = P.pos;
+    C.rig.group.userData.lookAt = game.running && P.state !== 'bail' ? P.pos : null;   // he watches whoever's skating near him
     const ev = C.rig.update(dt, C.state);
     if (ev === 'release') { copThrow(); C.hasDonut = false; }
     if (ev === 'done' || (C.state === 'throw' && (C.throwT += dt) > 3.5)) { C.state = 'idle'; C.refillAt = t + 4; }

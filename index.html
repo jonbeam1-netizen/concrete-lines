@@ -8386,6 +8386,7 @@ const GRIND_KEYS = { none: 'fifty', up: 'nose', down: 'five', left: 'board', rig
 const GRIND_CYCLE = ['fifty', 'nose', 'five', 'board', 'lip', 'noseslide', 'tailslide', 'smith', 'crook'];
 const randomGrind = not => { const o = GRIND_CYCLE.filter(t => t !== not); return o[Math.floor(Math.random() * o.length)]; };
 const GRIND_HOP = 0.34;
+const GRIND_BLEND = 0.14;   // seconds to ease from where he locked on onto the rail itself
 const RAIL_POP = 4.6;     // pop speed for a flip off a rail (lower than an ollie, so you're back on it quickly)   // how long the little hop between grinds takes
 const grindName = g => (g.fs ? 'FS ' : 'BS ') + GRINDS[g.type].name;
 
@@ -9009,8 +9010,9 @@ function stepAir(dt, st) {
       const al = ex * r.dh.x + ez * r.dh.y, lx = ex - r.dh.x * al, lz = ez - r.dh.y * al;
       P.vel.x += lx * 10 * dt; P.vel.z += lz * 10 * dt;
     }
-    // close enough: snap on, whether still rising or already coming down
-    if (P.grindCD <= 0 && u > -0.05 && u < 1.05 && el < (A.aimed ? 0.9 : 0.85) && P.pos.y > ry - 0.45 && (A.regrind ? P.vel.y < 0 && P.pos.y < ry + 0.45 : P.pos.y < ry + (P.vel.y < 0 ? 1.2 : 0.7))) {
+    // close enough: lock on only once he's actually down at the rail (no yanking him onto it from way above), then ease the last bit
+    const above = A.aimed ? (P.vel.y < 0 ? 0.55 : 0.35) : 0.4;
+    if (P.grindCD <= 0 && u > -0.05 && u < 1.05 && el < (A.aimed ? 0.75 : 0.6) && P.pos.y > ry - 0.45 && (A.aimed || P.vel.y < 0.5) && P.pos.y < ry + above) {
       const along = P.vel.x * r.dh.x + P.vel.z * r.dh.y;
       startGrind(r, clamp(uc, 0.005, 0.995), along); return;
     }
@@ -9327,7 +9329,9 @@ function startGrind(r, u, along) {
   addTrick(grindName(P.grind), 100);
   combo.grind = true;
   P.state = 'grind'; P.air = null; P.pending = 0;
+  const from = P.pos.clone();
   P.pos.copy(r.a).addScaledVector(r.dir, u * r.len);
+  P.grind.blend = from.sub(P.pos); P.grind.bt = 0;   // where he really was: drawn there and eased onto the rail over a moment
   P.anim.impact = 0.35;
   sfx.clank();
 }
@@ -9356,7 +9360,7 @@ function railLaunch() {
 }
 function stepGrind(dt, st) {
   const g = P.grind, r = g.r;
-  g.t += dt;
+  g.t += dt; if (g.blend) g.bt += dt;
   if (g.hopT !== undefined && g.hopT < GRIND_HOP) {
     const was = g.hopT; g.hopT += dt;
     if (g.nextType && g.hopT >= 0.1) { g.type = g.nextType; g.nextType = null; addTrick(grindName(g), 100); }   // the board turns over while he's up
@@ -9559,6 +9563,7 @@ function orientRider(dt) {
     if (P.dome.v.lengthSq() > 0.09) fwdV.copy(P.dome.v).normalize(); else fwdV.set(Math.sin(P.heading), 0, Math.cos(P.heading));
   } else if (P.state === 'grind') {
     const r = P.grind.r; fwdV.copy(r.dir).multiplyScalar(Math.sign(P.grind.vr) || 1);
+    if (P.grind.blend) { const k = 1 - smooth(Math.min(1, P.grind.bt / GRIND_BLEND)); if (k > 0) rider.position.addScaledVector(P.grind.blend, k); else P.grind.blend = null; }
     if (r.loop) upV.copy(r.center).sub(P.pos).normalize(); else upV.set(0, 1, 0);
   } else {
     if (P.state === 'ground' || P.state === 'bail') surfaceUp(upV);

@@ -8760,9 +8760,10 @@ function riverStop() {
   if (P.state === 'grind') { if (p.x > RV.fenceX + 0.1) p.x = RV.fenceX + 0.1; }   // the top of the fence grinds
   else if (P.state === 'wall') { if (p.x > RV.fenceX - 0.13) p.x = RV.fenceX - 0.13; }   // wallriding the fence: wheels right on the chain-link
   else if (P.state === 'air' && p.x > lim && p.y > RV.deck + 3.1) { p.x = Math.max(lim, p.x - 2.5 * (1 / 60)); if (P.vel.x > 0) P.vel.x = 0; }   // off the fence top: eased back over the barrier
-  else if (P.state === 'air') { if (p.x > RV.fenceX - 0.13) { p.x = RV.fenceX - 0.13; if (P.vel.x > 0) P.vel.x = 0; } }   // below the top the fence itself is solid (wallride it)
+  else if (P.state === 'air' && p.y > RV.deck + JB.h + 0.1) { if (p.x > RV.fenceX - 0.13) { p.x = RV.fenceX - 0.13; if (P.vel.x > 0) P.vel.x = 0; } }   // up above the barrier the fence itself is solid (wallride it)
+  else if (P.state === 'air' && p.x > lim) { p.x = lim; p.y = Math.max(p.y, heightAt(p.x, p.z)); if (P.vel.x > 0) P.vel.x = 0; }   // down at barrier height: the old limit, sat on top of the barrier, never inside it
   else if (p.x > lim && P.state !== 'bail') {
-    p.x = lim;
+    p.x = lim; p.y = Math.max(p.y, heightAt(p.x, p.z));   // (the limit is over the barrier's top: stand on it, don't sink into it)
     if (P.state === 'ground') { const vx = Math.sin(P.heading) * P.s, vz = Math.cos(P.heading) * P.s; if (vx > 0) { const sp = Math.abs(vz); if (sp > 0.3) { P.heading = Math.atan2(0, vz) + (P.s < 0 ? Math.PI : 0); P.s = Math.sign(P.s) * sp * 0.9; } else P.s = 0; if (vx > 3) { sfx.bump(); shake = Math.max(shake, 0.3); } } }
     else if (P.vel && P.vel.x > 0) { P.vel.x *= -0.3; }
   }
@@ -9661,10 +9662,12 @@ function grindAssist() {
   }
   return false;
 }
+// the way reverts spin: fixed by your stance (not flipped by riding switch), so revert after revert keeps turning the same way round
+const revDir = () => stance === 'regular' ? -1 : 1;
 function revert() {
   // spin the board back around on landing and keep the line going
   addTrick('Revert', 100); P.pending = 0.9; P.revertable = 0; P.didRevert = true;
-  P.recover = { t: 0, off: (Math.random() < 0.5 ? -1 : 1) * 1.3 }; pose.yaw = pose.charYaw = P.recover.off;
+  P.recover = { t: 0, off: -revDir() * 1.3 }; pose.yaw = pose.charYaw = P.recover.off;   // always the same way round (revert again and he keeps turning that way)
 }
 // Nearest rail, ledge or coping the rider could reach: ahead, roughly lined up, not far above
 function findRail(maxDist, fromGround, maxUp, maxSide = 1.6) {
@@ -9908,8 +9911,8 @@ function stepBail(dt) {
 function manualRevert() {
   P.switchSt = !P.switchSt;   // (no whole-body snap: your line doesn't change, only the board and stance turn)
   addTrick('Revert', 100); P.manual.t = 0;
-  // spin the way you're steering (A turns left, D right; no steer picks one), showing the whole half-turn at a readable pace
-  const dir = P.steer ? Math.sign(P.steer) : (Math.random() < 0.5 ? -1 : 1);
+  // always the same way round, so reverting again keeps him turning in a circle instead of spinning back; the whole half-turn at a readable pace
+  const dir = revDir();
   P.recover = { t: 0, off: -dir * Math.PI, dur: 0.42 }; pose.yaw = pose.charYaw = P.recover.off;
   P.manual.nose = !P.manual.nose;   // it pivots on the wheels that are down, so that end leads afterwards (manual <-> nose manual)
 }

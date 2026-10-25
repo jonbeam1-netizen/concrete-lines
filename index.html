@@ -786,7 +786,7 @@ function bowl(pts, Rb, Rt, D, S) {
 }
 function stairs(cx, cz, a, W, n, rise, tread) {
   const L = n * tread, hl = L / 2, hw = W / 2, H = n * rise;
-  addObs({ cx, cz, a, hw, hl, f: (lx, lz) => Math.max(0, H - rise * (Math.floor((lz + hl) / tread) + 1)) });
+  addObs({ cx, cz, a, hw, hl, stairs: true, f: (lx, lz) => Math.max(0, H - rise * (Math.floor((lz + hl) / tread) + 1)) });
   const group = new THREE.Group(); group.position.set(cx, 0, cz); group.rotation.y = a;
   for (let i = 0; i < n; i++) {
     const h = H - rise * (i + 1); if (h <= 0) continue;
@@ -6459,13 +6459,14 @@ const TRACK = { x: -38, gauge: 1.435, bed: 0.28 };
     const groundAt = x => x < RV.wallX ? RV.upper : x > RV.lipW ? rvBase(x) : RV.deck;
     const lump = (x, d) => 0.9 * Math.sin(x * 0.31 + d * 0.17 + sd) * Math.sin(d * 0.23 - x * 0.12) + 0.5 * Math.sin(x * 0.9 + d * 0.7);
     const bump = (x, d) => {
-      const across = Math.exp(-Math.pow((x - fx) / 17, 6)) * smoothT((RV.lipW + 1.5 - x) / 3.5) * smoothT((x + 52) / 10);   // fades out before the bank lip and the street
-      const inFace = smoothT((half - Math.abs(x - fx)) / 2.5), rise = lerp(smoothT(d / 14), 1, inFace);   // full height behind the face, rising from the ground beside it
-      const base = Math.max(0, (16 + lump(x, d)) * across * rise * Math.exp(-Math.pow(d / 75, 2)));
-      // right behind the portal the hill stands well clear of the wall's top, so the face is set into it (nothing peeking over its edge)
-      const side = smoothT((half + 14 - Math.abs(x - fx)) / 14), inF = smoothT((half - Math.abs(x - fx)) / 2.5);
-      const cover = side * lerp(smoothT(d / 12), 1, inF) * smoothT((RV.lipW + 1.5 - x) / 3.5) * smoothT((x + 52) / 10) * (faceH - 0.4 + 0.5 * d * Math.max(0, 1 - d / 80) + lump(x, d) * 0.5 * smoothT(d / 6));   // starts just under the wall's top edge and climbs away behind it
-      return Math.max(base, cover);
+      // the face is set into the hill: across its whole width the hill stands just over the face's top edge, with no lumps right behind it,
+      // then rolls down to the ground past each end (on the channel side it's gone a little way down the bank) and away behind
+      const ax = Math.abs(x - fx), fall = x > fx ? RV.lipW + 4 - (fx + half) : 12;
+      const wide = ax <= half + 0.6 ? 1 : smoothT(1 - (ax - half - 0.6) / fall);
+      const away = smoothT(1 - (d - 32) / 70), rough = smoothT((d - 3) / 9) * (0.6 + 0.4 * smoothT((ax - half) / 4 + 1));
+      const top = faceH + 0.6 + 13 * smoothT(d / 28) - (groundAt(x) - y0);   // measured from the deck, whatever ground it sits on
+      const front = lerp(1, smoothT(d / 10), smoothT((ax - half) / 1.5));   // beside the face it rises from the ground instead of standing there cut off
+      return Math.max(0, (top + lump(x, d) * 1.6 * rough) * wide * front * (d < 32 ? 1 : away));
     };
     const NX = 60, ND = 50, X0 = -60, X1 = RV.lipW + 3, DMAX = 110, hp = [], hc = [], hi = [], B = [];
     for (let j = 0; j <= ND; j++) for (let i = 0; i <= NX; i++) {
@@ -6527,20 +6528,18 @@ function rvParkCar(kind, color, x, y0, z, yaw, seed, wear) {
 // stair sets from the upper street down to the west deck, with handrails, a hubba and a bank
 function rvStairs(z, W, n, opts = {}) {
   const rise = (RV.upper - RV.deck) / n, tread = 0.48, L = n * tread, x0 = RV.wallX, cx = x0 + L / 2;
-  addObs({ cx, cz: z, a: 0, hw: L / 2, hl: W / 2, f: lx => RV.upper - rise * (Math.floor((lx + L / 2) / tread) + 1) + 0.0001 });
+  addObs({ cx, cz: z, a: 0, hw: L / 2, hl: W / 2, stairs: true, f: lx => RV.upper - rise * (Math.floor((lx + L / 2) / tread) + 1) + 0.0001 });
   for (let i = 0; i < n; i++) { const h = RV.upper - rise * (i + 1) - RV.deck; if (h <= 0.001) continue; const m = new THREE.Mesh(new THREE.BoxGeometry(tread, h, W), RM.wall); m.position.set(x0 + tread * (i + 0.5), RV.deck + h / 2, z); m.castShadow = m.receiveShadow = true; scene.add(m); }
   const railAt = (zz, y) => addRail(x0 - 1.2, RV.upper + y, zz, x0 + L - tread * 0.5, RV.deck + rise + y, zz, {});
   (opts.rails || []).forEach(dz => { railAt(z + dz, 0.92); cylBetween(new V3(x0 - 1.2, RV.upper, z + dz), new V3(x0 - 1.2, RV.upper + 0.92, z + dz), 0.035, mats.steel); });
-  if (opts.hubba) {   // a sloped concrete ledge down one side
-    const hz = z + opts.hubba, hw = 0.32, top = 0.75;
-    addObs({ cx: x0 + (L - 0.8) / 2, cz: hz, a: 0, hw: (L + 0.8) / 2, hl: hw, f: lx => { const t = clamp((lx + (L + 0.8) / 2) / (L + 0.8), 0, 1); return RV.upper - (RV.upper - RV.deck - rise) * t + top; } });
-    const g = new THREE.BoxGeometry(Math.hypot(L + 0.8, RV.upper - RV.deck - rise), 1.6, hw * 2); const m = new THREE.Mesh(g, RM.diySide);
-    m.rotation.z = -Math.atan2(RV.upper - RV.deck - rise, L + 0.8); m.position.set(x0 - 0.8 + (L + 0.8) / 2, (RV.upper + RV.deck + rise) / 2 + top - 0.8, hz); m.castShadow = true; scene.add(m); rvBoxUV(m, 4, 4, RV.deck, 0.3);
-    addRailPath([[x0 - 0.8, RV.upper + top + 0.02, hz - hw + 0.05], [x0 + L, RV.deck + rise + top + 0.02, hz - hw + 0.05]], { hidden: true, ledge: true });
-    addRailPath([[x0 - 0.8, RV.upper + top + 0.02, hz + hw - 0.05], [x0 + L, RV.deck + rise + top + 0.02, hz + hw - 0.05]], { hidden: true, ledge: true });
+  if (opts.hubba) {   // a sloped concrete ledge down one side, poured solid to the deck and butted right up against the steps
+    const hw = 0.32, top = 0.75, hz = z + Math.sign(opts.hubba) * (W / 2 + hw), xa = x0 - 0.8, xb = x0 + L, drop = RV.upper - RV.deck - rise;
+    rvWedge(xa, xb, hz - hw, hz + hw, RV.deck, x => RV.upper - RV.deck - drop * clamp((x - xa) / (xb - xa), 0, 1) + top, RM.wall, RM.rampWall);
+    addRailPath([[xa, RV.upper + top + 0.02, hz - hw + 0.05], [xb, RV.deck + rise + top + 0.02, hz - hw + 0.05]], { hidden: true, ledge: true });
+    addRailPath([[xa, RV.upper + top + 0.02, hz + hw - 0.05], [xb, RV.deck + rise + top + 0.02, hz + hw - 0.05]], { hidden: true, ledge: true });
   }
   if (opts.bank) {   // a smooth bank beside the stairs, same drop
-    const bz = z + opts.bank, bw = 3.2, bl = L + 1.5;
+    const bw = 3.2, bz = z + Math.sign(opts.bank) * (W / 2 + bw / 2), bl = L + 1.5;   // flush against the steps: no gap between them
     rvPiece(x0 + bl / 2, bz, 0, bl / 2, bw / 2, (lx, lz) => (RV.upper + 0.15 - RV.deck) * (1 - clamp((lx + bl / 2) / bl, 0, 1)) + 0.0001, RM.wall, 0.2);
     // solid sides down to the deck, so it reads as a poured block rather than a floating slab
     const pos = [], uv = [], idx = [], m = 12;
@@ -6823,8 +6822,8 @@ function rvTrickle(x0, z0, x1, z1, w, seed) {
 {
   const B = RV.bridges[0];
   [-1, 1].forEach(sd => { const px = RV.xc + sd * B.piers, R = 2.1, D = 0.3, hl = (R * 0.97 + D) / 2; quarter(px - sd * (0.75 + hl), B.z, sd > 0 ? Math.PI / 2 : -Math.PI / 2, B.pierL + 1, R, D); quarter(px + sd * (0.75 + hl), B.z, sd > 0 ? -Math.PI / 2 : Math.PI / 2, B.pierL + 1, R, D); });
-  funbox(RV.xc - 3.4, B.z + 16, 0, 0.35, 3.2, 1.05, { xn: 2.0, xp: 2.0, zn: 0.9, zp: 0.9 });
-  funbox(RV.xc + 4.6, B.z - 15, 0.5, 2.0, 1.6, 0.6, { xn: 1.6, xp: 0.02, zn: 1.3, zp: 1.3 });
+  funbox(RV.xc - 7, B.z + 16, 0, 0.35, 3.2, 1.05, { xn: 2.0, xp: 2.0, zn: 0.9, zp: 0.9 });     // the ridge wedge, out on the flat west of the sludge trench
+  funbox(RV.xc + 11, B.z - 15, 0.5, 2.0, 1.6, 0.6, { xn: 1.6, xp: 1.6, zn: 1.3, zp: 1.3 });    // a hubba box sloped on every side, on the flat east of the trench
   // the ceiling quarter: from the east bike path up toward the girders, against the abutment
   const R = 3.9, D = 0.9, x0 = RV.lipE - 0.05, z0 = B.z - B.w / 2 + 1.5, z1 = B.z + B.w / 2 - 1.5, top = qProf(R * 0.97, R);
   rvPiece(x0 + (R * 0.97 + D) / 2, B.z, 0, (R * 0.97 + D) / 2, (z1 - z0) / 2, (lx, lz) => qProf(lx + (R * 0.97 + D) / 2, R) * taper((z1 - z0) / 2 - Math.abs(lz), 1), RM.wall, 0.12);   // buffed clean so the piece on it pops
@@ -6861,7 +6860,7 @@ function rvTrickle(x0, z0, x1, z1, w, seed) {
   [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz]) => addRailPath([[RV.xc + 8.2 + sx * 0.27, 0.44, B.z + 1 + sz * 3 * -1], [RV.xc + 8.2 + sx * 0.27, 0.44, B.z + 1 + sz * 3]], { hidden: true, ledge: true }));
   { const px = RV.xc + B.piers - 0.75, R = 1.6, D = 0.4, hl = (R * 0.97 + D) / 2; quarter(px - hl, B.z, Math.PI / 2, 8, R, D); }
   funbox(RV.xc - 6.5, B.z - 2, 0, 1.4, 1.4, 1.0, 1.7);
-  funbox(RV.xc - 6, B.z + 7, Math.PI / 4, 0.4, 2.6, 0.75, { xn: 1.4, xp: 1.4, zn: 0.02, zp: 1.2 });
+  funbox(RV.xc - 7, B.z + 8, Math.PI / 4, 0.4, 2.6, 0.75, { xn: 1.4, xp: 1.4, zn: 1.2, zp: 1.2 });   // a hubba sloped on every side, back from the sludge
   addRail(RV.xc - 9.5, 0.0, B.z + 12.6, RV.xc - 9.5, 0.95, B.z + 6, {});   // a pole jam up out of the floor
 }
 // ---- filler lines on the floor between the bridges, so every stretch has something to hit ----
@@ -8474,7 +8473,11 @@ function tunnelFade(dt) {   // darken as you head into a portal, then fade back 
   let a = 0; const p = P.pos;
   if (boreGap(p.x, p.y)) { const vz = tunnelVz(); a = vz > 0 ? clamp(1 - (TUNW.zn - p.z) / 3, 0, 1) : vz < 0 ? clamp(1 - (p.z - TUNW.zs) / 3, 0, 1) : 0; }
   TUNW.fadeOut = Math.max(0, TUNW.fadeOut - dt / 0.35);
-  const o = Math.max(a * a, TUNW.fadeOut); $('tunFade').style.opacity = o > 0.004 ? o.toFixed(3) : '0';
+  // the camera trails behind you, so just after a warp it's still back inside the far tunnel (where the hill can't hide the map):
+  // stay black until it has followed you out past the portal face
+  let c = 0; const cp = camera.position;
+  if (MAPID === 'river' && Math.abs(cp.x - TRACK.x) < 6) c = clamp(Math.max(cp.z - (RV.PZN + 0.8), RV.PZS - 0.8 - cp.z) / 0.8, 0, 1);
+  const o = Math.max(a * a, TUNW.fadeOut, c); $('tunFade').style.opacity = o > 0.004 ? o.toFixed(3) : '0';
 }
 function riverStop() {
   if (MAPID !== 'river') return;
@@ -8679,6 +8682,22 @@ function ollie(vy, spacePop, escape) {
   P.anim.ollieT = 0; P.anim.takeoff = 'ollie';
 }
 
+// on a stair set's footprint (or just off its bottom step)?
+function onStairs(x, z) {
+  for (const o of obstacles) {
+    if (!o.stairs) continue;
+    const dx = x - o.cx, dz = z - o.cz, lx = dx * o.c - dz * o.s, lz = dx * o.s + dz * o.c;
+    if (Math.abs(lx) < o.hw + 0.6 && Math.abs(lz) < o.hl + 0.6) return true;
+  }
+  return false;
+}
+// the firecracker scores once he's clattered off the bottom step (two steps or more), or pops / drops out of the manual after it; a bail loses it
+function fireTick(dt) {
+  const F = P.fire; if (!F) return;
+  F.t += dt;
+  if (P.state === 'bail') { P.fire = null; return; }
+  if (F.t > 0.3 || P.state !== 'ground' || !P.manual) { if (F.steps >= 2) addTrick((F.nose ? 'Nose ' : '') + 'Firecracker', 80 + 45 * F.steps); P.fire = null; }
+}
 function startManual(nose) {
   P.manual = { nose, bal: (Math.random() - 0.5) * 0.2, t: 0 };
   P.pending = 0; combo.manual = true;
@@ -8915,6 +8934,14 @@ function stepGround(dt, st) {
   const h = heightAt(nx, nz);
   if (h - P.pos.y > 0.4 + Math.abs(dy) || (h - P.pos.y > 0.02 && (isWallAt(nx, nz, fx * dirS, fz * dirS) || stepAhead(nx, nz, h)))) { const w = wallNormal(nx, nz, fx * dirS, fz * dirS), wl = Math.hypot(w[0], w[1]) || 1;
     glance(w[0], w[1]); return; }
+  // Firecracker: rolling off the top of a stair set in a manual, the tail (or nose) slaps down every step instead of flying off them
+  if (P.manual && ny > h + 0.004 && P.pos.y - h > 0.08 && P.pos.y - h < 0.65 && onStairs(nx, nz)) {
+    const F = P.fire || (P.fire = { steps: 0, nose: P.manual.nose });
+    F.steps++; F.t = 0;
+    sfx.pop(); P.anim.impact = 0.22; shake = Math.max(shake, 0.06);
+    if (Math.abs(P.s) > 6) P.s = Math.sign(P.s) * 6;   // a firecracker clatters down, it doesn't bomb the set
+    P.pos.set(nx, h, nz); return;
+  }
   // leave the ground when the surface ahead falls away from the board's current slope
   const aheadSlope = Math.abs(dh) > 1e-5 ? (h - P.pos.y) / Math.abs(dh) : m * dirS;
   if (ny > h + 0.004 && m * dirS - aheadSlope > 0.55) {
@@ -9687,6 +9714,7 @@ function physics(dt) {
     if (MAPID === 'park') { fenceStop(); boostCheck(); bowlStop(); } else riverStop();
     { const vh = Math.hypot(P.vel.x, P.vel.z); if (P.state === 'air' && vh > 32) { P.vel.x *= 32 / vh; P.vel.z *= 32 / vh; } if (P.state === 'ground' && Math.abs(P.s) > 32) P.s = Math.sign(P.s) * 32; }
   }
+  fireTick(dt);
   collect();
 }
 

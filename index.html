@@ -6179,9 +6179,9 @@ const TRACK = { x: -38, gauge: 1.435, bed: 0.28 };
 {
   const roadM = new THREE.MeshStandardMaterial({ map: rvTex('#3d3c3b', { noise: 26, blots: 60, blotRGB: '10,10,10', blotA: 0.18, cracks: 18, lineX: 506, lineC: 'rgba(225,190,70,0.75)' }), roughness: 0.95 });
   const x0 = -71.2, x1 = -57.6;   // the road; the sidewalk runs from the wall's edge to x1
-  rvSweep([[x0, RV.upper + 0.004], [x1, RV.upper + 0.004]], ZA, ZB, roadM);
+  rvSweep([[x0, RV.upper + 0.02], [x1, RV.upper + 0.02]], ZA, ZB, roadM); roadM.polygonOffset = true; roadM.polygonOffsetFactor = -1; roadM.polygonOffsetUnits = -4;   // lifted clear of the ground under it (no flicker at a distance)
   // a rolled curb (a gentle 0.15 m ramp, so rolling over it never kicks you into the air) up to the sidewalk
-  rvSweep([[x1, RV.upper + 0.004], [x1 + 0.4, RV.upper + 0.15]], ZA, ZB, RM.wall);
+  rvSweep([[x1, RV.upper + 0.02], [x1 + 0.4, RV.upper + 0.15]], ZA, ZB, RM.wall);
   addObs({ cx: x1 + 0.2, cz: 0, a: 0, hw: 0.2, hl: 900, f: lx => RV.upper + 0.15 * clamp((lx + 0.2) / 0.4, 0, 1) + 0.0001 });
   addObs({ cx: (x1 + 0.4 + RV.wallX) / 2, cz: 0, a: 0, hw: (RV.wallX - x1 - 0.4) / 2, hl: 900, f: () => RV.upper + 0.15 });   // the sidewalk
   rvSweep([[x1 + 0.4, RV.upper + 0.15], [RV.wallX, RV.upper + 0.15]], ZA, ZB, RM.upper);
@@ -6264,7 +6264,7 @@ function rvWedge(x0, x1, z0, z1, yBase, hFn, topMat = RM.pourTop, sideMat = RM.r
   rvWedge(-52.5, -50.3, -6.5, -3.1, S, x => 0.55 * Math.pow((x + 52.5) / 2.2, 1.6), RM.diy, RM.diySide);
   // a stretch of red-painted curb you can grind
   { const red = new THREE.MeshStandardMaterial({ color: 0xa8322a, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
-    [[-50, -27], [96, 116]].forEach(([za, zb]) => { rvSweep([[x1 + 0.02, RV.upper + 0.016], [x1 + 0.4, RV.upper + 0.152]], za, zb, red); addRailPath([[x1 + 0.38, RV.upper + 0.17, za + 0.2], [x1 + 0.38, RV.upper + 0.17, zb - 0.2]], { hidden: true, ledge: true }); }); }
+    [[-50, -27], [96, 116]].forEach(([za, zb]) => { rvSweep([[x1 + 0.02, RV.upper + 0.03], [x1 + 0.4, RV.upper + 0.152]], za, zb, red); addRailPath([[x1 + 0.38, RV.upper + 0.17, za + 0.2], [x1 + 0.38, RV.upper + 0.17, zb - 0.2]], { hidden: true, ledge: true }); }); }
   // a bus stop: bench (grind the seat edge or the backrest), the stop sign, a couple of newspaper boxes to wallie
   if (typeof makeBench === 'function') {
     const bx = -53.4, bz = -40, yaw = Math.PI / 2, c = Math.cos(yaw), s = Math.sin(yaw), BL = (lx, y, lz) => [bx + lx * c + lz * s, S + y, bz - lx * s + lz * c];

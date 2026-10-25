@@ -2207,8 +2207,6 @@ var makeCop, makeBench, makePoliceCar;
     // in head space: where the donut's middle goes for a bite (the top of the ring, ~0.07 up, in under the mustache, just clear of his chin),
     // and where the crumbs fly out from under the mustache
     const BITE = new V3(0, -0.017, onFace(0, 0).z + 0.03), CRUMB = new V3(0, 0.045, onFace(0, 0.045).z + 0.014);
-    const sm = onFace(0.027, 0.052), smear = add(head, new THREE.SphereGeometry(0.03, 8, 6), std(0xf7a8c8, 0.6), sm.x, sm.y, sm.z + 0.014, false);
-    smear.scale.set(0.55, 0.28, 0.3); smear.visible = false;   // a dab of frosting caught in the mustache
     const crumbM = std(0xc8955a, 0.9), crumbs = [];
     for (let k = 0; k < 14; k++) { const c = add(root, new THREE.IcosahedronGeometry(0.012, 0), k % 3 ? crumbM : std(0xf7a8c8, 0.7), 0, -1, 0, false); c.visible = false; crumbs.push({ m: c, v: new V3(), t: 9 }); }
     const crumb = () => {
@@ -2251,7 +2249,7 @@ var makeCop, makeBench, makePoliceCar;
         let b = 0;
         if (biteT >= 0) {
           const was = biteT; biteT += dt; b = env(biteT, [[0, 0], [0.5, 1], [1.3, 1], [1.8, 0]]);
-          if (was < 0.55 && biteT >= 0.55) { bites++; if (bites === 1) held.userData.bitten(true); else held.visible = false; smear.visible = true; for (let k = 0; k < 5; k++) crumb(); }   // CHOMP
+          if (was < 0.55 && biteT >= 0.55) { bites++; if (bites === 1) held.userData.bitten(true); else held.visible = false; for (let k = 0; k < 5; k++) crumb(); }   // CHOMP
           if (biteT > 0.6 && biteT < 1.6 && Math.floor(was * 6) !== Math.floor(biteT * 6)) crumb();   // and more falling out as he chews
           if (biteT >= 1.8) { biteT = -1; if (bites >= 2) { hasDonut = false; held.visible = false; reachT = 0; nextBite = 2.5; } }
         }

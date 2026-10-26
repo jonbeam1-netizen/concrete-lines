@@ -290,7 +290,7 @@ body.touch .readout { padding: 3px 8px 4px 7px; }
   <div class="splash-in">
     <h1>Concrete <span class="hz">Lines</span></h1>
     <p class="splash-by">Made by Jon Beam<br>with the use of Claude Code</p>
-    <p class="splash-date">Updated October 26, 2026 · Play-test 0.020</p>
+    <p class="splash-date">Updated October 26, 2026 · Play-test 0.021</p>
     <p class="splash-go">Click to play</p>
   </div>
 </div>
@@ -8963,7 +8963,6 @@ if (typeof junkLitter === 'function') {
   rvKnock(put(P_(junkCart, { loaded: true }), -60.4, 96, 0.6, null), 'cart');
   rvKnock(put(P_(junkTire), -68.3, 112.3, 0.2, null), 'tire'); rvKnock(put(P_(junkTire), -70.4, 98.5, 0, null), 'tire'); rvKnock(put(P_(junkTire), -70.7, 100.3, 0.9, null), 'tire');
   rvPallet(-71.2, 114.2, 1.5, 2); put(P_(junkBarrel), -59.6, 113.4, 0, [0.3, 0.3, 0.88]);
-  put(P_(junkSign, { kind: 'street', down: true }), -66, -175, 0.9, null);
   rvPallet(-31, -60, 0.4, 3); rvPallet(RV.wallX + 0.2, 64, Math.PI / 2, 1, 0.26);   // a stack under the bridge, one leaning on the wall
   rvPallet(RV.wallX + 0.2, -40, Math.PI / 2, 1, 0.3);
   rvPallet(47, -12, -0.3, 3);   // on the east deck
@@ -10474,6 +10473,17 @@ function riverStop() {
     if (P.state === 'ground') { const vx = Math.sin(P.heading) * P.s, vz = Math.cos(P.heading) * P.s; if (vx > 0) { const sp = Math.abs(vz); if (sp > 0.3) { P.heading = Math.atan2(0, vz) + (P.s < 0 ? Math.PI : 0); P.s = Math.sign(P.s) * sp * 0.9; } else P.s = 0; if (vx > 3) { sfx.bump(); shake = Math.max(shake, 0.3); } } }
     else if (P.vel && P.vel.x > 0) { P.vel.x *= -0.3; }
   }
+  // the upper-street fence (x -75.2) is a hard boundary in every state: the district behind it is visual only, so nothing may pass it,
+  // not a wallride launch, not a walk, not a ragdoll
+  { const wlim = -75.2 + 0.35;
+    if (P.state === 'wall') { if (p.x < -75.2 + 0.13) p.x = -75.2 + 0.13; }
+    else if (p.x < wlim && P.state !== 'bail') {
+      p.x = wlim; p.y = Math.max(p.y, heightAt(p.x, p.z));
+      if (P.state === 'ground') { const vx = Math.sin(P.heading) * P.s, vz = Math.cos(P.heading) * P.s; if (vx < 0) { const sp = Math.abs(vz); if (sp > 0.3) { P.heading = Math.atan2(0, vz) + (P.s < 0 ? Math.PI : 0); P.s = Math.sign(P.s) * sp * 0.9; } else P.s = 0; if (vx < -3) { sfx.bump(); shake = Math.max(shake, 0.3); } } }
+      else if (P.vel && P.vel.x < 0) { P.vel.x *= -0.3; }
+    }
+    if (RAG.on) for (const q of RAG.p) if (q.x < wlim) q.x = wlim;
+  }
   if (P.state === 'air' && P.vel.y > 0) { const c = rvCeil(p.x, p.z); if (p.y < c && p.y + 1.75 > c) { p.y = c - 1.75; P.vel.y = -0.5; shake = Math.max(shake, 0.25); sfx.bump(); } }
   archCeil();
 }
@@ -11109,17 +11119,20 @@ function stepGround(dt, st) {
     if (sp < 0.3) pu.n = 0;   // stopped: the next push is a fresh start
     if (canPush && held(K.up) && sp < cruise && pu.gap <= 0) {
       pu.first = !pu.n && sp < 1.2; pu.phase = 0; pu.dist = 0; pu.n = (pu.n || 0) + 1;
-      pu.dur = pu.first ? 1.15 : lerp(0.95, 0.86, clamp(sp / cruise, 0, 1));
-      pu.dv = (pu.first ? 3.3 : 3.1 - 0.4 * clamp(sp / cruise, 0, 1)) * (1 + Math.min(1.2, uphill));
+      pu.dur = pu.first ? 0.88 : lerp(0.95, 0.86, clamp(sp / cruise, 0, 1));
+      pu.dv = (pu.first ? 3.8 : 3.1 - 0.4 * clamp(sp / cruise, 0, 1)) * (1 + Math.min(1.2, uphill));
+      // the first push answers the key instantly: a little lean-in roll right away, and its drive starts early in the cycle instead of
+      // waiting for the foot to reach forward (the later pushes keep the normal timing)
+      pu.d0 = pu.first ? 0.05 : PUSH_D0; if (pu.first) P.s += 0.8;
     }
   }
   if (pu.phase >= 0) {
     const p0 = pu.phase; pu.phase += dt / pu.dur;
     // the drive: the planted foot shoves back between PUSH_D0 and PUSH_D1 of the cycle; the speed swells in smoothly over it
-    const u0 = clamp((p0 - PUSH_D0) / (PUSH_D1 - PUSH_D0), 0, 1), u1 = clamp((pu.phase - PUSH_D0) / (PUSH_D1 - PUSH_D0), 0, 1);
+    const d0 = pu.d0 ?? PUSH_D0, u0 = clamp((p0 - d0) / (PUSH_D1 - d0), 0, 1), u1 = clamp((pu.phase - d0) / (PUSH_D1 - d0), 0, 1);
     if (u1 > u0) P.s += pu.dv * 0.5 * (Math.cos(Math.PI * u0) - Math.cos(Math.PI * u1));
-    if (p0 >= PUSH_D0) pu.dist += sp * dt;   // how far the board has rolled past the planted foot
-    if (pu.phase >= 1) { pu.phase = -1; pu.gap = 0.03 + 0.2 * clamp(sp / cruise, 0, 1); }
+    if (p0 >= d0) pu.dist += sp * dt;   // how far the board has rolled past the planted foot
+    if (pu.phase >= 1) { pu.phase = -1; pu.gap = (0.03 + 0.2 * clamp(sp / cruise, 0, 1)) * (pu.first ? 0.5 : 1); }   // the second push follows the first a touch sooner
   }
   if (!man && !slide && held(K.up) && sp < topSpeed && pu.phase < 0 && (sp >= cruise || !canPush)) {
     P.s += dirS * (sp < 6.5 ? 4 : 1.6) * (1 + Math.min(1.2, uphill)) * dt;   // past cruising speed (or up a bank, or crouched): no pushing, a steady glide
@@ -12179,6 +12192,9 @@ const V3UP = new V3(0, 1, 0);
 const upV = new V3(), fwdV = new V3(), rightV = new V3(), tF = new V3(), tR = new V3();
 const vA = new V3(), vB = new V3(), vC = new V3(), _pushA = new V3(), _pushB = new V3();
 const PUSH_ANK = 0.084;   // ankle height over the ground with the shoe flat on it
+// pushing: the hips turn to face down the line (the board stance limits it short of square), the chest leads them a little,
+// the standing foot pivots on its ball toward the nose
+const PUSH_HIP = 1.08, PUSH_CHEST = 0.24, PUSH_FRONT_FOOT = 0.8, PUSH_BALL = 0.075;
 const qStance = new THREE.Quaternion(), qChar = new THREE.Quaternion(), qBoard = new THREE.Quaternion(), qShoe = new THREE.Quaternion();
 
 function surfaceUp(out) {
@@ -12444,7 +12460,7 @@ function animateWalk(dt) {
   }
   // ---- hand-off: leave the skating pose's smoothed values where this frame is, so getting back on carries straight on ----
   pose.hipY = hy; pose.hipYv = 0; pose.hipX = hipX; pose.hipZ = hipZ; pose.twist = 0.3; pose.lift = 0; pose.pitch = 0; pose.pivot = 0; pose.yaw = 0; pose.roll = 0;
-  pose.slideOff = 0; pose.footFree = 0; pose.frontZ = 0.16; pose.backZ = -0.2; pose.fall = 0; pose.boardOff = 0; pose.pushW = 0; pose.pushBlend = 0; pose.railTilt = 0; pose.nod = 0;
+  pose.slideOff = 0; pose.footFree = 0; pose.frontZ = 0.16; pose.backZ = -0.2; pose.fall = 0; pose.boardOff = 0; pose.pushW = 0; pose.pushBlend = 0; pose.hipOpen = 0; pose.railTilt = 0; pose.nod = 0;
   pose.charYaw = angDiff(base, cy); pose.headY = head.rotation.y + pose.twistS * 0.5; pose.headPitch = head.rotation.z;
 }
 
@@ -12461,7 +12477,7 @@ function animate(dt) {
   let lift = 0, pitch = 0, pivot = 0, yaw = 0, roll = 0, footFree = 0, frontZ = 0.16, backZ = -0.2, charYaw = 0, fall = 0;
   let arm = ARM.ride, grabArm = null, armSway = 0;
   let flipRoll = 0, flipPitch = 0, flipYaw = 0, slideOff = 0;
-  let pushT = -1, specialPose = false;
+  let pushT = -1, specialPose = false, hipOpen = 0;
   const travel = st === 'ground' && P.s < -0.3 ? -1 : 1;
 
   // how hard he's speeding up or slowing down, for the torso to react to
@@ -12512,7 +12528,11 @@ function animate(dt) {
       const sit = smooth(clamp(pushT / 0.2, 0, 1)) * (1 - smooth(clamp((pushT - 0.72) / 0.28, 0, 1)));
       const drive = Math.sin(Math.PI * clamp((pushT - PUSH_D0 + 0.05) / (PUSH_D1 - PUSH_D0 + 0.12), 0, 1));
       hipY = 0.97 - 0.09 * sit - (0.07 + 0.03 * big) * drive; hipZ = 0.05 * sit; hipX = 0.02 - 0.03 * sit;
-      leanT = -0.1 - 0.18 * sit - (0.1 + 0.05 * big) * drive; leanA += 0.04 * sit + 0.05 * drive; twist = 0.3 + 0.5 * sit; frontZ = 0.16 + 0.05 * sit;
+      leanT = -0.1 - 0.18 * sit - (0.1 + 0.05 * big) * drive; leanA += 0.04 * sit + 0.05 * drive; frontZ = 0.16 + 0.05 * sit;
+      // the hips open toward the nose as the foot reaches forward, stay open through the drive and close as it comes home;
+      // the shoulders ride on top of them, a little further round
+      const open = smooth(clamp(pushT / PUSH_D0, 0, 1)) * (1 - smooth(clamp((pushT - PUSH_D1) / (1 - PUSH_D1), 0, 1)));
+      hipOpen = PUSH_HIP * open; twist = (0.3 + 0.5 * sit) * (1 - open) + PUSH_CHEST * open;
     } else if (P.tuck) {
       hipY = 0.92; leanT = -0.2; leanA = 0.05;   // holding push: a light, mostly upright tuck
     }
@@ -12607,7 +12627,7 @@ function animate(dt) {
   pose.hipY = clamp(pose.hipY + pose.hipYv * dt, 0.5, 1.12);
   pose.hipX = lerp(pose.hipX, hipX, k); pose.hipZ = lerp(pose.hipZ, c * hipZ, k);
   pose.leanT = lerp(pose.leanT, leanT, k); pose.leanA = lerp(pose.leanA, c * leanA, k);
-  pose.twist = lerp(pose.twist, twist, k); pose.headY = lerp(pose.headY, -c * 0.85 * travel, damp(6, dt));
+  pose.twist = lerp(pose.twist, twist, k); pose.hipOpen = lerp(pose.hipOpen || 0, hipOpen, k); pose.headY = lerp(pose.headY, -c * 0.85 * travel, damp(6, dt));
   pose.twistS = lerp(pose.twistS ?? -c * twist, -c * twist, k);   // the signed shoulder twist eases through a stance flip (revert) instead of snapping the hands across
   const fastBoard = st === 'air' && an.takeoff === 'ollie' && an.ollieT >= 0 && an.ollieT < 0.4;
   pose.lift = lerp(pose.lift, lift, fastBoard ? kf : (st === 'grind' || st === 'ground') && lift < pose.lift ? damp(45, dt) : k);
@@ -12680,9 +12700,10 @@ function animate(dt) {
   char.rotation.set(0, (c < 0 ? Math.PI : 0) + pose.charYaw, pose.fall);
   char.position.set(sox, 0, soz);
   pelvis.position.set(pose.hipX, pose.hipY, pose.hipZ);
+  pelvis.rotation.y = -c * (pose.hipOpen || 0);   // hips turned down the line while pushing (0 at cruise)
   const slam = smooth(Math.min(1, pose.slam || 0));
   spine.rotation.set(pose.leanA, pose.twistS + pose.spinLead, pose.leanT - 0.42 * slam + Math.sin(game.clock * 2.1) * 0.012);   // shoulders fold forward over the board on impact
-  head.rotation.y = pose.headY - pose.twistS * 0.5 - pose.spinLead * 0.5;
+  head.rotation.y = pose.headY - pose.twistS * 0.5 - pose.spinLead * 0.5 + c * 0.6 * (pose.hipOpen || 0);   // the turned hips carry the head round: take most of it back so he looks down the line
   head.rotation.z = pose.headPitch;
   rider.updateMatrixWorld(true);
 
@@ -12694,7 +12715,7 @@ function animate(dt) {
       // a light counter-swing: as the push foot drives back, the arm on its side comes forward and the lead arm eases back
       const sw = pushT < PUSH_D0 ? -0.5 * smooth(pushT / PUSH_D0) : pushT < PUSH_D1 ? -0.5 + 1.5 * smooth((pushT - PUSH_D0) / (PUSH_D1 - PUSH_D0)) : 1 - smooth((pushT - PUSH_D1) / (1 - PUSH_D1));
       const env = smooth(clamp(pushT / 0.15, 0, 1)) * (1 - smooth(clamp((pushT - 0.85) / 0.15, 0, 1)));
-      spread = ARM.ride[0] + (0.12 + 0.06 * front) * env; fwd = ARM.ride[1] - 0.32 * sw * front * env; el = ARM.ride[2] + (0.15 + 0.1 * Math.max(0, -sw * front)) * env;
+      spread = ARM.ride[0] + (0.05 + 0.04 * front) * env; fwd = ARM.ride[1] + 0.1 * env - 0.2 * sw * front * env; el = ARM.ride[2] + (0.15 + 0.1 * Math.max(0, -sw * front)) * env;
     }
     if (grabArm) {
       const useBack = grabArm === 'indy' || grabArm === 'tail' || grabArm === 'method';
@@ -12797,16 +12818,17 @@ function animate(dt) {
         const aL = _pushA.copy(att); rider.worldToLocal(aL);
         const xs = c * 0.22, ZP = 0.2, ZE = -0.5, ANK = PUSH_ANK, pd = P.push.dist || 0;
         let x, y, z, gw = 1, lift = 0;
+        const xTrail = zz => lerp(xs, c * 0.13, smooth(clamp((-0.2 - zz) / 0.32, 0, 1)));   // beside the board while it's alongside, tucked in behind the tail past it
         if (pushT < PUSH_D0) {
           const kk = pushT / PUSH_D0;
           x = lerp(aL.x, xs, smooth(Math.min(1, kk / 0.55))); z = lerp(aL.z, ZP, smooth(kk));
           y = lerp(aL.y, ANK, smooth(clamp((kk - 0.45) / 0.55, 0, 1))); lift = 0.07 * Math.sin(Math.PI * kk); gw = smooth(clamp((kk - 0.5) / 0.5, 0, 1));
         } else if (pushT < PUSH_D1) {
           const kk = (pushT - PUSH_D0) / (PUSH_D1 - PUSH_D0), want = ZP - Math.max(pd, (ZP - ZE) * 0.55 * kk), over = Math.max(0, ZE - want);
-          x = xs; z = Math.max(ZE - 0.08, want + over * 0.8); y = ANK; lift = Math.min(0.1, over * 0.35);   // rolled past the reach: the toe flicks up a touch
+          z = Math.max(ZE - 0.08, want + over * 0.8); x = xTrail(z); y = ANK; lift = Math.min(0.1, over * 0.35);   // rolled past the reach: the toe flicks up a touch
         } else {
           const kk = (pushT - PUSH_D1) / (1 - PUSH_D1), z0 = Math.max(ZE - 0.08, Math.min(ZP, ZP - Math.max(pd, (ZP - ZE) * 0.55)));
-          z = lerp(z0, aL.z, smooth(kk)); x = lerp(xs, aL.x, smooth(clamp((kk - 0.45) / 0.55, 0, 1)));
+          z = lerp(z0, aL.z, smooth(kk)); x = lerp(xTrail(z0), aL.x, smooth(clamp((kk - 0.45) / 0.55, 0, 1)));
           y = lerp(ANK, aL.y, smooth(clamp((kk - 0.35) / 0.65, 0, 1))); lift = 0.2 * Math.sin(Math.PI * Math.min(1, kk * 1.15)) * (1 - smooth(clamp((kk - 0.75) / 0.25, 0, 1)));
           gw = 1 - smooth(clamp((kk - 0.4) / 0.6, 0, 1));
         }
@@ -12820,10 +12842,15 @@ function animate(dt) {
     }
     leg.target.copy(tgt); char.worldToLocal(leg.target);
     leg.target.addScaledVector(_ankleBack.set(1, 0, 0).applyQuaternion(leg.foot.quaternion), -0.045);   // the ankle sits back over the heel; the shoe stays where it was
-    const hip = vB.copy(pelvis.position).add(vC.set(0, -0.07, (end * c > 0 ? 1 : -1) * 0.1));
-    _hint.set(1, 0, (end * c > 0 ? 1 : -1) * 0.35).normalize();
-    solveLeg(leg, hip, leg.target, _hint);
+    const hip = vB.copy(pelvis.position).add(vC.set(0, -0.07, (end * c > 0 ? 1 : -1) * 0.1).applyAxisAngle(UP, pelvis.rotation.y));
+    _hint.set(1, 0, (end * c > 0 ? 1 : -1) * 0.35).normalize().applyAxisAngle(UP, pelvis.rotation.y * (end > 0 ? 0.75 : 1));   // knees point the way the hips face
     qShoe.copy(qChar).invert().multiply(qBoard); if (flipped) qShoe.multiply(qTmp.setFromAxisAngle(_zAx, Math.PI)); qShoe.multiply(qStance);
+    const fPiv = end > 0 ? -c * PUSH_FRONT_FOOT * (pose.pushW || 0) : 0;
+    if (fPiv !== 0 && pose.footFree < 0.5) {   // the standing foot turns on its ball, so the heel swings and the toes stay put on the grip
+      const b0 = vC.set(1, 0, 0).applyQuaternion(qShoe), b1 = _ankleBack.set(Math.cos(fPiv), 0, -Math.sin(fPiv)).applyQuaternion(qShoe);
+      leg.target.addScaledVector(b0.sub(b1), PUSH_BALL);
+    }
+    solveLeg(leg, hip, leg.target, _hint);
     // on a wall the deck is near vertical: the shoes ease part way back toward his legs so they don't look snapped sideways at the ankle
     leg.foot.quaternion.copy(qShoe).slerp(qTmp.identity(), clamp(pose.footFree + (end < 0 ? pushFoot : 0), 0, 1));
     // off the board the toes point down, and during a flip the front foot rolls with its flick
@@ -12833,7 +12860,7 @@ function animate(dt) {
       if (flp && end > 0 && flp.roll) leg.foot.quaternion.multiply(qTmp.setFromAxisAngle(_xAx, -Math.sign(flp.roll) * 0.5 * Math.sin(Math.PI * Math.min(1, flp.t / 0.55)) * pose.footFree));
     }
     // both feet point down the board while pushing
-    if (pose.pushW > 0.01) leg.foot.quaternion.multiply(qTmp.setFromAxisAngle(UP, -c * (end > 0 ? 1.15 : 1.35) * pose.pushW));
+    if (pose.pushW > 0.01) leg.foot.quaternion.multiply(qTmp.setFromAxisAngle(UP, -c * (end > 0 ? PUSH_FRONT_FOOT : 1.35) * pose.pushW));
   });
 }
 

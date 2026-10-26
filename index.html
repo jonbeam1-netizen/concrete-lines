@@ -290,7 +290,7 @@ body.touch .readout { padding: 3px 8px 4px 7px; }
   <div class="splash-in">
     <h1>Concrete <span class="hz">Lines</span></h1>
     <p class="splash-by">Made by Jon Beam<br>with the use of Claude Code</p>
-    <p class="splash-date">Updated October 26, 2026 · Play-test 0.029</p>
+    <p class="splash-date">Updated October 26, 2026 · Play-test 0.030</p>
     <p class="splash-go">Click to play</p>
   </div>
 </div>
@@ -7520,7 +7520,7 @@ const RV_GAP = 3.3, RV_TRACKX = -38;   // (TRACK isn't built yet here) half-widt
   };
   // real-world car colours, weighted toward white, silver, grey and black
   const PAINT = [0xf2f2ef, 0xf2f2ef, 0xe9e6dc, 0xb9bcc0, 0xb9bcc0, 0x8b9096, 0x5c6066, 0x2a2c30, 0x1a1b1e, 0x1a1b1e, 0x9a1c1c, 0x6e1820, 0x22407a, 0x1d2c4a, 0x2f4a3a, 0xc9b994, 0x7a6a50, 0xd8a028, 0x3d6f8a].map(h => new THREE.Color(h));
-  const LANES = [[61.2, -1], [65.5, -1], [69.8, -1], [76.2, 1], [80.5, 1], [84.8, 1]], LEN = ZB - ZA;
+  const LANES = [[61.2, 1], [65.5, 1], [69.8, 1], [76.2, -1], [80.5, -1], [84.8, -1]], LEN = ZB - ZA;   // right-hand drive: the near (west) carriageway runs toward +z
   const pickKind = () => { const r = Math.random(); return r < 0.42 ? 'sedan' : r < 0.67 ? 'suv' : r < 0.8 ? 'pickup' : r < 0.91 ? 'van' : 'truck'; };
   const slots = { sedan: 0, suv: 0, pickup: 0, van: 0, truck: 0 }, lanes = [];
   LANES.forEach(([x, dir]) => {
@@ -8091,7 +8091,7 @@ RV.wt = { x: -95.5, z: -93, H: 16, r: 7 };   // the west water tower: in the fen
       box('far', 58.1, 58.5, y0, y0 + 7.5, z - 0.2, z + 0.2, ST); box('far', 86.9, 87.3, y0 + 0.82, y0 + 7.5, z - 0.2, z + 0.2, ST);   // posts on the shoulder and on the barrier
       [[7.1, 7.35], [6.0, 6.2]].forEach(([a, b]) => [-0.55, 0.55].forEach(o => box('far', 58.1, 87.3, y0 + a, y0 + b, z + o - 0.07, z + o + 0.07, ST)));   // the truss chords
       for (let x = 59.5; x < 87; x += 2.4) box('far', x - 0.05, x + 0.05, y0 + 6.0, y0 + 7.35, z - 0.62, z + 0.62, ST);   // and its verticals
-      [[62.2, 1], [67.8, 1], [78.2, -1], [83.6, -1]].forEach(([cx, sd]) => { const zf = z + sd * 0.7;   // blank green panels, each carriageway's on its side, faces toward its oncoming traffic (west lanes run south, east lanes run north)
+      [[62.2, -1], [67.8, -1], [78.2, 1], [83.6, 1]].forEach(([cx, sd]) => { const zf = z + sd * 0.7;   // blank green panels, each carriageway's on its side, faces toward its oncoming traffic
         box('far', cx - 2.45, cx + 2.45, y0 + 5.25, y0 + 8.45, Math.min(zf, zf + sd * 0.1), Math.max(zf, zf + sd * 0.1), FRM);
         box('far', cx - 2.3, cx + 2.3, y0 + 5.4, y0 + 8.3, Math.min(zf + sd * 0.1, zf + sd * 0.16), Math.max(zf + sd * 0.1, zf + sd * 0.16), GRN); });
     });

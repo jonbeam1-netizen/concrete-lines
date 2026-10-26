@@ -246,7 +246,7 @@ body.touch .readout .lbl { font-size: 11px; }
   <div class="splash-in">
     <h1>Concrete <span class="hz">Lines</span></h1>
     <p class="splash-by">Made by Jon Beam<br>with the use of Claude Code</p>
-    <p class="splash-date">Updated October 26, 2026 · Play-test 0.008</p>
+    <p class="splash-date">Updated October 26, 2026 · Play-test 0.009</p>
     <p class="splash-go">Click to play</p>
   </div>
 </div>
@@ -263,7 +263,7 @@ body.touch .readout .lbl { font-size: 11px; }
       </div>
       <span class="netstatus" id="mapNote"></span>
     </div>
-    <div class="row">
+    <div class="row" id="modeRow" style="display:none">   <!-- Real mode is parked: remove this display:none and restore the REAL load line to bring it back -->
       <span class="stance-lbl">Mode</span>
       <div class="stance" id="modePick" role="group" aria-label="Mode">
         <button type="button" data-mode="arcade" aria-pressed="true">Arcade</button>
@@ -526,6 +526,13 @@ function grad(x, z) {
 const lin = (a, b, n) => { const r = []; for (let i = 0; i <= n; i++) r.push(a + (b - a) * i / n); return r; };
 const uniq = arr => arr.filter((v, i) => i === 0 || Math.abs(v - arr[i - 1]) > 1e-6);
 
+// set while the LA River builds: whole rail ends, arc-length uvs on ramps (the park keeps its own look)
+let RVBUILD = false;
+// uvs by surface distance on a W x H grid of points (row-major): u = arc length along each row, v along each column, metres / s
+function gridArcUV(pos, uv, W, H, s = 4, ou = 0, ov = 0) {
+  for (let j = 0; j < H; j++) { let a = 0; for (let i = 0; i < W; i++) { const v = j * W + i; if (i) a += Math.hypot(pos[v * 3] - pos[v * 3 - 3], pos[v * 3 + 1] - pos[v * 3 - 2], pos[v * 3 + 2] - pos[v * 3 - 1]); uv[v * 2] = (pos[j * W * 3] + a) / s + ou; } }
+  for (let i = 0; i < W; i++) { let a = 0; for (let j = 0; j < H; j++) { const v = j * W + i, p = v - W; if (j) a += Math.hypot(pos[v * 3] - pos[p * 3], pos[v * 3 + 1] - pos[p * 3 + 1], pos[v * 3 + 2] - pos[p * 3 + 2]); uv[v * 2 + 1] = (pos[i * 3 + 2] + a) / s + ov; } }
+}
 function buildObs(o, topMat, sideMat, xs, zs) {
   const group = new THREE.Group();
   group.position.set(o.cx, 0, o.cz); group.rotation.y = o.a;
@@ -533,6 +540,7 @@ function buildObs(o, topMat, sideMat, xs, zs) {
   for (let j = 0; j < zs.length; j++) for (let i = 0; i < nx; i++) {
     const x = xs[i], z = zs[j]; pos.push(x, o.f(x, z), z); uv.push(x / 4, z / 4);
   }
+  if (RVBUILD) gridArcUV(pos, uv, nx, zs.length);
   for (let j = 0; j < zs.length - 1; j++) for (let i = 0; i < nx - 1; i++) {
     const a = j * nx + i, b = a + 1, c = a + nx, d = c + 1; idx.push(a, c, b, b, c, d);
   }
@@ -608,6 +616,7 @@ function buildGrid(o, res, mat, cut, sign = 1) {
     const x = -o.hw + 2 * o.hw * i / nx, z = -o.hl + 2 * o.hl * j / nz, h = o.f(x, z);
     pos.push(x, h, z); uv.push(x / 4, z / 4); H.push(h);
   }
+  if (RVBUILD) gridArcUV(pos, uv, nx + 1, nz + 1);
   const W = nx + 1, EPS = 0.003, val = k => sign * H[k] - EPS;
   const VX = k => -o.hw + 2 * o.hw * (k % W) / nx, VZ = k => -o.hl + 2 * o.hl * Math.floor(k / W) / nz;
   // a triangle that's partly on the flat ground is trimmed exactly where the surface meets it
@@ -621,7 +630,7 @@ function buildGrid(o, res, mat, cut, sign = 1) {
       if (v0 > 0) poly.push(i0);
       if ((v0 > 0) !== (v1 > 0)) {
         const t = v0 / (v0 - v1), x = VX(i0) + (VX(i1) - VX(i0)) * t, z = VZ(i0) + (VZ(i1) - VZ(i0)) * t;
-        pos.push(x, sign * EPS, z); uv.push(x / 4, z / 4); poly.push(pos.length / 3 - 1);
+        pos.push(x, sign * EPS, z); if (RVBUILD) uv.push(lerp(uv[i0 * 2], uv[i1 * 2], t), lerp(uv[i0 * 2 + 1], uv[i1 * 2 + 1], t)); else uv.push(x / 4, z / 4); poly.push(pos.length / 3 - 1);
       }
     }
     for (let k = 1; k + 1 < poly.length; k++) idx.push(poly[0], poly[k], poly[k + 1]);
@@ -845,8 +854,10 @@ function addRailPath(points, opts = {}) {
     segs.forEach(s => cylBetween(s.a.clone().add(new V3(0, -r, 0)), s.b.clone().add(new V3(0, -r, 0)), r, mat));
     for (let i = 1; i < P3.length - 1; i++) { const j = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), mat); j.position.copy(P3[i]).add(new V3(0, -r, 0)); scene.add(j); }
   }
+  // river rails end whole: a rounded cap on each free end instead of a flat-cut tube
+  if (RVBUILD && !opts.hidden && !opts.closed && P3.length > 1) [P3[0], P3[P3.length - 1]].forEach(p => { const j = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), mat); j.position.copy(p).add(new V3(0, -r, 0)); scene.add(j); });
   if (!opts.ledge && !opts.hidden && !opts.noPosts) {
-    let acc = 0, nextPost = 0.2;
+    let acc = 0, nextPost = RVBUILD ? 0.06 : 0.2;   // river rails: a post right at each end, so nothing cantilevers
     segs.forEach(s => {
       while (nextPost <= acc + s.len) {
         const p = s.a.clone().addScaledVector(s.dir, nextPost - acc), gy = heightAt(p.x, p.z);
@@ -856,7 +867,7 @@ function addRailPath(points, opts = {}) {
       acc += s.len;
     });
     const lastPost = nextPost - 3.2, e = segs.length ? segs[segs.length - 1].b : null;
-    if (e && acc - lastPost > 0.6) { const p = e.clone().addScaledVector(segs[segs.length - 1].dir, -0.15), gy = heightAt(p.x, p.z); if (p.y - gy > 0.15) cylBetween(new V3(p.x, gy, p.z), new V3(p.x, p.y - 2 * r, p.z), 0.035, mats.steel); }
+    if (e && acc - lastPost > (RVBUILD ? 0.3 : 0.6)) { const p = e.clone().addScaledVector(segs[segs.length - 1].dir, RVBUILD ? -0.06 : -0.15), gy = heightAt(p.x, p.z); if (p.y - gy > 0.15) cylBetween(new V3(p.x, gy, p.z), new V3(p.x, p.y - 2 * r, p.z), 0.035, mats.steel); }
   }
   return segs;
 }
@@ -5905,7 +5916,7 @@ function makeBirds(perches, opts) {
 const PARK_SET = { obstacles: obstacles.slice(), pits: PITS.slice(), rails: rails.slice(), boosts: BOOSTS.slice(), traffic: TRAFFIC.slice() };
 obstacles.length = 0; PITS.length = 0; rails.length = 0; BOOSTS.length = 0; TRAFFIC.length = 0;
 const RIVER_ROOT = new THREE.Group(); RIVER_ROOT.visible = false; scene.add(RIVER_ROOT);
-captureInto(RIVER_ROOT);
+captureInto(RIVER_ROOT); RVBUILD = true;
 const RV_CARS = [];   // parked cars (rvParkCar), for their alarms
 const RV_BOUNCE = [];   // mattresses lying flat: landing on one bounces you back up
 // carts and cones you can knock about: run into a cart and it rolls off (hit it fast and it goes over), cones go flying and tumble
@@ -6194,6 +6205,7 @@ function rvPiece(cx, cz, a, hw, hl, bump, mat = RM.diy, res = 0.15) {
     const lx = lerp(ox, ix, hi), lz = lerp(oz, iz, hi), [x, z] = rvWorld(o, lx, lz), y = rvBase(x);
     pos[v * 3] = lx; pos[v * 3 + 1] = y; pos[v * 3 + 2] = lz; uv[v * 2] = x / 4; uv[v * 2 + 1] = (z + y) / 4;
   }
+  gridArcUV(pos, uv, W, nz + 1, 4, cx / 4, cz / 4);   // by surface distance: the steep part of a curve is not stretched
   for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
     const a0 = j * W + i, b0 = a0 + 1, c0 = a0 + W, d0 = c0 + 1;
     if (B[a0] > 0.003 || B[c0] > 0.003 || B[b0] > 0.003) idx.push(a0, c0, b0);
@@ -6350,15 +6362,15 @@ const RV_POSTS = [];   // the bridge railing posts, instanced once the bridges a
 // ---- the bridges: deck, railings, piers in the channel, columns on the decks ----
 RV.bridges.forEach((B, bi) => {
   const z0 = B.z - B.w / 2, z1 = B.z + B.w / 2, x0 = -79, x1 = 96, th = RV.top - RV.under;
-  const deck = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, th, B.w), RM.bridge); deck.position.set((x0 + x1) / 2, RV.under + th / 2, B.z); deck.castShadow = deck.receiveShadow = true; scene.add(deck);
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, th, B.w), RM.bridge); deck.position.set((x0 + x1) / 2, RV.under + th / 2, B.z); deck.castShadow = deck.receiveShadow = true; scene.add(deck); rvBoxUV(deck, 6, 6, RV.under);
   // girders under the deck
-  if (bi !== 1) for (let k = 0; k < 5; k++) { const g = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, 0.9, 0.5), RM.bridge); g.position.set((x0 + x1) / 2, RV.under - 0.45, z0 + 1.5 + k * (B.w - 3) / 4); g.castShadow = true; scene.add(g); }
+  if (bi !== 1) for (let k = 0; k < 5; k++) { const g = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, 0.9, 0.5), RM.bridge); g.position.set((x0 + x1) / 2, RV.under - 0.45, z0 + 1.5 + k * (B.w - 3) / 4); g.castShadow = true; scene.add(g); rvBoxUV(g, 6, 6, RV.under - 0.9); }
   B.low = bi === 1 ? RV.under - 0.05 : RV.under - 0.9;   // what the skater can hit is the bottom of the girders (the arched one has none)
   // abutments: the deck lands on the warehouse line in the west and on the freeway embankment in the east
-  [[x0 + 1, RV.upper], [x1 - 1, 0]].forEach(([ax, ay]) => { const a = new THREE.Mesh(new THREE.BoxGeometry(2, RV.top - ay, B.w), RM.bridge); a.position.set(ax, (RV.top + ay) / 2, B.z); a.castShadow = a.receiveShadow = true; scene.add(a); });
+  [[x0 + 1, RV.upper], [x1 - 1, 0]].forEach(([ax, ay]) => { const a = new THREE.Mesh(new THREE.BoxGeometry(2, RV.top - ay, B.w), RM.bridge); a.position.set(ax, (RV.top + ay) / 2, B.z); a.castShadow = a.receiveShadow = true; scene.add(a); rvBoxUV(a, 6, 6, 0); });
   // parapet walls with a steel rail on top (birds sit on these)
   [z0 + 0.25, z1 - 0.25].forEach(z => {
-    const p = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, 1.1, 0.5), RM.bridge); p.position.set((x0 + x1) / 2, RV.top + 0.55, z); p.castShadow = true; scene.add(p);
+    const p = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, 1.1, 0.5), RM.bridge); p.position.set((x0 + x1) / 2, RV.top + 0.55, z); p.castShadow = true; scene.add(p); rvBoxUV(p, 6, 6, RV.top);
     cylBetween(new V3(x0, RV.top + 1.6, z), new V3(x1, RV.top + 1.6, z), 0.05, RM.steel);
     for (let x = x0; x <= x1; x += 3) RV_POSTS.push([x, z]);   // (instanced below)
   });
@@ -6394,13 +6406,13 @@ RM.bridgeIn = Object.assign(RM.bridge.clone(), { side: THREE.DoubleSide });
     pts.push(new THREE.Vector2(-span / 2, spring));
     const sh = new THREE.Shape(pts);
     [B.z - B.w / 2, B.z + B.w / 2 - faceT].forEach(z => {
-      const m = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: faceT, bevelEnabled: false }), RM.bridge); m.position.set((a + b) / 2, 0, z); m.castShadow = m.receiveShadow = true; scene.add(m);
+      const m = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: faceT, bevelEnabled: false }), RM.bridge); m.position.set((a + b) / 2, 0, z); m.castShadow = m.receiveShadow = true; scene.add(m); rvBoxUV(m, 6, 6, 0);
     });
     // the barrel: the arch's curve carried right through from face to face, so it's solid stone overhead, not two thin faces
     { const curve = [[-span / 2, spring]]; for (let k = 1; k < 40; k++) { const t = lerp(a1, a0, k / 40); curve.push([Math.cos(t) * rr, cy + Math.sin(t) * rr]); } curve.push([span / 2, spring]);
       const bar = rvSweep(curve.map(([x, y]) => [x + (a + b) / 2, y]), B.z - B.w / 2 + 0.05, B.z + B.w / 2 - 0.05, RM.bridgeIn); bar.receiveShadow = true; }
     // the outer spans land on the bank tops: a solid abutment the full width of the bridge under each end
-    if (i !== 1) { const ex = i === 0 ? a + 0.6 : b - 0.6, y0 = rvBase(ex) - 0.3, ab = new THREE.Mesh(new THREE.BoxGeometry(1.2, yTop - y0, B.w), RM.bridge); ab.position.set(ex, (yTop + y0) / 2, B.z); ab.castShadow = ab.receiveShadow = true; scene.add(ab);
+    if (i !== 1) { const ex = i === 0 ? a + 0.6 : b - 0.6, y0 = rvBase(ex) - 0.3, ab = new THREE.Mesh(new THREE.BoxGeometry(1.2, yTop - y0, B.w), RM.bridge); ab.position.set(ex, (yTop + y0) / 2, B.z); ab.castShadow = ab.receiveShadow = true; scene.add(ab); rvBoxUV(ab, 6, 6, 0);
       addObs({ cx: ex, cz: B.z, a: 0, hw: 0.6, hl: B.w / 2, f: () => yTop }); }   // and it's solid
   }
 }
@@ -6960,13 +6972,16 @@ const RV_BACKDROP = { mesh: null };
   cylBetween(new V3(fx, RV.upper + fh, ZA), new V3(fx, RV.upper + fh, ZB), 0.04, RM.steel);          // the top rail (just looks: not grindable)
   cylBetween(new V3(fx, RV.upper + 0.06, ZA), new V3(fx, RV.upper + 0.06, ZB), 0.015, RM.steel);   // and a tension wire along the bottom
   // razor wire: a coil of thin loops along the top
-  const coil = []; for (let t = 0; t <= 1; t += 1 / 9000) { const z = lerp(RV.PZS - 60, RV.PZN + 60, t), a = t * 9000 * 0.45; coil.push(new V3(fx + Math.cos(a) * 0.32, RV.upper + fh + 0.45 + Math.sin(a) * 0.32, z)); }
-  scene.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(coil), 9000, 0.012, 3, false), RM.steel));
+  const coil = []; for (let t = 0; t <= 1; t += 1 / 4600) { const z = lerp(RV.PZS - 60, RV.PZN + 60, t), a = t * 4600 * 0.88; coil.push(new V3(fx + Math.cos(a) * 0.32, RV.upper + fh + 0.45 + Math.sin(a) * 0.32, z)); }
+  scene.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(coil), 4600, 0.012, 3, false), RM.steel));
   addObs({ cx: fx, cz: 0, a: 0, hw: 0.15, hl: 900, f: () => RV.upper + fh });
   // the long tranny against the fence (rises toward -x)
   const R = 2.2, z0 = -112, z1 = -36, D = 3.1;   // curve plus a 0.9 m deck against the fence; two runs, either side of bridge 2
   [[z0, -82], [-54, z1]].forEach(([za, zb]) => {
     rvPiece(fx + 0.15 + D / 2, (za + zb) / 2, 0, D / 2, (zb - za) / 2, (lx, lz) => qProf(D / 2 - lx - 0.05, R) * taper((zb - za) / 2 - Math.abs(lz), 1.5), RM.diy, 0.12);
+    { const p = [], u = [], ix = [], N = Math.ceil((zb - za) / 0.3);   // its back: a solid face against the fence (it showed through the chain-link as an open edge)
+      for (let k = 0; k <= N; k++) { const z = lerp(za, zb, k / N), h = Math.max(0, qProf(D - 0.05, R) * taper((zb - za) / 2 - Math.abs(z - (za + zb) / 2), 1.5)); p.push(fx + 0.15, RV.upper - 0.02, z, fx + 0.15, RV.upper + h, z); u.push(z / 4, 0, z / 4, h / 4); if (k) { const a = (k - 1) * 2; ix.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(u, 2)); g.setIndex(ix); g.computeVertexNormals(); const bm = new THREE.Mesh(g, RM.rampWall); bm.receiveShadow = true; scene.add(bm); }
     lipCoping(fx + 0.15 + D - 0.05 - R * 0.97, za + 1.6, fx + 0.15 + D - 0.05 - R * 0.97, zb - 1.6, RV.upper + qProf(R * 0.97, R) + 0.02, [1, 0]);
   });
 }
@@ -7027,7 +7042,7 @@ const TRACK = { x: -38, gauge: 1.435, bed: 0.28 };
     const W = 7, H = 7.4, faceW = 26, faceH = 14, y0 = RV.deck;
     const sh = new THREE.Shape([new THREE.Vector2(-faceW / 2, 0), new THREE.Vector2(faceW / 2, 0), new THREE.Vector2(faceW / 2, faceH), new THREE.Vector2(-faceW / 2, faceH)]);
     const hole = new THREE.Path(); hole.moveTo(-W / 2, 0); hole.lineTo(-W / 2, H - W / 2); hole.absarc(0, H - W / 2, W / 2, Math.PI, 0, true); hole.lineTo(W / 2, 0); hole.lineTo(-W / 2, 0); sh.holes.push(hole);
-    const face = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: 1.2, bevelEnabled: false }), RM.wall); face.position.set(TRACK.x, y0, z + (sd > 0 ? 0 : -1.2)); face.castShadow = face.receiveShadow = true; scene.add(face);
+    const face = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: 1.2, bevelEnabled: false }), RM.wall); face.position.set(TRACK.x, y0, z + (sd > 0 ? 0 : -1.2)); face.castShadow = face.receiveShadow = true; scene.add(face); rvBoxUV(face, 6, 6, y0);
     // the bore: a black box running into the hill, unlit and unfogged so it stays pitch black from any distance
     const bore = new THREE.Mesh(new THREE.BoxGeometry(W, H, 40), RM.black); bore.position.set(TRACK.x, y0 + H / 2, z + sd * 20.6); scene.add(bore);
     // the hillside the tunnel bores into: it sits on the ground between the retaining wall and the river bank, full height right behind
@@ -7151,9 +7166,9 @@ rvStairs(-150, 6, 11, { rails: [-2.6, 2.6], bank: 5.4 });
 // always reads as a block of concrete (wall banks, the quarter up to the street, the sidewalk kicker)
 RM.pourTop = Object.assign(RM.wall.clone(), { side: THREE.DoubleSide });
 function rvWedge(x0, x1, z0, z1, yBase, hFn, topMat = RM.pourTop, sideMat = RM.rampWall, alongZ = false) {   // alongZ: the profile runs along z (x0..x1 are z), z0..z1 are x
-  const n = Math.max(2, Math.ceil((x1 - x0) / 0.15)), tp = [], tu = [], ti = [], sp = [], su = [], si = [];
+  let arcS = 0; const n = Math.max(2, Math.ceil((x1 - x0) / 0.15)), tp = [], tu = [], ti = [], sp = [], su = [], si = [];
   const quad = (arr, ix, a, b, c, d) => { const o = arr.length / 3; arr.push(...a, ...b, ...c, ...d); ix.push(o, o + 1, o + 2, o, o + 2, o + 3); };
-  for (let k = 0; k <= n; k++) { const x = lerp(x0, x1, k / n), y = yBase + hFn(x); tp.push(x, y, z0, x, y, z1); tu.push(x / 4, z0 / 4, x / 4, z1 / 4); if (k) { const a = (k - 1) * 2; ti.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } }
+  for (let k = 0; k <= n; k++) { const x = lerp(x0, x1, k / n), y = yBase + hFn(x); if (k) { const xp = lerp(x0, x1, (k - 1) / n); arcS += Math.hypot(x - xp, y - yBase - hFn(xp)); } tp.push(x, y, z0, x, y, z1); tu.push((x0 + arcS) / 4, z0 / 4, (x0 + arcS) / 4, z1 / 4); if (k) { const a = (k - 1) * 2; ti.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } }
   for (let k = 0; k < n; k++) { const xa = lerp(x0, x1, k / n), xb = lerp(x0, x1, (k + 1) / n), ya = yBase + hFn(xa), yb = yBase + hFn(xb);
     [z0, z1].forEach(z => { quad(sp, si, [xa, yBase - 0.05, z], [xb, yBase - 0.05, z], [xb, yb, z], [xa, ya, z]); su.push(xa / 4, -0.01, xb / 4, -0.01, xb / 4, (yb - yBase) / 4, xa / 4, (ya - yBase) / 4); }); }
   [x0, x1].forEach(x => { const y = yBase + hFn(x); if (y - yBase > 0.01) { quad(sp, si, [x, yBase - 0.05, z0], [x, yBase - 0.05, z1], [x, y, z1], [x, y, z0]); su.push(z0 / 4, 0, z1 / 4, 0, z1 / 4, (y - yBase) / 4, z0 / 4, (y - yBase) / 4); } });
@@ -7206,6 +7221,9 @@ function rvWedge(x0, x1, z0, z1, yBase, hFn, topMat = RM.pourTop, sideMat = RM.r
   // another stretch of DIY tranny poured against the fence at the far side of the road
   { const fx = -75.2, R = 2.2, D = 3.1, za = 10, zb = 33;
     rvPiece(fx + 0.15 + D / 2, (za + zb) / 2, 0, D / 2, (zb - za) / 2, (lx, lz) => qProf(D / 2 - lx - 0.05, R) * taper((zb - za) / 2 - Math.abs(lz), 1.5), RM.diy, 0.12);
+    { const p = [], u = [], ix = [], N = Math.ceil((zb - za) / 0.3);   // its back: a solid face against the fence (it showed through the chain-link as an open edge)
+      for (let k = 0; k <= N; k++) { const z = lerp(za, zb, k / N), h = Math.max(0, qProf(D - 0.05, R) * taper((zb - za) / 2 - Math.abs(z - (za + zb) / 2), 1.5)); p.push(fx + 0.15, RV.upper - 0.02, z, fx + 0.15, RV.upper + h, z); u.push(z / 4, 0, z / 4, h / 4); if (k) { const a = (k - 1) * 2; ix.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(u, 2)); g.setIndex(ix); g.computeVertexNormals(); const bm = new THREE.Mesh(g, RM.rampWall); bm.receiveShadow = true; scene.add(bm); }
     lipCoping(fx + 0.15 + D - 0.05 - R * 0.97, za + 1.6, fx + 0.15 + D - 0.05 - R * 0.97, zb - 1.6, RV.upper + qProf(R * 0.97, R) + 0.02, [1, 0]); }
 }
 // ---- the DIY halfpipe at the north end of the street: beat-up plywood, tagged all over, rusty coping, boards leaned against it ----
@@ -7298,6 +7316,8 @@ function rvAccessRamp(side, zLow, zHigh) {
   }
   { const z = zHigh, h = hAt(z), m = 16, base = wall.length / 3;   // the top end: down from the lane to the bank below it
     for (let k = 0; k <= m; k++) { const x = lerp(xIn(h), outer(h), k / m); wall.push(x, h, z, x, Math.min(h, rvBase(x)) - 0.05, z); wuv.push(x / 4, h / 4, x / 4, rvBase(x) / 4); if (k) { const a = base + (k - 1) * 2; wi.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } } }
+  { const base = wall.length / 3;   // the outer edge: a skirt down to the bank, so no sliver shows where the bank top rounds over
+    for (let k = 0; k <= n; k++) { const z = lerp(zLow, zHigh, k / n), h = hAt(z), xo = outer(h) + side * 0.3, yb = Math.min(h, rvBase(xo)) - 0.05; wall.push(xo, h, z, xo, yb, z); wuv.push(z / 4, h / 4, z / 4, yb / 4); if (k) { const a = base + (k - 1) * 2; wi.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } } }
   [[top, tuv, ti, RM.rampTop], [wall, wuv, wi, RM.rampWall]].forEach(([p, u, ix, mat]) => {
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(u, 2)); g.setIndex(ix); g.computeVertexNormals();
     if (mat === RM.rampTop) { const N = g.attributes.normal; for (let i = 0; i < N.count; i++) N.setXYZ(i, 0, 1, 0); }   // the lane faces up whichever way the strip winds
@@ -7648,7 +7668,8 @@ kicker(RV.xc - 6.2, -22, Math.PI / 2, 3.2, 3.0, 1.0);
   const bx = RV.xc - 9, bz = -158, len = 7.6, prof = d => { d = Math.abs(d); return d <= 0.08 ? 0.82 : d <= 0.16 ? lerp(0.82, 0.28, (d - 0.08) / 0.08) : d <= 0.31 ? lerp(0.28, 0, (d - 0.16) / 0.15) : 0; };
   addObs({ cx: bx, cz: bz, a: 0, hw: 0.31, hl: len / 2, f: lx => prof(lx) });
   rvSweep([-0.31, -0.16, -0.08, 0.08, 0.16, 0.31].map(d => [bx + d, prof(d)]), bz - len / 2, bz + len / 2, RM.wall);
-  [-1, 1].forEach(e => { const cap = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.8, 0.02), RM.wall); cap.position.set(bx, 0.4, bz + e * len / 2); scene.add(cap); });
+  { const cs = new THREE.Shape([-0.31, -0.16, -0.08, 0.08, 0.16, 0.31].map(d => new THREE.Vector2(d, prof(d))));   // closed ends cut to the barrier's own profile
+    [-1, 1].forEach(e => { const cap = new THREE.Mesh(new THREE.ShapeGeometry(cs), RM.rampWall); cap.position.set(bx, 0, bz + e * len / 2); scene.add(cap); rvBoxUV(cap, 4, 4, 0); }); }
   addRailPath([[bx, 0.85, bz - len / 2 + 0.1], [bx, 0.85, bz + len / 2 - 0.1]], { hidden: true, ledge: true });
   // the bank: a smooth concave run up to the barrier's top, the full length of the barrier, its ends rolling down in rounded hips
   // (ridable from the sides too) so nothing sticks out past the barrier as a thin sliver
@@ -7778,14 +7799,35 @@ RIVER_ROOT.traverse(o => { if (o.isMesh && o.material === mats.ramp) o.material 
 // ---- the burning car: a wreck on its rims down in the channel, flames out of the engine bay and the cabin ----
 const WRECK = { x: RV.xc + 9.5, z: -92, yaw: 0.35 };
 {
-  const W = WRECK, g = new THREE.Group(), c = Math.cos(W.yaw), s = Math.sin(W.yaw);
-  const burnt = new THREE.MeshStandardMaterial({ color: 0x2b2421, roughness: 0.95, metalness: 0.3 }), paint = new THREE.MeshStandardMaterial({ color: 0x5e2a22, roughness: 0.8, metalness: 0.3 });
-  const box = (w, h, d, m, x, y, z) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.castShadow = b.receiveShadow = true; g.add(b); return b; };
-  box(1.85, 0.62, 4.5, paint, 0, 0.55, 0); box(1.86, 0.2, 1.3, burnt, 0, 0.9, 1.55);   // body, scorched hood
-  box(1.6, 0.52, 2.2, burnt, 0, 1.12, -0.25);                                          // cabin, windows blown out
-  const rimM = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, metalness: 0.7, roughness: 0.5 });
-  [[-0.9, 1.4], [0.9, 1.4], [-0.9, -1.4], [0.9, -1.4]].forEach(([x, z]) => { const r = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.2, 12), rimM); r.rotation.z = Math.PI / 2; r.position.set(x, 0.24, z); g.add(r); });
-  g.position.set(W.x, 0, W.z); g.rotation.y = W.yaw; scene.add(g);
+  const W = WRECK, c = Math.cos(W.yaw), s = Math.sin(W.yaw);
+  // the same sedan as the parked beaters, burned out: paint gone to rust, ash and char, no glass, tyres burned off, sat down on its rims
+  const car = makeBeater('sedan', 0x3a2a24, { seed: 913 }), cg = car.group, R = rvSeeded(5150);
+  { const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d'); x.fillStyle = '#7b4a2c'; x.fillRect(0, 0, 256, 256);
+    const cols = ['106,101,96', '42,38,35', '168,154,136', '92,52,28', '60,40,28'];
+    for (let k = 0; k < 260; k++) { x.fillStyle = 'rgba(' + cols[k % 5] + ',' + (0.25 + R() * 0.5).toFixed(2) + ')'; x.beginPath(); x.arc(R() * 256, R() * 256, 2 + R() * R() * 26, 0, TAU); x.fill(); }
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(0.7, 0.7);
+    RM.burnt = new THREE.MeshStandardMaterial({ map: t, vertexColors: true, roughness: 0.95, metalness: 0.25 });
+    RM.char = new THREE.MeshStandardMaterial({ color: 0x1e1c1a, roughness: 1 });
+    RM.burntRim = new THREE.MeshStandardMaterial({ color: 0x5a4a3e, roughness: 0.75, metalness: 0.5 }); }
+  const drop = [], v3 = new V3(); cg.updateMatrixWorld(true);
+  cg.traverse(o => {
+    if (!o.isMesh) return; const m = o.material, hex = m.color ? m.color.getHex() : 0;
+    if (makeBeater.cap && m === makeBeater.cap.mat) drop.push(o);                                                  // hubcaps gone
+    else if (hex === 0x151515 && o.geometry.type === 'CylinderGeometry') drop.push(o);                              // tyres burned off
+    else if (hex === 0x18212a) o.material = RM.char;                                                               // glass gone: dark, empty frames
+    else if (m.emissive && m.emissive.getHex()) o.material = RM.char;                                              // lights: empty sockets
+    else if (hex === 0xc8ccd0 || hex === 0x6d6a66) o.material = RM.burntRim;                                       // chrome and rims: rusted bare steel
+    else if (m.map && m.map === makeBeater.grime[0]) {                                                             // the paint: rust, ash and char, the hood and roof burned black
+      const P = o.geometry.attributes.position, col = new Float32Array(P.count * 3);
+      for (let i = 0; i < P.count; i++) { v3.fromBufferAttribute(P, i).applyMatrix4(o.matrixWorld);
+        let k = 0.75 + 0.35 * R(); if (v3.z > 0.95) k *= 0.3 + 0.25 * R(); if (v3.y > 1.15) k *= 0.35 + 0.2 * R(); if (v3.y < 0.42) k *= 0.7;
+        col[i * 3] = k; col[i * 3 + 1] = k * 0.96; col[i * 3 + 2] = k * 0.92; }
+      o.geometry.setAttribute('color', new THREE.BufferAttribute(col, 3)); o.material = RM.burnt;
+    }
+  });
+  drop.forEach(o => o.parent.remove(o));
+  // down on its rims: rim bottoms on the concrete, hood and roof where the old hitbox has them (0.86 / 1.38)
+  cg.position.set(W.x, -0.147, W.z); cg.scale.y = 1.083; cg.rotation.y = W.yaw; scene.add(cg);
   // physically: hood/trunk deck and a roof, with grindable roof and hood edges
   addObs({ cx: W.x, cz: W.z, a: W.yaw, hw: 0.92, hl: 2.24, f: (lx, lz) => Math.abs(lx) < 0.79 && Math.abs(lz + 0.25) < 1.09 ? 1.38 : 0.86 });
   const P2 = (lx, lz, y) => [W.x + lx * c + lz * s, y, W.z - lx * s + lz * c];
@@ -7923,6 +7965,33 @@ if (typeof makeCop === 'function') {
   [-1, 1].forEach(sd => addRailPath([W(sd * 0.78, D.roof[0] + 0.05, D.roof[2] + 0.03), W(sd * 0.78, D.roof[1] - 0.05, D.roof[2] + 0.03)], { hidden: true }));
   const dn = COP.rig.makeDonut(); dn.visible = false; scene.add(dn); COP.proj = { mesh: dn, on: false, p: new V3(), v: new V3(), t: 0 };
 }
+// static river meshes merged per material and per 60 m chunk (bridges, barriers, rails, posts, ramps...): far fewer draw calls, culling kept by chunk
+function rvMergeStatic(root, matSet, chunk = 60) {
+  const groups = new Map();
+  for (const m of root.children.slice()) {
+    if (!m.isMesh || m.isInstancedMesh || m.isSkinnedMesh || !m.visible || m.children.length || m.renderOrder || Array.isArray(m.material) || !matSet.has(m.material) || m.onBeforeRender !== THREE.Object3D.prototype.onBeforeRender) continue;
+    const g = m.geometry; if (!g || !g.isBufferGeometry || !g.attributes.position || !g.attributes.normal || Object.keys(g.morphAttributes).length) continue;
+    if (Object.values(g.attributes).some(a => !(a.array instanceof Float32Array) || a.isInterleavedBufferAttribute || a.normalized)) continue;
+    m.updateMatrix(); if (m.matrix.determinant() < 0) continue;
+    if (!g.boundingSphere) g.computeBoundingSphere(); const c = g.boundingSphere.center.clone().applyMatrix4(m.matrix);
+    const sig = Object.keys(g.attributes).sort().map(k => k + g.attributes[k].itemSize).join(',');
+    const key = m.material.uuid + '|' + sig + '|' + (+m.castShadow) + (+m.receiveShadow) + '|' + Math.floor(c.x / chunk) + ',' + Math.floor(c.z / chunk);
+    if (!groups.has(key)) groups.set(key, []); groups.get(key).push(m);
+  }
+  groups.forEach(list => {
+    if (list.length < 2) return;
+    const geos = list.map(m => { const g = m.geometry.clone(); g.applyMatrix4(m.matrix); return g; }), names = Object.keys(geos[0].attributes);
+    let nv = 0, ni = 0; geos.forEach(g => { nv += g.attributes.position.count; ni += g.index ? g.index.count : g.attributes.position.count; });
+    const out = new THREE.BufferGeometry(), idx = new Uint32Array(ni);
+    names.forEach(n => { const sz = geos[0].attributes[n].itemSize, arr = new Float32Array(nv * sz); let o = 0; geos.forEach(g => { arr.set(g.attributes[n].array.subarray(0, g.attributes[n].count * sz), o); o += g.attributes[n].count * sz; }); out.setAttribute(n, new THREE.BufferAttribute(arr, sz)); });
+    let vo = 0, io = 0; geos.forEach(g => { const c = g.attributes.position.count; if (g.index) { const a = g.index.array; for (let i = 0; i < g.index.count; i++) idx[io++] = a[i] + vo; } else for (let i = 0; i < c; i++) idx[io++] = i + vo; vo += c; g.dispose(); });
+    out.setIndex(new THREE.BufferAttribute(idx, 1)); out.computeBoundingSphere(); out.computeBoundingBox();
+    const mm = new THREE.Mesh(out, list[0].material); mm.castShadow = list[0].castShadow; mm.receiveShadow = list[0].receiveShadow; mm.matrixAutoUpdate = false;
+    list.forEach(m => root.remove(m)); root.add(mm);
+  });
+}
+rvMergeStatic(RIVER_ROOT, new Set([...Object.values(RM), mats.rail, mats.steel, mats.hazard].filter(m => m && m.isMaterial && !m.transparent)));
+RVBUILD = false;
 captureEnd();
 const RIVER_SET = { obstacles: obstacles.slice(), pits: PITS.slice(), rails: rails.slice(), boosts: BOOSTS.slice(), traffic: TRAFFIC.slice() };
 obstacles.length = 0; obstacles.push(...PARK_SET.obstacles); PITS.length = 0; PITS.push(...PARK_SET.pits);
@@ -8919,7 +8988,7 @@ const P = {
 };
 // Real mode (picked on the menu): landings have to be clean, big drops and wall slams take you out, grinds and manuals need balancing.
 // Arcade stays as forgiving as ever.
-let REAL = false; try { REAL = localStorage.getItem('concrete-lines-mode') === 'real'; } catch (e) {}
+let REAL = false;   // Real mode is parked (menu row hidden). To re-enable: try { REAL = localStorage.getItem('concrete-lines-mode') === 'real'; } catch (e) {} and unhide #modeRow
 function realBalance(o, st, dt) {   // a needle that wants to fall over; lean back against it with A / D. true = you've lost it
   if (o.bv === undefined) { o.bv = (Math.random() - 0.5) * 0.3; o.bal = (Math.random() - 0.5) * 0.1; }
   const hard = 1 + Math.min(1.5, o.t * 0.12);

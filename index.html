@@ -246,7 +246,7 @@ body.touch .readout .lbl { font-size: 11px; }
   <div class="splash-in">
     <h1>Concrete <span class="hz">Lines</span></h1>
     <p class="splash-by">Made by Jon Beam<br>with the use of Claude Code</p>
-    <p class="splash-date">Updated October 25, 2026 · Play-test 0.002</p>
+    <p class="splash-date">Updated October 25, 2026 · Play-test 0.003</p>
     <p class="splash-go">Click to play</p>
   </div>
 </div>
@@ -9490,15 +9490,16 @@ function stepAir(dt, st) {
   }
   if (A.special) { if (held(K.flip) || held(K.grab)) A.special.t += dt; else finalizeSpecial(); }
 
-  // only the wallride -> rail hop (wallToGrind) and the ground R hop (groundLock) are steered onto their rail; R in the air never pulls you toward one (tryGrind catches it if you come down on it)
-  if (A.wantRail && (A.wallHop || A.groundLock)) {
+  // only the wallride -> rail hop (wallToGrind) is steered onto its rail. The ground R hop (groundLock) is aimed once at take-off and then
+  // flies a plain arc, and R in the air never pulls you toward a rail: tryGrind catches either one when you come down on it
+  if (A.wantRail && A.wallHop) {
     let r = A.wantRail, u = ((P.pos.x - r.a.x) * r.dx + (P.pos.z - r.a.z) * r.dz) / r.lenH2;
     if (u > 1 && r.next) { r = A.wantRail = r.next; u = ((P.pos.x - r.a.x) * r.dx + (P.pos.z - r.a.z) * r.dz) / r.lenH2; }
     else if (u < 0 && r.prev) { r = A.wantRail = r.prev; u = ((P.pos.x - r.a.x) * r.dx + (P.pos.z - r.a.z) * r.dz) / r.lenH2; }
     const uc = clamp(u, 0, 1);
     const ex = r.a.x + r.dx * uc - P.pos.x, ez = r.a.z + r.dz * uc - P.pos.z, el = Math.hypot(ex, ez);
     const ry = r.a.y + (r.b.y - r.a.y) * uc;
-    if (A.aimed) { if (el < 3) { const g = A.groundLock ? 8 : 14; P.vel.x += ex * g * dt; P.vel.z += ez * g * dt; } }
+    if (A.aimed) { if (el < 3) { P.vel.x += ex * 14 * dt; P.vel.z += ez * 14 * dt; } }
     else if (el < 3) {   // slide sideways onto the rail's line; no tugging forward or back along it
       const al = ex * r.dh.x + ez * r.dh.y, lx = ex - r.dh.x * al, lz = ez - r.dh.y * al;
       P.vel.x += lx * 10 * dt; P.vel.z += lz * 10 * dt;
@@ -9717,32 +9718,69 @@ function wallToGrind() {
   P.air.wantGrind = true; P.air.wantRail = t.r; P.air.lockOn = true; P.air.aimed = true; P.air.wallHop = true;
   sfx.pop(); P.anim.ollieT = 0; P.anim.takeoff = 'ollie';
 }
-// R on the ground with a rail straight ahead in your path: pop and arc onto it. Rails you're riding past or have passed never count.
+// R on the ground with a rail in your path (ahead, or alongside and carrying on ahead): pop and arc onto it.
+// Rails you're riding past (they end just in front of you) or have passed never count.
 function groundRailTarget() {
   if (P.grindCD > 0 || Math.abs(P.s) <= 2) return null;
-  const t = findRail(3.5, true, 1.6, 0.8);
+  const t = findRail(3.5, true, 1.6, 1.0);
   if (!t) return null;
   const d = Math.sign(P.s) || 1, fx = Math.sin(P.heading) * d, fz = Math.cos(P.heading) * d;
   const ahead = (t.cx - P.pos.x) * fx + (t.cz - P.pos.z) * fz;
   if (ahead <= 0.2 || ahead > 3.5) return null;
   if (Math.abs(fx * t.r.dh.x + fz * t.r.dh.y) < 0.7) return null;
-  // alongside or past: the rail (or the run of segments it belongs to) comes within 0.9 m of you and carries on behind you
-  for (let r = t.r, n = 0; r && n < 8; r = r.prev, n++) {
-    const u = clamp(((P.pos.x - r.a.x) * r.dx + (P.pos.z - r.a.z) * r.dz) / r.lenH2, 0, 1);
-    const near = Math.hypot(r.a.x + r.dx * u - P.pos.x, r.a.z + r.dz * u - P.pos.z);
-    const behind = Math.min((r.a.x - P.pos.x) * fx + (r.a.z - P.pos.z) * fz, (r.b.x - P.pos.x) * fx + (r.b.z - P.pos.z) * fz);
-    if (near < 0.9 && behind < -0.1) return null;
+  // passed: the rail (and the run of segments it belongs to) doesn't reach at least 1.5 m out in front of you
+  let far = -1e9;
+  for (const k of ['next', 'prev']) for (let r = t.r, n = 0; r && n < 40; r = r[k], n++)
+    far = Math.max(far, (r.a.x - P.pos.x) * fx + (r.a.z - P.pos.z) * fz, (r.b.x - P.pos.x) * fx + (r.b.z - P.pos.z) * fz);
+  if (far < 1.5) return null;
+  // a plain ballistic hop that comes down on the rail: keep your speed along it, pop just high enough, and cover the gap across it.
+  // Pop higher if that's what it takes to reach the rail; ease off the speed a little only if you'd sail past its end.
+  const sp = Math.abs(P.s), along0 = (fx * t.r.dh.x + fz * t.r.dh.y) * sp;
+  for (const [c, k] of [[0.3, 1], [0.5, 1], [0.75, 1], [0.3, 0.85], [0.3, 0.7]]) {
+    const vy = Math.max(3.2, Math.sqrt(2 * AIR_G * (Math.max(0, t.ry - P.pos.y) + c)));
+    const h = hopOnto(t, vy, along0 * k);
+    if (h) return Object.assign(t, { vy, along: along0 * k, hop: h });
   }
-  return t;
+  return null;
+}
+// how long after a pop of vy he comes back down through dy above where he left (the same air gravity stepAir uses)
+function hopTime(vy, dy) {
+  let y = 0, v = vy, t = 0; const h = 1 / 120;
+  while (t < 2) { v -= airGrav(v) * h; y += v * h; t += h; if (v < 0 && y <= dy) return t; }
+  return 0;
+}
+// the closest point to x, z on the run of segments r belongs to (walking next / prev)
+function railSpot(r0, x, z) {
+  let best = null;
+  for (const k of ['next', 'prev']) for (let r = k === 'next' ? r0 : r0.prev, n = 0; r && n < 40; r = r[k], n++) {
+    const u = clamp(((x - r.a.x) * r.dx + (z - r.a.z) * r.dz) / r.lenH2, 0, 1);
+    const cx = r.a.x + r.dx * u, cz = r.a.z + r.dz * u, dd = Math.hypot(cx - x, cz - z);
+    if (!best || dd < best.d) best = { r, u, cx, cz, d: dd, ry: r.a.y + (r.b.y - r.a.y) * u };
+  }
+  return best;
+}
+// where a pop of vy, moving `along` the rail, comes down on it: the spot and the flight time, or null if it misses the rail
+function hopOnto(t, vy, along) {
+  const r = t.r, nX = -r.dh.y, nZ = r.dh.x;
+  const off = (P.pos.x - r.a.x) * nX + (P.pos.z - r.a.z) * nZ, lx = P.pos.x - nX * off, lz = P.pos.z - nZ * off;
+  let ry = t.ry, T = 0, s = null;
+  for (let i = 0; i < 2; i++) {   // twice, so a sloped rail is met at the height it has where he comes down on it
+    T = hopTime(vy, ry + 0.2 - P.pos.y);
+    if (!T) return null;
+    s = railSpot(r, lx + r.dh.x * along * T, lz + r.dh.y * along * T);
+    ry = s.ry;
+  }
+  const L = Math.sqrt(s.r.lenH2);
+  // off the end, or short of the start (a curved rail bends away from the straight line: fine, the hop is aimed at the spot on the curve)
+  if (s.d > 1.2 || (!s.r.next && (1 - s.u) * L < 0.3) || (!s.r.prev && s.u * L < 0.15)) return null;
+  return { T, x: s.cx, z: s.cz };
 }
 function groundLock(t) {
-  const sp = Math.max(Math.abs(P.s), Math.hypot(P.vel.x, P.vel.z));
-  const time = clamp(t.dh / sp, 0.28, 0.75);
-  const vy = Math.max(3.2, (t.ry + 0.12 - P.pos.y + 0.5 * AIR_G * time * time) / time);
   P.manual = null; P.pending = 0; P.push.phase = -1; P.charge = 0;
-  ollie(vy);
-  const dx = t.cx - P.pos.x, dz = t.cz - P.pos.z, dl = Math.hypot(dx, dz) || 1, hv = Math.max(sp, dl / time);
-  P.vel.x = dx / dl * hv; P.vel.z = dz / dl * hv;
+  ollie(t.vy);
+  // aimed once, at take-off, from the pop he really got (a slope or a mattress changes it); no steering after this
+  const h = hopOnto(t, P.vel.y, t.along) || t.hop;
+  if (h) { P.vel.x = (h.x - P.pos.x) / h.T; P.vel.z = (h.z - P.pos.z) / h.T; }
   P.air.wantGrind = true; P.air.wantRail = t.r; P.air.lockOn = true; P.air.aimed = true; P.air.groundLock = true;
 }
 function groundInput() {
@@ -9791,20 +9829,26 @@ function tryGrind(py, nx, ny, nz) {
   const A = P.air;
   if (!grindHeld()) return false;
   if (A.flip && A.flip.t < 0.5) return false;
+  // coming down near a rail with R armed / held catches it; startGrind's blend eases him the last bit onto it.
+  // The aimed hops (ground R, wallride R) get a touch more reach, and the closest rail wins (the one he aimed at first)
+  const reach = A.lockOn ? 0.95 : 0.85;
+  let best = null, bestD = 1e9;
   for (const r of rails) {
     let u = ((nx - r.a.x) * r.dx + (nz - r.a.z) * r.dz) / r.lenH2;
     if (u < -0.06 || u > 0.985) continue;
     u = Math.max(0.005, u);
-    const cx = r.a.x + r.dx * u, cz = r.a.z + r.dz * u;
-    if (Math.hypot(nx - cx, nz - cz) > 0.62) continue;
+    const cx = r.a.x + r.dx * u, cz = r.a.z + r.dz * u, dh = Math.hypot(nx - cx, nz - cz);
+    if (dh > reach) continue;
     const ry = r.a.y + (r.b.y - r.a.y) * u;
-    if (!(py >= ry - 0.15 && ny <= ry + 0.4)) continue;
+    if (!(py >= ry - 0.2 && ny <= ry + (A.groundLock ? 0.25 : 0.45))) continue;   // the ground hop's arc is aimed to come down right on it
     const vh = Math.hypot(P.vel.x, P.vel.z), along = P.vel.x * r.dh.x + P.vel.z * r.dh.y;
     if (vh > 1.5 && Math.abs(along) / vh < 0.42) continue;
-    startGrind(r, u, along);
-    return true;
+    const d = dh - (r === A.wantRail ? 0.3 : 0);
+    if (d < bestD) { bestD = d; best = { r, u, along }; }
   }
-  return false;
+  if (!best) return false;
+  startGrind(best.r, best.u, best.along);
+  return true;
 }
 function startGrind(r, u, along) {
   const A = P.air;
@@ -9839,6 +9883,9 @@ function startGrind(r, u, along) {
   const from = P.pos.clone();
   P.pos.copy(r.a).addScaledVector(r.dir, u * r.len);
   P.grind.blend = from.sub(P.pos); P.grind.bt = 0;   // where he really was: drawn there and eased onto the rail over a moment
+  // the ease starts at the speed he was already closing on the rail, so there's no visible stop-then-slide (a longer way to go takes a little longer)
+  const bl = P.grind.blend.length(), closing = bl > 1e-3 ? -P.vel.dot(P.grind.blend) / bl : 0;
+  P.grind.bd = clamp(2 * bl / Math.max(closing, 4), 0.08, 0.2);
   P.anim.impact = 0.35;
   sfx.clank();
 }
@@ -10074,7 +10121,7 @@ function orientRider(dt) {
     if (P.dome.v.lengthSq() > 0.09) fwdV.copy(P.dome.v).normalize(); else fwdV.set(Math.sin(P.heading), 0, Math.cos(P.heading));
   } else if (P.state === 'grind') {
     const r = P.grind.r; fwdV.copy(r.dir).multiplyScalar(Math.sign(P.grind.vr) || 1);
-    if (P.grind.blend) { const k = 1 - smooth(Math.min(1, P.grind.bt / GRIND_BLEND)); if (k > 0) rider.position.addScaledVector(P.grind.blend, k); else P.grind.blend = null; }
+    if (P.grind.blend) { const k = 1 - Math.min(1, P.grind.bt / (P.grind.bd || GRIND_BLEND)); if (k > 0) rider.position.addScaledVector(P.grind.blend, k * k); else P.grind.blend = null; }   // ease-out: keeps his closing speed, settles onto the rail
     if (r.loop) upV.copy(r.center).sub(P.pos).normalize(); else upV.set(0, 1, 0);
   } else {
     if (P.state === 'ground' || P.state === 'bail') surfaceUp(upV);

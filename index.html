@@ -246,7 +246,7 @@ body.touch .readout .lbl { font-size: 11px; }
   <div class="splash-in">
     <h1>Concrete <span class="hz">Lines</span></h1>
     <p class="splash-by">Made by Jon Beam<br>with the use of Claude Code</p>
-    <p class="splash-date">Updated October 26, 2026 · Play-test 0.011</p>
+    <p class="splash-date">Updated October 26, 2026 · Play-test 0.012</p>
     <p class="splash-go">Click to play</p>
   </div>
 </div>
@@ -2719,9 +2719,9 @@ function junkMilkCrate(o) {
   return g;
 }
 
-function junkLitter(spots, heightAt, seed) {
+function junkLitter(spots, heightAt, seed, scale) {
   if (spots === '__kit') return junkLitter.__kit || (junkLitter.__kit = buildJunkKit());
-  return junkLitter('__kit').litter(spots || [], heightAt, seed);
+  return junkLitter('__kit').litter(spots || [], heightAt, seed, scale);
 
   function buildJunkKit() {
     var T = THREE;
@@ -3471,8 +3471,8 @@ function junkLitter(spots, heightAt, seed) {
       return litterKit;
     }
 
-    function litter(spotList, heightAt, seed) {
-      var r = rng((seed == null ? 12345 : seed) >>> 0);
+    function litter(spotList, heightAt, seed, scale) {
+      var r = rng((seed == null ? 12345 : seed) >>> 0), S = scale || 1;
       var kit = getLitterKit();
       var hf = typeof heightAt === 'function' ? heightAt : function () { return 0; };
       var lists = kit.types.map(function () { return []; });
@@ -3490,7 +3490,7 @@ function junkLitter(spots, heightAt, seed) {
           dummy.position.set(x, 0, z);
           dummy.rotation.set(0, 0, 0);
           dummy.scale.set(1, crushed, 1);
-          var y = hf(x, z);
+          var y = hf(x, z), y0 = y;
           if (y == null) continue;   // not here (inside a prop's footprint)
           if (r() < t.up[1] && !t.flat && !t.tumble) {
             dummy.rotation.set(0, yaw, 0, 'YXZ');
@@ -3506,18 +3506,20 @@ function junkLitter(spots, heightAt, seed) {
             dummy.rotation.set(PI / 2, yaw, 0, 'YXZ');
             y += t.side * (crushed < 1 ? 0.9 : 1);
           }
-          var sc = rr(r, 0.9, 1.1);
+          var sc = rr(r, 0.9, 1.1) * S;
           dummy.scale.multiplyScalar(sc);
-          dummy.position.y = y * 1 + 0.002;
+          dummy.position.y = y0 + (y - y0) * sc + 0.002;   // its lift off the ground grows with it
           dummy.updateMatrix();
           lists[ti].push({ m: dummy.matrix.clone(), c: dirty(pick(r, t.pal), r, 0.3) });
         }
       }
       var grp = new T.Group();
       var col = new T.Color();
+      grp.userData.kinds = [];   // per type: its instanced parts and each piece's matrix (so pieces can be kicked about and put back)
       kit.types.forEach(function (t, ti) {
         var L = lists[ti];
         if (!L.length) return;
+        var kd = { ims: [], mats: L.map(function (e) { return e.m; }) }; grp.userData.kinds.push(kd);
         t.parts.forEach(function (part) {
           var im = new T.InstancedMesh(part.g, part.m, L.length);
           for (var i = 0; i < L.length; i++) {
@@ -3529,7 +3531,7 @@ function junkLitter(spots, heightAt, seed) {
           im.frustumCulled = false; // instances span the whole spot list; base bounding sphere would cull wrongly
           im.castShadow = false;
           im.receiveShadow = true;
-          grp.add(im);
+          grp.add(im); kd.ims.push(im);
         });
       });
       return grp;
@@ -6163,17 +6165,104 @@ const RIVER_ROOT = new THREE.Group(); RIVER_ROOT.visible = false; scene.add(RIVE
 captureInto(RIVER_ROOT); RVBUILD = true;
 const RV_CARS = [];   // parked cars (rvParkCar), for their alarms
 const RV_BOUNCE = [];   // mattresses lying flat: landing on one bounces you back up
-// carts and cones you can knock about: run into a cart and it rolls off (hit it fast and it goes over), cones go flying and tumble
-const RV_KNOCK = [];
+// ---- loose props: carts and tyres you knock about, cones that fly, bags that burst, pallets that smash, litter you kick (it all comes back later) ----
+// carts tumble over when booted hard, tyres stand up and roll off a long way (bouncing, leaving marks), cones fly and tumble
+const RV_KNOCK = [];   // every loose body (carts, tyres, cones), ticked together
+const RV_CARTS = [], RV_TIRES = [], RV_CONES = [], RV_BAGS = [], RV_PALLETS = [], RV_DUMPSTERS = [], RV_TEETERS = [];   // stable per-kind arrays: prop.idx is its index here
+// hooks for pass B (impact sounds, co-op sync). kind: 'cart' | 'tire' | 'cone' | 'bag' | 'pallet' | 'dumpster' | 'dumpsterFire' | 'teeter' | 'trash'
+function propEvent(kind, prop, speed) { /* no-op for now: called on every notable prop impact */ }
+function propApplyRemote(kind, idx, state) { /* no-op for now: apply a remote peer's state to RV_<KIND>S[idx] */ }
+const _sb = new THREE.Box3(), _sv = new V3();
+const KAX = [new V3(1, 0, 0), new V3(-1, 0, 0), new V3(0, 1, 0), new V3(0, -1, 0), new V3(0, 0, 1), new V3(0, 0, -1)];
+// a body's contact points in its own frame: the corners of its box (tyres: points round the tread; cones: the base corners and the tip)
+function rvSupports(g, kind, sub) {
+  if (kind === 'tire') { const pts = []; for (let i = 0; i < 14; i++) { const a = i / 14 * TAU; pts.push(new V3(Math.cos(a) * 0.355, 0.03, Math.sin(a) * 0.355), new V3(Math.cos(a) * 0.355, 0.18, Math.sin(a) * 0.355)); } return pts; }
+  if (kind === 'cone') { const pts = [new V3(0, 0.65, 0)]; [[1, 1], [1, -1], [-1, 1], [-1, -1]].forEach(([a, b]) => pts.push(new V3(a * 0.19, 0, b * 0.19), new V3(a * 0.19, 0.03, b * 0.19))); return pts; }
+  const p = g.position.clone(), q = g.quaternion.clone(); g.position.set(0, 0, 0); g.quaternion.identity(); g.updateMatrixWorld(true);
+  _sb.setFromObject(sub || g); g.position.copy(p); g.quaternion.copy(q); g.updateMatrixWorld(true);
+  const b = _sb, pts = []; for (const x of [b.min.x, b.max.x]) for (const y of [b.min.y, b.max.y]) for (const z of [b.min.z, b.max.z]) pts.push(new V3(x * 0.9, y, z * 0.9));
+  return pts;
+}
+function rvLow(k) { let m = 1e9; for (const s of k.sup) { _sv.copy(s).applyQuaternion(k.q); if (_sv.y < m) m = _sv.y; } return m; }
 function rvKnock(g, kind, down) {
-  RV_KNOCK.push({ g, kind, down: !!down, x: g.position.x, y: g.position.y, z: g.position.z, vx: 0, vy: 0, vz: 0, r: kind === 'cart' ? 0.5 : 0.24, edge: kind === 'cart' ? 0.3 : 0.16,
-    base: g.quaternion.clone(), a: 0, tv: 0, tipDir: null, spin: 0, yawAdd: 0, cool: 0, q: g.quaternion.clone(), w: new V3(), hit: false });
+  const inner = g.children[0];
+  if (kind === 'tire' && inner) { inner.rotation.set(0, inner.rotation.y, 0); inner.position.set(0, 0.105, 0); }   // every tyre lies flat on the ground
+  if (kind === 'cone' && inner && down) { inner.rotation.set(0, inner.rotation.y, 0); inner.position.set(0, 0, 0); g.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new V3(0, 0, 1), Math.PI / 2 - 0.12)); }   // knocked over: the whole cone lies on its side
+  const k = { g, kind, idx: 0, x: g.position.x, y: g.position.y, z: g.position.z, vx: 0, vy: 0, vz: 0, q: g.quaternion.clone(), w: new V3(), cool: 0, hit: false, sleep: true, roll: null,
+    tipped: !!down, upright: kind === 'cart' && !down, r: kind === 'cart' ? 0.5 : kind === 'tire' ? 0.4 : 0.24, mk: null, home: null };
+  k.sup = rvSupports(g, kind, kind === 'cart' ? inner : null);
+  k.y = heightAt(k.x, k.z) - rvLow(k); g.position.y = k.y; g.quaternion.copy(k.q);   // resting on the concrete, not in it or over it
+  k.home = { x: k.x, y: k.y, z: k.z, q: k.q.clone() };
+  const list = kind === 'cart' ? RV_CARTS : kind === 'tire' ? RV_TIRES : RV_CONES; k.idx = list.length; list.push(k);
+  RV_KNOCK.push(k);
   return g;
 }
-const _kv = new V3(), _kq = new THREE.Quaternion(), _kAx = new V3(), _kOff = new V3();
-// a loaded cart hit: everything in it bursts out in a gross poof of trash and is gone; the cart rolls on, empty
-const RV_DEBRIS = [], RV_PUFFS = [];
+const _kv = new V3(), _kq = new THREE.Quaternion(), _kq2 = new THREE.Quaternion(), _kAx = new V3(), _ku = new V3(), _kd = new V3();
+
+// ---- pooled bits, made once at load: one instanced box mesh for every loose piece (trash flecks, bag spill, pallet wood) and a set of puff sprites ----
+const PCS_MAX = 80, PUFF_MAX = 40;
+const PCS = [], PUFFS = [];
+const pcsMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.92 }), PCS_MAX);
+pcsMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(PCS_MAX * 3).fill(1), 3);
+pcsMesh.frustumCulled = false; pcsMesh.castShadow = false; pcsMesh.receiveShadow = true; scene.add(pcsMesh);   // always drawn (one call), so its shader is built with the map, not on the first burst
+const _pm = new THREE.Matrix4(), _pz = new V3(0, 0, 0), _pq = new THREE.Quaternion(), _pc = new THREE.Color(), _pe = new THREE.Euler();
+for (let i = 0; i < PCS_MAX; i++) { PCS.push({ i, on: false, p: new V3(), v: new V3(), q: new THREE.Quaternion(), w: new V3(), s: new V3(), t: 0, life: 0, flutter: false, rest: false }); _pm.compose(_pz, _pq, _pz); pcsMesh.setMatrixAt(i, _pm); }
+let pcsNext = 0, puffNext = 0, pcsDirty = true;
 let puffTex = null;
+{ const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 2, 32, 32, 31); gr.addColorStop(0, 'rgba(255,255,255,0.9)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); puffTex = new THREE.CanvasTexture(c);
+  for (let i = 0; i < PUFF_MAX; i++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: puffTex, color: 0xffffff, transparent: true, depthWrite: false, opacity: 0 })); sp.visible = false; scene.add(sp); PUFFS.push({ sp, v: new V3(), t: 0, life: 0, s0: 0.4, s1: 2, a: 0.75, on: false }); } }
+// a loose piece: the free one, or else the oldest goes
+function rvBit(x, y, z, vx, vy, vz, sx, sy, sz, col, life, flutter) {
+  let b = null;
+  for (let n = 0; n < PCS_MAX; n++) { const c = PCS[(pcsNext + n) % PCS_MAX]; if (!c.on) { b = c; break; } }
+  if (!b) b = PCS[pcsNext];
+  pcsNext = (b.i + 1) % PCS_MAX;
+  b.on = true; b.rest = false; b.t = 0; b.life = life; b.flutter = !!flutter; b.p.set(x, y, z); b.v.set(vx, vy, vz); b.s.set(sx, sy, sz);
+  b.q.setFromEuler(_pe.set(Math.random() * 3, Math.random() * 6, Math.random() * 3)); b.w.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(flutter ? 10 : 16);
+  pcsMesh.setColorAt(b.i, _pc.setHex(col)); pcsMesh.instanceColor.needsUpdate = true; pcsDirty = true;
+  return b;
+}
+function rvPuff(x, y, z, col, n, s0, s1, a, life) {
+  for (let k = 0; k < n; k++) {
+    const p = PUFFS[puffNext]; puffNext = (puffNext + 1) % PUFF_MAX;
+    p.on = true; p.t = 0; p.life = (life || 0.9) * (0.8 + Math.random() * 0.5); p.s0 = s0; p.s1 = s1; p.a = a;
+    p.sp.material.color.setHex(Array.isArray(col) ? col[k % col.length] : col); p.sp.position.set(x + (Math.random() - 0.5) * 0.5, y + Math.random() * 0.3, z + (Math.random() - 0.5) * 0.5);
+    p.v.set((Math.random() - 0.5) * 1.2, 0.4 + Math.random() * 0.6, (Math.random() - 0.5) * 1.2); p.sp.scale.setScalar(s0); p.sp.material.opacity = a; p.sp.visible = true;
+  }
+}
+const _by = new THREE.Quaternion(), _bE = new THREE.Euler();
+function bitsTick(dt) {
+  for (const b of PCS) {
+    if (!b.on) continue;
+    b.t += dt;
+    if (!b.rest) {
+      b.v.y -= (b.flutter ? 4 : 9.8) * dt; if (b.flutter) { b.v.x *= 1 - 1.5 * dt; b.v.z *= 1 - 1.5 * dt; }
+      b.p.addScaledVector(b.v, dt);
+      const wl = b.w.length(); if (wl > 1e-3) { _bq.setFromAxisAngle(_kAx.copy(b.w).divideScalar(wl), wl * dt); b.q.premultiply(_bq); }
+      const gy = heightAt(b.p.x, b.p.z), hy = b.s.y / 2 + 0.004;
+      if (b.p.y < gy + hy) {
+        b.p.y = gy + hy; b.v.y = Math.abs(b.v.y) * 0.25; b.v.x *= 0.6; b.v.z *= 0.6; b.w.multiplyScalar(0.55);
+        if (Math.hypot(b.v.x, b.v.z) < 0.25 && b.v.y < 0.4) {   // come to rest lying flat
+          _bE.setFromQuaternion(b.q, 'YXZ'); b.q.setFromAxisAngle(UP, _bE.y); b.rest = true; b.v.set(0, 0, 0); b.w.set(0, 0, 0);
+        }
+      }
+      pcsDirty = true;
+    }
+    const k = clamp(1 - (b.t - b.life) / 0.4, 0, 1);   // shrinks away to nothing at the end
+    if (k <= 0) { b.on = false; _pm.compose(_pz, _pq, _pz); pcsMesh.setMatrixAt(b.i, _pm); pcsDirty = true; continue; }
+    if (k < 1 || !b.rest || pcsDirty) { _sv.copy(b.s).multiplyScalar(k); _pm.compose(b.p, b.q, _sv); pcsMesh.setMatrixAt(b.i, _pm); if (k < 1) pcsDirty = true; }
+  }
+  if (pcsDirty) { pcsMesh.instanceMatrix.needsUpdate = true; pcsDirty = false; }
+  for (const p of PUFFS) {
+    if (!p.on) continue;
+    p.t += dt; p.sp.position.addScaledVector(p.v, dt); const u = p.t / p.life;
+    p.sp.scale.setScalar(p.s0 + u * (p.s1 - p.s0)); p.sp.material.opacity = p.a * (1 - u);
+    if (u >= 1) { p.on = false; p.sp.visible = false; }
+  }
+}
+// a loaded cart hit: everything in it bursts out in a gross poof of trash and is gone; the cart rolls on, empty
+const RV_DEBRIS = [];
+const POOF_COLS = [0xd8d0b0, 0x5a5a2a, 0x1b1b1d, 0x7a5a32, 0x9a8a5a, 0x4a3a22, 0xb03a2a];   // soggy paper, slime, bag plastic, rot
 function trashPoof(k, pv) {
   const at = new V3(k.x, k.y + 0.8, k.z);
   k.g.userData.load.forEach(m => {
@@ -6181,104 +6270,341 @@ function trashPoof(k, pv) {
     RV_DEBRIS.push({ m, v: new V3(pv.x * 0.5 + (Math.random() - 0.5) * 5, 2.5 + Math.random() * 3, pv.z * 0.5 + (Math.random() - 0.5) * 5), w: new V3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(12), t: 0, life: 0.7 + Math.random() * 0.4, s0: m.scale.clone() });
   });
   k.g.userData.load = [];
-  const cols = [0xd8d0b0, 0x5a5a2a, 0x1b1b1d, 0x7a5a32, 0x9a8a5a, 0x4a3a22, 0xb03a2a];   // soggy paper, slime, bag plastic, rot
-  for (let i = 0; i < 34; i++) {
-    const m = new THREE.Mesh(i % 3 ? new THREE.PlaneGeometry(0.06 + Math.random() * 0.12, 0.05 + Math.random() * 0.1) : new THREE.IcosahedronGeometry(0.03 + Math.random() * 0.04, 0), new THREE.MeshStandardMaterial({ color: cols[i % cols.length], roughness: 0.9, side: THREE.DoubleSide }));
-    m.position.copy(at).add(new V3((Math.random() - 0.5) * 0.5, Math.random() * 0.3, (Math.random() - 0.5) * 0.5)); RIVER_ROOT.add(m);
-    RV_DEBRIS.push({ m, v: new V3(pv.x * 0.4 + (Math.random() - 0.5) * 6, 1.5 + Math.random() * 3, pv.z * 0.4 + (Math.random() - 0.5) * 6), w: new V3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(16), t: 0, life: 0.6 + Math.random() * 0.6, s0: m.scale.clone(), own: true, flutter: i % 3 !== 0 });
+  for (let i = 0; i < 16; i++) {
+    const lump = i % 3 === 0, s = lump ? 0.05 + Math.random() * 0.05 : 0.07 + Math.random() * 0.12;
+    rvBit(at.x + (Math.random() - 0.5) * 0.5, at.y + Math.random() * 0.3, at.z + (Math.random() - 0.5) * 0.5, pv.x * 0.4 + (Math.random() - 0.5) * 6, 1.5 + Math.random() * 3, pv.z * 0.4 + (Math.random() - 0.5) * 6,
+      s, lump ? s : 0.008, lump ? s : s * 0.8, POOF_COLS[i % POOF_COLS.length], 0.8 + Math.random() * 0.8, !lump);
   }
-  // the poof: a few murky green-brown clouds that swell and fade
-  if (!puffTex) { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 2, 32, 32, 31); gr.addColorStop(0, 'rgba(255,255,255,0.9)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); puffTex = new THREE.CanvasTexture(c); }
-  for (let i = 0; i < 7; i++) {
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: puffTex, color: [0x6b6a3a, 0x5a4a30, 0x7a7448][i % 3], transparent: true, depthWrite: false, opacity: 0.75 }));
-    sp.position.copy(at).add(new V3((Math.random() - 0.5) * 0.6, Math.random() * 0.4, (Math.random() - 0.5) * 0.6)); sp.scale.setScalar(0.4); RIVER_ROOT.add(sp);
-    RV_PUFFS.push({ sp, v: new V3((Math.random() - 0.5) * 1.2, 0.5 + Math.random() * 0.6, (Math.random() - 0.5) * 1.2), t: 0, life: 0.9 + Math.random() * 0.5 });
-  }
+  rvPuff(at.x, at.y, at.z, [0x6b6a3a, 0x5a4a30, 0x7a7448], 7, 0.4, 2.2, 0.75, 0.9);   // the poof: murky green-brown clouds that swell and fade
   sfx.bump();
 }
 function debrisTick(dt) {
   for (let i = RV_DEBRIS.length - 1; i >= 0; i--) {
     const d = RV_DEBRIS[i], m = d.m; d.t += dt;
-    d.v.y -= (d.flutter ? 4 : 9.8) * dt; if (d.flutter) { d.v.x *= 1 - 1.5 * dt; d.v.z *= 1 - 1.5 * dt; }
+    d.v.y -= 9.8 * dt;
     m.position.addScaledVector(d.v, dt); m.rotation.x += d.w.x * dt; m.rotation.y += d.w.y * dt; m.rotation.z += d.w.z * dt;
     const gy = heightAt(m.position.x, m.position.z); if (m.position.y < gy + 0.02) { m.position.y = gy + 0.02; d.v.y = Math.abs(d.v.y) * 0.25; d.v.x *= 0.6; d.v.z *= 0.6; }
     const k = clamp(1 - (d.t - d.life) / 0.35, 0, 1); m.scale.copy(d.s0).multiplyScalar(k);   // shrinks away to nothing
-    if (k <= 0) { m.parent && m.parent.remove(m); if (d.own) { m.geometry.dispose(); m.material.dispose(); } RV_DEBRIS.splice(i, 1); }
+    if (k <= 0) { m.parent && m.parent.remove(m); RV_DEBRIS.splice(i, 1); }
   }
-  for (let i = RV_PUFFS.length - 1; i >= 0; i--) {
-    const p = RV_PUFFS[i]; p.t += dt; p.sp.position.addScaledVector(p.v, dt); const u = p.t / p.life;
-    p.sp.scale.setScalar(0.4 + u * 1.8); p.sp.material.opacity = 0.75 * (1 - u);
-    if (u >= 1) { p.sp.parent && p.sp.parent.remove(p.sp); p.sp.material.dispose(); RV_PUFFS.splice(i, 1); }
-  }
+  bitsTick(dt);
 }
-// a cone: free tumble in the air; on the ground it lies down and rolls round its tip, wobbling to a stop
+// a cone on the ground lies down and rolls round its tip, wobbling to a stop
 const _cu = new V3(), _cdq = new THREE.Quaternion(), _cax = new V3();
-function coneTick(k, dt) {
-  const air = k.y > heightAt(k.x, k.z) + 0.01 || k.vy > 0, wl = k.w.length();
-  if (wl > 1e-3) { _cdq.setFromAxisAngle(_cax.copy(k.w).divideScalar(wl), wl * dt); k.q.premultiply(_cdq); }
+function coneGround(k, dt) {
   _cu.set(0, 1, 0).applyQuaternion(k.q);   // the cone's axis
-  if (!air && k.hit) {
-    // gravity lays it on its side: tip the axis toward horizontal
-    const tilt = Math.asin(clamp(_cu.y, -1, 1)); if (Math.abs(tilt) > 0.02) { _cax.crossVectors(_cu, UP); if (_cax.lengthSq() < 1e-6) _cax.set(1, 0, 0); _cdq.setFromAxisAngle(_cax.normalize(), -tilt * Math.min(1, dt * 9)); k.q.premultiply(_cdq); }
-    // and the ground turns its spin into rolling about its own axis, with the tip as the pivot (it curves round)
-    const sp = Math.hypot(k.vx, k.vz), roll = sp / 0.14;
-    k.w.multiplyScalar(Math.max(0, 1 - 4 * dt)); k.w.addScaledVector(_cu, (roll - k.w.dot(_cu)) * Math.min(1, dt * 6));
-    k.w.y += (sp * 1.6 - k.w.y) * Math.min(1, dt * 3);   // swinging round the tip
-    if (sp < 0.05 && k.w.lengthSq() < 0.05) k.w.set(0, 0, 0);
-  }
-  k.g.quaternion.copy(k.q);
-  k.g.position.set(k.x, k.y + 0.13 * (1 - Math.abs(_cu.y)), k.z);   // lying on its side it rests on its flank
+  // gravity lays it on its side: tip the axis toward horizontal
+  const tilt = Math.asin(clamp(_cu.y, -1, 1)); if (Math.abs(tilt) > 0.02) { _cax.crossVectors(_cu, UP); if (_cax.lengthSq() < 1e-6) _cax.set(1, 0, 0); _cdq.setFromAxisAngle(_cax.normalize(), -tilt * Math.min(1, dt * 9)); k.q.premultiply(_cdq); }
+  // and the ground turns its spin into rolling about its own axis, with the tip as the pivot (it curves round)
+  const sp = Math.hypot(k.vx, k.vz), roll = sp / 0.14;
+  k.w.multiplyScalar(Math.max(0, 1 - 4 * dt)); k.w.addScaledVector(_cu, (roll - k.w.dot(_cu)) * Math.min(1, dt * 6));
+  k.w.y += (sp * 1.6 - k.w.y) * Math.min(1, dt * 3);   // swinging round the tip
+  if (sp < 0.05 && k.w.lengthSq() < 0.05) k.w.set(0, 0, 0);
 }
-// carts roll on their casters (downhill too), bounce off walls, hop when booted hard and go over on a fast hit; cones fly and tumble
+// tyre marks: short dark dashes on the concrete, through the shared wheel-mark pool, at most TMARK_MAX alive
+const TMARK_MAX = 80, TMARK_LIFE = 7, tmarkT = new Float32Array(TMARK_MAX).fill(-99); let tmarkI = 0;
+function tireMark(ax, az, bx, bz) {
+  if (typeof addMark !== 'function' || game.clock - tmarkT[tmarkI] < TMARK_LIFE) return;
+  tmarkT[tmarkI] = game.clock; tmarkI = (tmarkI + 1) % TMARK_MAX;
+  addMark(ax, az, bx, bz, 0.13, 0.32, TMARK_LIFE);
+}
+function rvKnockHit(k, dx, dz, d, psp) {
+  const nx = dx / (d || 1), nz = dz / (d || 1), rel = Math.max(0, psp - (k.vx * _kv.x + k.vz * _kv.z) / (psp || 1));
+  const side = _kAx.set(_kv.z, 0, -_kv.x).normalize();   // tumbling end over end the way you hit it
+  k.sleep = false; k.hit = true; k.cool = 0.25;
+  if (k.kind === 'cone') {
+    k.vx = _kv.x * 1.1 + nx * 1.5; k.vz = _kv.z * 1.1 + nz * 1.5; k.vy = 1.5 + psp * 0.3;
+    k.w.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize().multiplyScalar(8 + psp * 1.2).addScaledVector(side, 4 + psp);
+  } else if (k.kind === 'cart') {
+    k.vx = _kv.x * 1.05 + nx * 1.2; k.vz = _kv.z * 1.05 + nz * 1.2; k.w.y += (Math.random() - 0.5) * (2 + rel * 0.8);
+    if (rel > 3.5) k.vy = 1 + rel * 0.25;   // a good boot lifts it off its wheels
+    if (rel > 5) { k.w.addScaledVector(side, 3 + rel * 0.6); k.w.x += (Math.random() - 0.5) * 3; k.w.z += (Math.random() - 0.5) * 3; k.vy = Math.max(k.vy, 2 + rel * 0.2); k.upright = false; }   // a fast hit sends it over, tumbling
+    if (P.state === 'ground') P.s *= 0.8;
+    if (k.g.userData.load && k.g.userData.load.length) trashPoof(k, _kv);
+  } else {   // a tyre bounces off, and a solid hit stands it up and sends it rolling
+    k.vx = _kv.x * 1.2 + nx * 1.6; k.vz = _kv.z * 1.2 + nz * 1.6; k.vy = 1.4 + rel * 0.3;
+    if (rel > 2.5) k.roll = { h: Math.atan2(k.vx, k.vz), phi: 0, lean: (Math.random() - 0.5) * 0.16 || 0.05 };
+    else k.w.set((Math.random() - 0.5) * 5, (Math.random() - 0.5) * 7, (Math.random() - 0.5) * 5);
+    if (P.state === 'ground') P.s *= 0.85;
+  }
+  sfx.bump(); shake = Math.max(shake, k.kind === 'cart' ? 0.15 : 0.05);
+  propEvent(k.kind, k, rel);
+}
+// a tyre up on its tread: rolls the way it's going, leans more as it slows and curves toward the lean, then falls flat
+function tireRoll(k, dt, grounded) {
+  const R = k.roll, sp = Math.hypot(k.vx, k.vz);
+  if (sp > 0.2) R.h = Math.atan2(k.vx, k.vz);
+  R.phi += sp / 0.36 * dt;
+  if (grounded) {
+    R.lean += Math.sign(R.lean) * dt * (0.04 + 0.5 / Math.max(0.8, sp));
+    const tr = -R.lean * 0.5 * dt, c = Math.cos(tr), s = Math.sin(tr), vx = k.vx; k.vx = vx * c + k.vz * s; k.vz = -vx * s + k.vz * c;
+    const f = Math.max(0, 1 - 0.1 * dt); k.vx *= f; k.vz *= f;
+  }
+  if ((grounded && sp < 1.1) || Math.abs(R.lean) > 1.0) {   // over it goes, flat on the side it leans to
+    k.roll = null; k.w.set(Math.sin(R.h), 0, Math.cos(R.h)).multiplyScalar(Math.sign(R.lean) * 3.5); k.w.y = (Math.random() - 0.5) * 2; return;
+  }
+  const A = _ku.set(Math.cos(R.h), 0, -Math.sin(R.h)), D = _kd.set(Math.sin(R.h), 0, Math.cos(R.h));
+  k.q.setFromUnitVectors(KAX[2], A); _kq.setFromAxisAngle(A, R.phi); k.q.premultiply(_kq); _kq.setFromAxisAngle(D, R.lean); k.q.premultiply(_kq);
+}
+function rvBodyTick(k, dt) {
+  let low = rvLow(k), gy = heightAt(k.x, k.z);
+  let grounded = k.y + low <= gy + 0.03 && k.vy <= 0.01;
+  // rolling downhill: an upright cart or a rolling tyre rolls freely, anything on its side only slides
+  const free = k.upright || !!k.roll;
+  if (grounded) { const e = 0.08, sx = (heightAt(k.x + e, k.z) - heightAt(k.x - e, k.z)) / (2 * e), sz = (heightAt(k.x, k.z + e) - heightAt(k.x, k.z - e)) / (2 * e);
+    if (Math.abs(sx) < 3 && Math.abs(sz) < 3) { const g = 9.8 * (free ? 0.75 : 0.25); k.vx -= sx * g * dt; k.vz -= sz * g * dt; } }
+  const nx2 = k.x + k.vx * dt, nz2 = k.z + k.vz * dt, base = k.y + low;
+  if (heightAt(nx2, nz2) > base + 0.3) {   // into a wall: bounce off it
+    const ax = heightAt(nx2, k.z) > base + 0.3, az = heightAt(k.x, nz2) > base + 0.3;
+    if (ax || !az) k.vx *= -0.5; if (az || !ax) k.vz *= -0.5; k.w.y += (Math.random() - 0.5) * 2;
+    const hs = Math.hypot(k.vx, k.vz); if (hs > 1.5) { sfx.bump(); propEvent(k.kind, k, hs); }
+  } else { k.x = nx2; k.z = nz2; }
+  // turning: a rolling tyre steers itself, everything else spins freely
+  if (k.roll) tireRoll(k, dt, grounded);
+  if (!k.roll) { const wl = k.w.length(); if (wl > 1e-3) { _kq.setFromAxisAngle(_kAx.copy(k.w).divideScalar(wl), wl * dt); k.q.premultiply(_kq); } }
+  // up and down: gravity, and a bounce off the concrete (tyres bounce the most)
+  k.vy -= 9.8 * dt; k.y += k.vy * dt;
+  low = rvLow(k); gy = heightAt(k.x, k.z); grounded = false;
+  if (k.y + low <= gy) {
+    k.y = gy - low; grounded = true;
+    if (k.vy < 0) { if (k.vy < -1.5) { k.vy = -k.vy * (k.kind === 'tire' ? 0.55 : 0.32); if (k.kind !== 'cone' && k.vy > 0.6) { sfx.bump(); propEvent(k.kind, k, k.vy); } } else k.vy = 0; }
+  }
+  const hs = Math.hypot(k.vx, k.vz);
+  if (grounded && !k.roll) {
+    const f = Math.max(0, 1 - (k.upright ? 0.45 : k.kind === 'cart' ? 2.2 : k.kind === 'tire' ? 1.2 : 3) * dt); k.vx *= f; k.vz *= f;
+    if (k.kind === 'cone') { if (k.hit) coneGround(k, dt); }
+    else {
+      // settle onto the nearest face (a tyre only onto either flat side)
+      let best = KAX[2], bd = -2; for (let i = k.kind === 'tire' ? 2 : 0; i < (k.kind === 'tire' ? 4 : 6); i++) { _ku.copy(KAX[i]).applyQuaternion(k.q); if (_ku.y > bd) { bd = _ku.y; best = KAX[i]; } }
+      _ku.copy(best).applyQuaternion(k.q); _kAx.crossVectors(_ku, UP); const s = _kAx.length();
+      const fast = hs > 2.5 && k.w.length() > 3;   // still tumbling along: let it go over another time or two
+      if (s > 1e-4 && !fast) { _kq.setFromAxisAngle(_kAx.divideScalar(s), Math.atan2(s, _ku.y) * Math.min(1, dt * 7)); k.q.premultiply(_kq); }
+      const dw = Math.max(0, 1 - (fast ? 1.5 : 7) * dt); k.w.x *= dw; k.w.z *= dw; k.w.y *= Math.max(0, 1 - 2.5 * dt);
+      k.upright = k.kind === 'cart' && !k.tipped && best === KAX[2] && bd > 0.97;
+      // an upright cart's casters swing it round to roll the way it's going
+      if (k.upright && hs > 0.4) { _ku.set(0, 0, 1).applyQuaternion(k.q); const cur = Math.atan2(_ku.x, _ku.z), want = Math.atan2(k.vx, k.vz) + Math.PI; _kq.setFromAxisAngle(UP, angDiff(cur, want) * Math.min(1, dt * 1.5) * 0.5); k.q.premultiply(_kq); }
+      if (s < 0.01 && hs < 0.03 && k.w.lengthSq() < 0.01) { k.vx = k.vz = 0; k.w.set(0, 0, 0); k.sleep = true; }
+    }
+    if (k.kind === 'cone' && hs < 0.03 && k.w.lengthSq() < 0.01 && Math.abs(k.vy) < 0.01) { k.vx = k.vz = 0; k.sleep = true; }
+  }
+  // a tyre moving along the ground leaves a mark
+  if (k.kind === 'tire' && grounded && hs > 1.2) {
+    if (!k.mk) k.mk = { x: k.x, z: k.z };
+    else if (Math.hypot(k.x - k.mk.x, k.z - k.mk.z) > 0.35) { tireMark(k.mk.x, k.mk.z, k.x, k.z); k.mk.x = k.x; k.mk.z = k.z; }
+  } else k.mk = null;
+  k.g.quaternion.copy(k.q); k.g.position.set(k.x, k.y, k.z);
+}
 function knockTick(dt) {
   if (!RV_KNOCK.length) return;
   if (P.state === 'ground') groundVel(_kv); else if (P.vel && P.state !== 'bail') _kv.copy(P.vel); else _kv.set(0, 0, 0);
   const psp = Math.hypot(_kv.x, _kv.z);
   for (const k of RV_KNOCK) {
     k.cool = Math.max(0, k.cool - dt);
-    const dx = k.x - P.pos.x, dz = k.z - P.pos.z, d = Math.hypot(dx, dz);
-    if (game.running && k.cool <= 0 && psp > 1 && d < k.r + 0.3 && Math.abs(P.pos.y - k.y) < 1.2 && (_kv.x * dx + _kv.z * dz) > 0) {
-      const nx = dx / (d || 1), nz = dz / (d || 1), rel = Math.max(0, psp - (k.vx * _kv.x + k.vz * _kv.z) / (psp || 1));
-      if (k.kind === 'cone') { k.vx = _kv.x * 1.1 + nx * 1.5; k.vz = _kv.z * 1.1 + nz * 1.5; k.vy = 1.5 + psp * 0.3; k.hit = true;
-        k.w.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize().multiplyScalar(8 + psp * 1.2); k.w.addScaledVector(new V3(_kv.z, 0, -_kv.x).normalize(), 4 + psp); }   // tumbling end over end the way you kicked it
-      else {
-        k.vx = _kv.x * 1.05 + nx * 1.2; k.vz = _kv.z * 1.05 + nz * 1.2; k.spin = (Math.random() - 0.5) * (2 + rel * 0.8);
-        if (rel > 3.5) k.vy = 1 + rel * 0.25;   // a good boot lifts it off its wheels
-        if (P.state === 'ground') P.s *= 0.8;
-      }
-      if (!k.down && k.kind === 'cart' && rel > 5.5) { k.down = true; k.tipDir = new V3(_kv.x, 0, _kv.z).normalize(); k.tv = k.kind === 'cone' ? 6 : 1.5; }
-      k.cool = 0.25; sfx.bump(); shake = Math.max(shake, k.kind === 'cart' ? 0.15 : 0.05);
-      if (k.kind === 'cart' && k.g.userData.load && k.g.userData.load.length) trashPoof(k, _kv);
-    }
-    // rolling downhill: an upright cart rolls freely on its casters, one on its side only slides
-    const rolling = k.kind === 'cart' && !k.down, onGround = k.y <= heightAt(k.x, k.z) + 0.02 && k.vy <= 0;
-    if (onGround) { const e = 0.08, sx = (heightAt(k.x + e, k.z) - heightAt(k.x - e, k.z)) / (2 * e), sz = (heightAt(k.x, k.z + e) - heightAt(k.x, k.z - e)) / (2 * e);
-      if (Math.abs(sx) < 3 && Math.abs(sz) < 3) { const g = 9.8 * (rolling ? 0.75 : 0.25); k.vx -= sx * g * dt; k.vz -= sz * g * dt; } }
-    const moving = Math.abs(k.vx) + Math.abs(k.vz) + Math.abs(k.vy) > 0.03 || (k.tipDir && k.a < Math.PI / 2 - 0.01) || k.w.lengthSq() > 0.01;
-    if (!moving) { k.vx = k.vz = 0; continue; }
-    const nx2 = k.x + k.vx * dt, nz2 = k.z + k.vz * dt, ground = heightAt(nx2, nz2);
-    if (ground > k.y + 0.3) {   // into a wall: bounce off it
-      const ax = heightAt(k.x + k.vx * dt, k.z) > k.y + 0.3, az = heightAt(k.x, k.z + k.vz * dt) > k.y + 0.3;
-      if (ax || !az) k.vx *= -0.5; if (az || !ax) k.vz *= -0.5; k.spin += (Math.random() - 0.5) * 2;
-      if (Math.hypot(k.vx, k.vz) > 1.5) sfx.bump();
-    } else { k.x = nx2; k.z = nz2; }
-    const gy = heightAt(k.x, k.z);
-    if (k.y > gy + 0.01 || k.vy > 0) { k.vy -= 9.8 * dt; k.y += k.vy * dt; if (k.y <= gy) { k.y = gy; k.vy = k.vy < -1.5 ? -k.vy * 0.35 : 0; if (k.kind === 'cart' && Math.abs(k.vy) > 0.6) sfx.bump(); } }
-    else { k.y = gy; const f = Math.max(0, 1 - (rolling ? 0.45 : k.kind === 'cart' ? 2.2 : 3) * dt); k.vx *= f; k.vz *= f; k.spin *= Math.max(0, 1 - 2 * dt); }
-    if (k.tipDir && k.a < Math.PI / 2) { k.tv += 9 * dt; k.a = Math.min(Math.PI / 2, k.a + k.tv * dt); }
-    // an upright cart's casters swing it round to roll the way it's going
-    if (rolling && Math.hypot(k.vx, k.vz) > 0.4) { const want = Math.atan2(k.vx, k.vz), cur = k.yawAdd + Math.atan2(2 * (k.base.y * k.base.w), 1 - 2 * k.base.y * k.base.y); k.yawAdd += angDiff(cur, want + Math.PI) * Math.min(1, dt * 1.5) * 0.5; }
-    if (k.kind === 'cone') { coneTick(k, dt); continue; }
-    k.yawAdd += k.spin * dt;
-    // pose: spun about the vertical, then tipped over its leading bottom edge
-    _kq.setFromAxisAngle(UP, k.yawAdd); k.g.quaternion.copy(_kq).multiply(k.base);
-    k.g.position.set(k.x, k.y, k.z);
-    if (k.tipDir && k.a > 0) {
-      _kAx.crossVectors(UP, k.tipDir).normalize(); _kq.setFromAxisAngle(_kAx, k.a);
-      k.g.quaternion.premultiply(_kq);
-      _kOff.copy(k.tipDir).multiplyScalar(-k.edge).applyQuaternion(_kq).addScaledVector(k.tipDir, k.edge); k.g.position.add(_kOff);
-    }
+    const dx = k.x - P.pos.x, dz = k.z - P.pos.z;
+    if (game.running && k.cool <= 0 && psp > 1 && Math.abs(dx) < 1 && Math.abs(dz) < 1) { const d = Math.hypot(dx, dz); if (d < k.r + 0.3 && Math.abs(P.pos.y - k.y) < 1.2 && (_kv.x * dx + _kv.z * dz) > 0) rvKnockHit(k, dx, dz, d, psp); }
+    if (!k.sleep) rvBodyTick(k, Math.min(dt, 1 / 30));
   }
+}
+// the rider's speed over the ground and a point to test props against
+function rvRiderVel(out) { if (P.state === 'ground') groundVel(out); else if (P.vel && P.state !== 'bail') out.copy(P.vel); else out.set(0, 0, 0); return Math.hypot(out.x, out.z); }
+const _rv = new V3();
+// a prop that's gone (burst, smashed, kicked away) pops back where it was, as it was, once it's been left alone a while and you're not right there
+const RESPAWN_T = 75;
+function rvPopIn(o, dt) { o.pop = Math.min(1, o.pop + dt / 0.3); const s = o.pop < 1 ? 1.12 * Math.sin(o.pop * Math.PI * 0.62) / Math.sin(Math.PI * 0.62) : 1; return Math.max(0.001, s); }
+// ---- trash bags: run into one and it bursts, spilling bits that lie about for a while ----
+const BAG_SPILL = [[0x1b1b1d, 0.24, 0.012, 0.2, true], [0x22301e, 0.2, 0.012, 0.16, true], [0xd8d0b0, 0.13, 0.006, 0.1, true], [0xb03a2a, 0.07, 0.12, 0.07, false], [0xa8a8a0, 0.07, 0.12, 0.07, false], [0x5a4a30, 0.09, 0.06, 0.08, false], [0xe8e2cc, 0.09, 0.1, 0.09, false]];
+function rvBagsFrom(g) {   // every bag in a junkBags pile becomes its own burstable bag
+  g.updateMatrixWorld(true);
+  g.children.forEach(m => { _sb.setFromObject(m); const c = _sb.getCenter(new V3()), sz = _sb.getSize(new V3());
+    RV_BAGS.push({ idx: RV_BAGS.length, m, g, x: c.x, y: _sb.min.y, z: c.z, rad: Math.max(sz.x, sz.z) / 2, gone: false, idle: 0, pop: 1, s0: m.scale.clone() }); });
+  return g;
+}
+function rvBagBurst(b, sp) {
+  b.gone = true; b.idle = 0; b.m.visible = false;
+  for (let i = 0; i < 6; i++) { const t = BAG_SPILL[(i + b.idx) % BAG_SPILL.length], a = Math.random() * TAU, o = 0.6 + Math.random() * 1.6;
+    rvBit(b.x + Math.cos(a) * 0.1, b.y + 0.25, b.z + Math.sin(a) * 0.1, _rv.x * 0.35 + Math.cos(a) * o, 1 + Math.random() * 1.8, _rv.z * 0.35 + Math.sin(a) * o, t[1], t[2], t[3], t[0], 50 + Math.random() * 25, t[4]); }
+  rvPuff(b.x, b.y + 0.3, b.z, [0x6b6a3a, 0x5a4a30], 2, 0.3, 1.4, 0.6, 0.8);
+  propEvent('bag', b, sp);
+}
+// ---- pallets: always smash apart when you hit them, into wood that lies about for a bit ----
+const PAL_MAT = new THREE.MeshStandardMaterial({ color: 0x84745e, roughness: 0.95, flatShading: true });
+const PAL_WOOD = [0x9c8462, 0x8a7a64, 0xa38f6c, 0x7e6c55, 0x6e5e48];
+function rvBoxesGeo(boxes) {   // [w, h, d, x, y, z, yaw, tiltX] boxes merged into one geometry
+  const pos = [], nor = [], uv = [], m = new THREE.Matrix4(), e = new THREE.Euler();
+  boxes.forEach(b => { const g = new THREE.BoxGeometry(b[0], b[1], b[2]).toNonIndexed(); m.makeRotationFromEuler(e.set(b[7] || 0, b[6] || 0, 0, 'YXZ')).setPosition(b[3], b[4], b[5]); g.applyMatrix4(m);
+    pos.push(...g.attributes.position.array); nor.push(...g.attributes.normal.array); uv.push(...g.attributes.uv.array); g.dispose(); });
+  const out = new THREE.BufferGeometry(); out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); out.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); out.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  out.computeBoundingSphere(); return out;
+}
+function palletBoxes(y0, yaw, ox, oz, rnd) {   // one pallet's boards (1.2 x 1.0, 0.145 tall)
+  const c = Math.cos(yaw), s = Math.sin(yaw), out = [], at = (x, z) => [ox + x * c + z * s, oz - x * s + z * c];
+  for (let i = -1; i <= 1; i++) { const [x, z] = at(0, i * 0.45); out.push([1.2, 0.1, 0.075, x, y0 + 0.072, z, yaw]); }
+  for (let i = -1; i <= 1; i++) { const [x, z] = at(i * 0.55, 0); out.push([0.1, 0.022, 1.0, x, y0 + 0.011, z, yaw]); }
+  for (let i = 0; i < 7; i++) { if (rnd() < 0.12) continue; const [x, z] = at(-0.55 + i * (1.1 / 6), 0); out.push([0.1, 0.022, 1.0, x, y0 + 0.133, z, yaw + (rnd() - 0.5) * 0.03]); }
+  return out;
+}
+// n pallets stacked (a little askew), or one leaning (lean: its tilt in radians, top toward -z)
+function rvPallet(x, z, yaw, n, lean) {
+  let sd = Math.abs(Math.floor(x * 73 + z * 31)) + 1; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  const boxes = []; for (let i = 0; i < n; i++) boxes.push(...palletBoxes(i * 0.145, (rnd() - 0.5) * 0.14, (rnd() - 0.5) * 0.08, (rnd() - 0.5) * 0.08, rnd));
+  const g = new THREE.Group(), m = new THREE.Mesh(rvBoxesGeo(boxes), PAL_MAT); m.castShadow = m.receiveShadow = true;
+  if (lean) { m.rotation.x = -(Math.PI / 2 - lean); m.position.set(0, 0.5 * Math.cos(lean) + 0.01, 0.5 * Math.sin(lean)); }   // stood on its edge, top back against a wall on its -z side
+  g.add(m); g.position.set(x, heightAt(x, z), z); g.rotation.y = yaw; scene.add(g);
+  RV_PALLETS.push({ idx: RV_PALLETS.length, g, x, z, y: g.position.y, c: Math.cos(yaw), s: Math.sin(yaw), hw: 0.62, hl: lean ? 0.35 : 0.52, h: lean ? 1.1 : n * 0.145, n, gone: false, idle: 0, pop: 1 });
+  return g;
+}
+function rvPalletSmash(p, sp) {
+  p.gone = true; p.idle = 0; p.g.visible = false;
+  const pieces = Math.min(16, 4 + p.n * 3);
+  for (let i = 0; i < pieces; i++) { const kind = i % 4, a = Math.random() * TAU, o = 0.8 + Math.random() * 2.2, y = p.y + Math.random() * p.h + 0.1;
+    const sz = kind === 0 ? [1.2, 0.1, 0.075] : kind === 1 ? [0.1, 0.022, 1.0] : kind === 2 ? [0.1, 0.022, 0.55] : [0.1, 0.022, 0.4];
+    rvBit(p.x + Math.cos(a) * 0.3, y, p.z + Math.sin(a) * 0.3, _rv.x * 0.55 + Math.cos(a) * o, 1.6 + Math.random() * 3, _rv.z * 0.55 + Math.sin(a) * o, sz[0], sz[1], sz[2], PAL_WOOD[(i + p.idx) % PAL_WOOD.length], 14 + Math.random() * 8, false); }
+  rvPuff(p.x, p.y + 0.3, p.z, [0xb8a27a, 0x9a8a6a], 3, 0.3, 1.6, 0.5, 0.8);
+  if (P.state === 'ground') P.s *= 0.96;
+  propEvent('pallet', p, sp);
+}
+// ---- litter you kick: cans, cups, bottles and wrappers go skittering, then pop back where they were a minute or so later ----
+const LIT = { items: [], cells: new Map(), live: [], max: 40, kinds: [] };
+const litCell = (x, z) => (Math.floor(x / 2) + 512) * 2048 + (Math.floor(z / 2) + 512);
+function rvLitterInit(grp) {
+  (grp.userData.kinds || []).forEach(kd => {
+    if (!kd || !kd.ims.length) return; kd.dirty = false; LIT.kinds.push(kd);
+    kd.mats.forEach((m, i) => { const hp = new V3(), hq = new THREE.Quaternion(), hs = new V3(); m.decompose(hp, hq, hs);
+      const it = { kd, i, hp, hq, hs, p: hp.clone(), q: hq.clone(), v: new V3(), w: new V3(), off: hp.y - heightAt(hp.x, hp.z), live: false, rest: true, idle: 0, pop: 1, wait: RESPAWN_T * (0.8 + Math.random() * 0.4) };
+      LIT.items.push(it); const key = litCell(hp.x, hp.z); if (!LIT.cells.has(key)) LIT.cells.set(key, []); LIT.cells.get(key).push(it); });
+  });
+}
+const _lm = new THREE.Matrix4(), _ls = new V3();
+function litWrite(it, s) { _ls.copy(it.hs).multiplyScalar(s); _lm.compose(it.p, it.q, _ls); it.kd.ims.forEach(im => im.setMatrixAt(it.i, _lm)); it.kd.dirty = true; }
+function litKick(it, sp) {
+  if (!it.live) { if (LIT.live.length >= LIT.max) return; it.live = true; LIT.live.push(it); }
+  it.rest = false; it.idle = 0; it.pop = 1;
+  const a = Math.random() * TAU, o = 0.4 + Math.random() * 0.8;
+  it.v.set(_rv.x * (0.6 + Math.random() * 0.4) + Math.cos(a) * o, 1.2 + Math.random() * 1.6 + sp * 0.08, _rv.z * (0.6 + Math.random() * 0.4) + Math.sin(a) * o);
+  it.w.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(14 + sp);
+  if (Math.random() < 0.5) rvPuff(it.p.x, it.p.y, it.p.z, [0x9a8a6a, 0x7a7060], 1, 0.15, 0.7, 0.45, 0.6);   // a little dust off the concrete
+  propEvent('trash', it, sp);
+}
+function litterTick(dt, sp) {
+  // kick anything you roll through
+  if (game.running && sp > 1.5 && P.state !== 'bail') {
+    const px = P.pos.x, pz = P.pos.z, py = P.pos.y;
+    for (let ix = -1; ix <= 1; ix++) for (let iz = -1; iz <= 1; iz++) { const L = LIT.cells.get(litCell(px + ix * 2, pz + iz * 2)); if (!L) continue;
+      for (const it of L) if (!it.live && Math.abs(it.p.x - px) < 0.42 && Math.abs(it.p.z - pz) < 0.42 && Math.abs(it.p.y - py) < 0.5) litKick(it, sp); }
+    for (const it of LIT.live) if (it.rest && it.pop >= 1 && Math.abs(it.p.x - px) < 0.42 && Math.abs(it.p.z - pz) < 0.42 && Math.abs(it.p.y - py) < 0.5) litKick(it, sp);
+  }
+  for (let n = LIT.live.length - 1; n >= 0; n--) {
+    const it = LIT.live[n];
+    if (!it.rest) {
+      it.v.y -= 9.8 * dt; it.p.addScaledVector(it.v, dt);
+      const wl = it.w.length(); if (wl > 1e-3) { _bq.setFromAxisAngle(_kAx.copy(it.w).divideScalar(wl), wl * dt); it.q.premultiply(_bq); }
+      const gy = heightAt(it.p.x, it.p.z) + Math.max(0.02, it.off * 0.8);
+      if (it.p.y < gy) { it.p.y = gy; it.v.y = Math.abs(it.v.y) * 0.3; it.v.x *= 0.6; it.v.z *= 0.6; it.w.multiplyScalar(0.6);
+        if (Math.hypot(it.v.x, it.v.z) < 0.2 && it.v.y < 0.5) { it.rest = true; it.p.y = gy - Math.max(0.02, it.off * 0.8) + it.off; it.q.copy(it.hq).premultiply(_by.setFromAxisAngle(UP, Math.random() * TAU)); } }   // comes to rest the way it lay
+      litWrite(it, 1);
+    } else if (it.pop < 1) {   // popping back in at home
+      litWrite(it, rvPopIn(it, dt)); if (it.pop >= 1) { it.live = false; LIT.live.splice(n, 1); }
+    } else if ((it.idle += dt) > it.wait && Math.hypot(it.hp.x - P.pos.x, it.hp.z - P.pos.z) > 6) { it.p.copy(it.hp); it.q.copy(it.hq); it.pop = 0; litWrite(it, 0.001); }
+  }
+  for (const kd of LIT.kinds) if (kd.dirty) { kd.ims.forEach(im => { im.instanceMatrix.needsUpdate = true; }); kd.dirty = false; }
+}
+// ---- dumpsters: grind the lid edge; roll into one with your wheels on fire and it goes up, and keeps burning ----
+const DUMP_FIRE = { fTex: null, sTex: null };
+function rvDumpster(x, z, yaw, col) {
+  const y = heightAt(x, z), g = new THREE.Group(), body = new THREE.MeshStandardMaterial({ color: col, roughness: 0.8, metalness: 0.2 }), dark = new THREE.MeshStandardMaterial({ color: 0x1c1d1b, roughness: 0.7 });
+  const W = 1.9, D = 1.1, H = 1.16;   // along local x, z; lid top
+  g.add(new THREE.Mesh(rvBoxesGeo([[W, H - 0.14, D, 0, 0.14 + (H - 0.14) / 2 - 0.02, 0], [W + 0.06, 0.08, 0.06, 0, H - 0.08, D / 2 + 0.01], [0.06, 0.08, D, -W / 2 - 0.02, H - 0.08, 0], [0.06, 0.08, D, W / 2 + 0.02, H - 0.08, 0], [0.14, 0.18, 0.5, -W / 2 - 0.07, 0.5, 0], [0.14, 0.18, 0.5, W / 2 + 0.07, 0.5, 0]]), body));
+  g.add(new THREE.Mesh(rvBoxesGeo([[W + 0.04, 0.05, D + 0.06, 0, H - 0.01, 0.01, 0, -0.03], [0.12, 0.12, 0.12, -W / 2 + 0.2, 0.06, D / 2 - 0.2], [0.12, 0.12, 0.12, W / 2 - 0.2, 0.06, D / 2 - 0.2], [0.12, 0.12, 0.12, -W / 2 + 0.2, 0.06, -D / 2 + 0.2], [0.12, 0.12, 0.12, W / 2 - 0.2, 0.06, -D / 2 + 0.2]]), dark));
+  g.children.forEach(m => { m.castShadow = m.receiveShadow = true; });
+  g.position.set(x, y, z); g.rotation.y = yaw; scene.add(g);
+  const c = Math.cos(yaw), s = Math.sin(yaw), Wp = (lx, lz, yy) => [x + lx * c + lz * s, y + yy, z - lx * s + lz * c];
+  addObs({ cx: x, cz: z, a: yaw, hw: W / 2 + 0.03, hl: D / 2 + 0.03, f: () => y + H + 0.03 });
+  [-1, 1].forEach(sd => addRailPath([Wp(-W / 2 + 0.04, sd * (D / 2 + 0.02), H + 0.05), Wp(W / 2 - 0.04, sd * (D / 2 + 0.02), H + 0.05)], { hidden: true, ledge: true }));   // both long lid edges grind
+  if (!DUMP_FIRE.fTex && WRECK.flames && WRECK.flames[0]) { DUMP_FIRE.fTex = WRECK.flames[0].sp.material.map; DUMP_FIRE.sTex = WRECK.smoke[0].sp.material.map; }
+  const d = { idx: RV_DUMPSTERS.length, g, x, z, y, c, s, hw: W / 2, hl: D / 2, top: y + H, mat: body, lit: false, cool: 0, flames: [], smoke: [], fires: [Wp(-0.45, 0, H + 0.05), Wp(0.4, 0.1, H + 0.05)].map(p => new V3(...p)) };
+  // its fire, made now and kept hidden: a few flame and smoke billboards (the burning car's recipe, smaller)
+  for (let i = 0; i < 12; i++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: DUMP_FIRE.fTex, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, fog: false })); sp.visible = false; scene.add(sp); d.flames.push({ sp, t: 9, life: 0.6, src: i % 2, v: new V3() }); }
+  for (let i = 0; i < 8; i++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: DUMP_FIRE.sTex, transparent: true, depthWrite: false })); sp.visible = false; scene.add(sp); d.smoke.push({ sp, t: i * 0.6, life: 5, src: i % 2 }); }
+  RV_DUMPSTERS.push(d);
+  return d;
+}
+function dumpsterIgnite(d) {
+  if (d.lit) return; d.lit = true; d.mat.color.lerp(new THREE.Color(0x1a1612), 0.45);   // scorched
+  propEvent('dumpsterFire', d, 0);
+}
+function dumpsterTick(dt, sp) {
+  for (const d of RV_DUMPSTERS) {
+    d.cool = Math.max(0, d.cool - dt);
+    if (game.running && P.state !== 'bail') {
+      const dx = P.pos.x - d.x, dz = P.pos.z - d.z, lx = dx * d.c - dz * d.s, lz = dx * d.s + dz * d.c;
+      if (Math.abs(lx) < d.hw + 0.5 && Math.abs(lz) < d.hl + 0.5 && P.pos.y < d.top + 1.2) {
+        if (d.cool <= 0 && sp > 1) { d.cool = 0.6; propEvent('dumpster', d, sp); }
+        if (FIRE.t > 0) dumpsterIgnite(d);
+        if (d.lit && Math.abs(lx) < d.hw + 0.2 && Math.abs(lz) < d.hl + 0.2 && P.pos.y > d.top - 0.3) FIRE.t = Math.max(FIRE.t, 1.8);   // ride through its flames and your wheels catch
+      }
+    }
+    if (!d.lit) continue;
+    if (Math.abs(P.pos.z - d.z) > 160) { if (d.flames[0].sp.visible) { d.flames.forEach(f => { f.sp.visible = false; }); d.smoke.forEach(m => { m.sp.visible = false; }); } continue; }   // far away: not drawn
+    d.flames.forEach(f => { f.t += dt; if (f.t >= f.life) { f.t = 0; f.life = 0.45 + Math.random() * 0.5; const s = d.fires[f.src]; f.sp.position.set(s.x + (Math.random() - 0.5) * 0.7, s.y, s.z + (Math.random() - 0.5) * 0.5); f.v.set((Math.random() - 0.5) * 0.3, 1.2 + Math.random() * 1.1, (Math.random() - 0.5) * 0.3); }
+      const k = f.t / f.life; f.sp.visible = true; f.sp.position.addScaledVector(f.v, dt); const s = (0.4 + Math.random() * 0.12) * (1 - k * 0.6); f.sp.scale.set(s, s * 1.5, 1); f.sp.material.opacity = 1 - k; f.sp.material.color.setRGB(1, 1 - k * 0.5, 1 - k); });
+    d.smoke.forEach(m => { m.t += dt; if (m.t >= m.life) m.t = 0; const k = m.t / m.life, s = d.fires[m.src]; m.sp.visible = true;
+      m.sp.position.set(s.x + Math.sin(m.t * 0.7 + m.src) * 0.4 * k + k * 1.6, s.y + 0.6 + k * 6, s.z + k * 1.2); const sz = 0.7 + k * 3.2; m.sp.scale.set(sz, sz, 1); m.sp.material.opacity = 0.5 * Math.sin(Math.PI * k); });
+  }
+}
+// ---- the teeter-totter: a flat bar on a pivot that tips under you as you grind it, and settles back level ----
+function rvTeeter(x, z, yaw, L, h) {
+  const g = new THREE.Group(), piv = new THREE.Group();
+  g.add(new THREE.Mesh(rvBoxesGeo([[0.6, 0.05, 0.7, 0, 0.025, 0], [0.07, h - 0.05, 0.3, -0.16, h / 2, 0, 0, 0], [0.07, h - 0.05, 0.3, 0.16, h / 2, 0], [0.4, 0.07, 0.12, 0, h - 0.05, 0]]), RM.steel));
+  piv.position.y = h; g.add(piv);
+  const bar = new THREE.Mesh(rvBoxesGeo([[0.06, 0.06, 2 * L, 0, 0, 0], [0.24, 0.03, 0.12, 0, -0.045, L - 0.08], [0.24, 0.03, 0.12, 0, -0.045, -L + 0.08]]), mats.rail);
+  bar.castShadow = true; piv.add(bar); g.children[0].castShadow = true;
+  const y = heightAt(x, z); g.position.set(x, y, z); g.rotation.y = yaw; scene.add(g);
+  const dx = Math.sin(yaw), dz = Math.cos(yaw);   // the bar runs along local z
+  const seg = addRailPath([[x - dx * L, y + h + 0.03, z - dz * L], [x + dx * L, y + h + 0.03, z + dz * L]], { hidden: true })[0];
+  const t = { idx: RV_TEETERS.length, g, piv, seg, x, z, y, h, L, dx, dz, th: 0, om: 0, max: Math.asin((h - 0.08) / L), was: false };
+  RV_TEETERS.push(t); return t;
+}
+function teeterTick(dt) {
+  for (const t of RV_TEETERS) {
+    const on = P.state === 'grind' && P.grind && P.grind.r === t.seg;
+    let acc = -14 * t.th - 4 * t.om;   // springs back level
+    if (on) { const s = (P.grind.u - 0.5) * 2;   // -1..1 along the bar: your weight tips it down that end
+      acc += 26 * s; }
+    if (!on && Math.abs(t.th) < 1e-4 && Math.abs(t.om) < 1e-4) continue;
+    t.om += acc * dt; t.th += t.om * dt;
+    if (Math.abs(t.th) > t.max) { t.th = Math.sign(t.th) * t.max; if (Math.abs(t.om) > 0.6) propEvent('teeter', t, Math.abs(t.om)); t.om = -t.om * 0.2; }   // the end knocks down on the concrete
+    if (on && !t.was) propEvent('teeter', t, 0);
+    t.was = on;
+    // tip the bar (+th: the +z end goes down) and move the rail with it
+    t.piv.rotation.x = t.th;
+    const r = t.seg, hc = t.L * Math.cos(t.th), vs = t.L * Math.sin(t.th), yc = t.y + t.h + 0.03;
+    r.a.set(t.x - t.dx * hc, yc + vs, t.z - t.dz * hc); r.b.set(t.x + t.dx * hc, yc - vs, t.z + t.dz * hc);
+    const d = _kd.copy(r.b).sub(r.a); r.len = d.length(); r.dir.copy(d).divideScalar(r.len); r.dx = d.x; r.dz = d.z; r.lenH2 = Math.max(1e-6, d.x * d.x + d.z * d.z);
+  }
+}
+// all the props, every frame on the river
+function propsTick(dt) {
+  dt = Math.min(dt, 1 / 30);
+  const sp = rvRiderVel(_rv);
+  // bags and pallets you run into
+  if (game.running && P.state !== 'bail') {
+    for (const b of RV_BAGS) if (!b.gone && sp > 1.2 && Math.abs(b.x - P.pos.x) < b.rad + 0.35 && Math.abs(b.z - P.pos.z) < b.rad + 0.35 && P.pos.y < b.y + 0.9 && P.pos.y > b.y - 0.6) {
+      rvBagBurst(b, sp); if (P.state === 'ground') P.s *= 0.97;
+      for (const o of RV_BAGS) if (o.g === b.g && !o.gone && o.y > b.y + 0.05 && Math.hypot(o.x - b.x, o.z - b.z) < 0.7) rvBagBurst(o, sp);   // the ones piled on it go too
+    }
+    for (const p of RV_PALLETS) { if (p.gone || sp < 0.8) continue; const dx = P.pos.x - p.x, dz = P.pos.z - p.z; if (Math.abs(dx) > 2 || Math.abs(dz) > 2) continue;
+      const lx = dx * p.c - dz * p.s, lz = dx * p.s + dz * p.c; if (Math.abs(lx) < p.hw + 0.3 && Math.abs(lz) < p.hl + 0.3 && P.pos.y < p.y + p.h + 0.4) rvPalletSmash(p, sp); }
+  }
+  // gone ones come back
+  for (const b of RV_BAGS) { if (b.gone && (b.idle += dt) > RESPAWN_T && Math.hypot(b.x - P.pos.x, b.z - P.pos.z) > 7) { b.gone = false; b.pop = 0; b.m.visible = true; }
+    if (!b.gone && b.pop < 1) b.m.scale.copy(b.s0).multiplyScalar(rvPopIn(b, dt)); }
+  for (const p of RV_PALLETS) { if (p.gone && (p.idle += dt) > RESPAWN_T + 15 && Math.hypot(p.x - P.pos.x, p.z - P.pos.z) > 8) { p.gone = false; p.pop = 0; p.g.visible = true; }
+    if (!p.gone && p.pop < 1) p.g.scale.setScalar(rvPopIn(p, dt)); }
+  litterTick(dt, sp);
+  dumpsterTick(dt, sp);
+  teeterTick(dt);
+  // first frame on the river: one puff, so every pooled material has its shader before the first real burst
+  if (!PUFFS.warm) { PUFFS.warm = true; rvPuff(camera.position.x, camera.position.y - 0.5, camera.position.z, 0xffffff, 1, 0.01, 0.01, 0.001, 0.05); }
 }
 const onBouncy = (x, z) => MAPID === 'river' && RV_BOUNCE.some(b => { const dx = x - b.x, dz = z - b.z; return Math.abs(dx * b.c - dz * b.s) < b.hw && Math.abs(dx * b.s + dz * b.c) < b.hl; });
 const RV = { xc: 10, floor: 17, bank: 12, deck: 5.5, sh: 2.6, sd: 0.36, slush: -0.11, wallX: -50, upper: 9, fenceX: 56.55, under: 13.8, top: 15.6,
@@ -8345,53 +8671,107 @@ if (typeof makeHomelessGuy === 'function') {
 if (typeof junkLitter === 'function') {
   let seed = 31;
   // props: [maker, x, z, yaw, solid box [hw, hl, h] or null]
-  const put = (g, x, z, yaw, box) => {
-    const y = heightAt(x, z); g.position.set(x, y, z); g.rotation.y = yaw; scene.add(g);
+  const _pq0 = new THREE.Quaternion(), _pn = new V3();
+  const put = (g, x, z, yaw, box, noTilt) => {
+    g.position.set(x, 0, z); g.rotation.y = yaw; g.updateMatrixWorld(true);
+    // sat on the concrete under its whole footprint: tilted to the slope it's on, so nothing hovers or digs in
+    let y = heightAt(x, z);
+    if (!noTilt) {
+      _sb.setFromObject(g); const hx = Math.max(0.1, (_sb.max.x - _sb.min.x) * 0.4), hz = Math.max(0.1, (_sb.max.z - _sb.min.z) * 0.4);
+      const a = heightAt(x - hx, z), b = heightAt(x + hx, z), c = heightAt(x, z - hz), d = heightAt(x, z + hz);
+      if (Math.max(a, b, c, d) - Math.min(a, b, c, d) < 0.5) {
+        const sx = (b - a) / (2 * hx), sz = (d - c) / (2 * hz);
+        if (Math.abs(sx) > 0.01 || Math.abs(sz) > 0.01) { _pn.set(-sx, 1, -sz).normalize(); g.quaternion.setFromUnitVectors(UP, _pn).multiply(_pq0.setFromAxisAngle(UP, yaw)); }
+        y = Math.max(y, (a + b + c + d) / 4);
+      }
+    }
+    g.position.y = y; scene.add(g);
     // box: [hw, hl, h, bevel]; anything low enough to roll onto gets bevelled edges (a sharp small step would kick you into the air)
     if (box) addObs({ cx: x, cz: z, a: yaw, hw: box[0], hl: box[1], f: box[3] ? (lx, lz) => y + box[2] * clamp(Math.min(box[0] - Math.abs(lx), box[1] - Math.abs(lz)) / box[3], 0, 1) + 0.0001 : () => y + box[2] });
     return g;
   };
   const P_ = (fn, opts) => fn(Object.assign({ seed: seed++ }, opts || {}));
+  const bags = (n, x, z, yaw) => rvBagsFrom(put(junkBags(n, { seed: seed++ }), x, z, yaw, null));
   // down in the channel
   rvKnock(put(P_(junkCart, { tipped: true, loaded: true }), 2, 8, 0.8, null), 'cart', true);
   rvKnock(put(P_(junkCart), -3, -45, 2.1, null), 'cart');
   rvKnock(put(P_(junkCart, { tipped: true }), RV.xc + 0.4, -30, 1.3, null), 'cart', true);           // dumped in the sludge
   rvKnock(put(P_(junkCart, { loaded: true }), RV.xc + 15.5, 18, -2.4, null), 'cart');
-  put(P_(junkTire), 5, -20, 0.3, null); put(P_(junkTire, { lean: true }), RV.xc + 16.2, -60, 1.9, null); put(P_(junkTire), RV.xc - 0.3, 25, 0, null);
-  put(P_(junkTire), -1, -230, 0.7, null); put(P_(junkTire, { lean: true }), RV.xc - 16.4, -238, -1.4, null);
+  rvKnock(put(P_(junkTire), 1, -16, 0.3, null), 'tire'); rvKnock(put(P_(junkTire), RV.xc + 15.2, -58, 1.9, null), 'tire'); rvKnock(put(P_(junkTire), RV.xc + 3.4, 25, 0, null), 'tire');
+  rvKnock(put(P_(junkTire), -1, -230, 0.7, null), 'tire'); rvKnock(put(P_(junkTire), RV.xc - 14.5, -236, -1.4, null), 'tire');
   put(P_(junkMattress), -4, -150, 0.4, [0.72, 0.99, 0.27, 0.6]); RV_BOUNCE.push({ x: -4, z: -150, c: Math.cos(0.4), s: Math.sin(0.4), hw: 0.72, hl: 0.99 });
-  put(P_(junkMattress, { lean: true }), -6.55, -12.5, 1.384, null);   // leaning on the side wall of the maintenance ramp
+  put(P_(junkMattress, { lean: true }), -6.55, -12.5, 1.384, null, true);   // leaning on the side wall of the maintenance ramp
   put(P_(junkCouch), -1, 74, Math.PI, [1.05, 0.47, 0.9]);                       // front-row seats for the pier quarters
   rvKnock(put(P_(junkCone, { knocked: true }), 23.2, -37.5, 0.4, null), 'cone', true); rvKnock(put(P_(junkCone, { knocked: false }), 24.6, -12, 0, null), 'cone', false);
   put(P_(junkBarrel), -2, -116, 0, [0.3, 0.3, 0.88]);
-  put(P_(junkPallet), RV.xc + 8, -184.5, 0.2, null);
+  rvPallet(RV.xc + 8, -184.5, 0.2, 2);
+  rvPallet(RV.xc + 5, -47, 0.35, 4);   // a stack right in the line down the channel: plough straight through it
   put(P_(junkShoppingBags), 6, -196, 0, null); put(P_(junkShoppingBags), -2, 40, 0, null);
-  put(junkBags(3, { seed: seed++ }), RV.xc - 14, -100, 0.5, null);
+  bags(3, RV.xc - 14, -100, 0.5);
   // the decks and the upper street
   { // his tent: a rounded dome you can ride up and over like a bump
-    const t = put(P_(junkTent, { tarp: true }), BUM.x + 3.25, BUM.z - 3, -Math.PI / 2, null), D = t.userData.dome, ty = t.position.y;
+    const t = put(P_(junkTent, { tarp: true }), BUM.x + 3.25, BUM.z - 3, -Math.PI / 2, null, true), D = t.userData.dome, ty = t.position.y;
     addObs({ cx: t.position.x, cz: t.position.z, a: -Math.PI / 2, hw: D.SX, hl: D.SZ, f: (lx, lz) => { const q = Math.hypot(lx / D.SX, lz / D.SZ); return q < 1 ? ty + D.SY * D.prof(q) + 0.0001 : 0; } });
   }
-  put(junkBags(5, { seed: seed++ }), BUM.x + 3.4, BUM.z + 1.7, 0.3, null);   // piled against the barrier
+  bags(5, BUM.x + 3.4, BUM.z + 1.7, 0.3);   // piled against the barrier
   put(P_(junkMattress), BUM.x + 1.4, BUM.z + 4.4, 0.12, [0.72, 0.99, 0.27, 0.6]);   // his bed, flat on the deck
   RV_BOUNCE.push({ x: BUM.x + 1.4, z: BUM.z + 4.4, c: Math.cos(0.12), s: Math.sin(0.12), hw: 0.72, hl: 0.99 });
   put(P_(junkBarrel), BUM.x + 1, BUM.z - 6.2, 0, [0.3, 0.3, 0.88]);
-  put(junkBags(4, { seed: seed++ }), 54.6, 40, 0, null);
+  bags(4, 54.6, 40, 0);
   rvKnock(put(P_(junkCart, { tipped: true, loaded: true }), 53.8, -60, -0.6, null), 'cart', true);
   rvKnock(put(P_(junkCone, { knocked: true }), RV.lipE + 1.4, -172, 0.5, null), 'cone', true); rvKnock(put(P_(junkCone), RV.lipW - 1.6, 10, 0, null), 'cone', false);
-  put(P_(junkSign, { kind: 'notrespass' }), RV.lipW - 1.4, 16.5, Math.PI / 2, null);
-  put(P_(junkSign, { kind: 'notrespass' }), RV.lipE + 1.6, -181, -Math.PI / 2, null);
-  put(P_(junkSign, { kind: 'street', bent: true }), -57.5, -98, 2.2, null);
-  // round the DIY halfpipe: a mattress to throw yourself onto, a cart, old tyres, a pallet, a barrel
+  put(P_(junkSign, { kind: 'notrespass' }), RV.lipW - 1.4, 16.5, Math.PI / 2, null, true);
+  put(P_(junkSign, { kind: 'notrespass' }), RV.lipE + 1.6, -181, -Math.PI / 2, null, true);
+  put(P_(junkSign, { kind: 'street', bent: true }), -57.5, -98, 2.2, null, true);
+  // round the DIY halfpipe: a mattress to throw yourself onto, a cart, old tyres, pallets, a barrel
   put(P_(junkMattress), -66.8, 95.2, 0.35, [0.72, 0.99, 0.27, 0.6]); RV_BOUNCE.push({ x: -66.8, z: 95.2, c: Math.cos(0.35), s: Math.sin(0.35), hw: 0.72, hl: 0.99 });
   rvKnock(put(P_(junkCart, { loaded: true }), -60.4, 96, 0.6, null), 'cart');
-  put(P_(junkTire, { lean: true }), -68.3, 111.6, 0.2, null); put(P_(junkTire), -70.4, 98.5, 0, null); put(P_(junkTire), -70.2, 99.1, 0.9, null);
-  put(P_(junkPallet, { lean: true }), -70.9, 113, 1.5, null); put(P_(junkBarrel), -59.6, 113.4, 0, [0.3, 0.3, 0.88]);
+  rvKnock(put(P_(junkTire), -68.3, 112.3, 0.2, null), 'tire'); rvKnock(put(P_(junkTire), -70.4, 98.5, 0, null), 'tire'); rvKnock(put(P_(junkTire), -70.7, 100.3, 0.9, null), 'tire');
+  rvPallet(-71.2, 114.2, 1.5, 2); put(P_(junkBarrel), -59.6, 113.4, 0, [0.3, 0.3, 0.88]);
   put(P_(junkSign, { kind: 'street', down: true }), -66, -175, 0.9, null);
-  put(P_(junkPallet), -36.5, -62, 0.4, null); put(P_(junkPallet, { lean: true }), -45.5, 64, -1.2, null);
+  rvPallet(-31, -60, 0.4, 3); rvPallet(RV.wallX + 0.2, 64, Math.PI / 2, 1, 0.26);   // a stack under the bridge, one leaning on the wall
+  rvPallet(RV.wallX + 0.2, -40, Math.PI / 2, 1, 0.3);
+  rvPallet(47, -12, -0.3, 3);   // on the east deck
   put(P_(junkCouch), -70.8, -128, Math.PI / 2, [1.05, 0.47, 0.9]);
-  put(P_(junkTire, { lean: true }), -73.9, -20, Math.PI / 2, null); put(junkBags(3, { seed: seed++ }), -60, -32, 1, null);
+  rvKnock(put(P_(junkTire), -72.4, -20, Math.PI / 2, null), 'tire'); bags(3, -60, -32, 1);
   rvKnock(put(P_(junkCart), -61.5, -146, 0.9, null), 'cart');
+  // dumpsters: one against the barrier on the east deck, one against the wall on the west deck, one in the street; bags dumped round them
+  rvDumpster(55.25, -88, Math.PI / 2, 0x2d4a36); bags(4, 54.9, -90.6, 0.4); bags(2, 54.6, -85.6, 1.2);
+  rvDumpster(RV.wallX + 0.62, -88, Math.PI / 2, 0x234a5c); bags(3, RV.wallX + 0.9, -85.5, 2.1);
+  rvDumpster(-58.6, -236, Math.PI / 2, 0x3c5a2e); bags(5, -58.9, -238.7, 0.3); put(P_(junkShoppingBags), -59.8, -233.4, 0.4, null);
+  // a bigger heap of junk under the third bridge on the west deck
+  bags(6, -30.5, -186.5, 0.7); put(P_(junkShoppingBags), -29.6, -185.2, 1.2, null); put(junkMilkCrate({ color: 0x1f5fa8 }), -31.6, -185.6, 0.4, null);
+  // ---- new spots ----
+  // the teeter-totter in the channel: a flat bar on a pivot, east of the sludge
+  rvTeeter(RV.xc + 9, -112, 0, 2.3, 0.42);
+  // a manual pad and a flat bar on the east deck
+  { const x = 53.1, z = -140, y = RV.deck, hw = 0.8, hl = 2.4, h = 0.3;   // in the lane by the barrier, off the bike path's centre line
+    const pad = new THREE.Mesh(rvBoxesGeo([[2 * hw, h, 2 * hl, x, y + h / 2, z]]), RM.diy); pad.castShadow = pad.receiveShadow = true; scene.add(pad);
+    addObs({ cx: x, cz: z, a: 0, hw, hl, f: () => y + h });
+    [-1, 1].forEach(sd => addRailPath([[x + sd * (hw - 0.03), y + h + 0.02, z - hl + 0.05], [x + sd * (hw - 0.03), y + h + 0.02, z + hl - 0.05]], { hidden: true, ledge: true }));
+    addRailPath([[50.4, y + 0.4, z - 3.5], [50.4, y + 0.4, z + 3.5]], {}); }
+  // a picnic table on the sidewalk of the upper street: the table top and the benches all grind
+  { const x = -52.6, z = -31, yaw = Math.PI / 2, y = heightAt(-52.6, -31), wood = new THREE.MeshStandardMaterial({ color: 0x7a6650, roughness: 0.9, flatShading: true });
+    const c = Math.cos(yaw), s = Math.sin(yaw), W = (lx, yy, lz) => [x + lx * c + lz * s, y + yy, z - lx * s + lz * c];
+    const boards = [], legs = [];
+    for (let i = 0; i < 5; i++) boards.push([1.9, 0.05, 0.14, 0, 0.74, -0.3 + i * 0.15, 0]);
+    [-1, 1].forEach(sd => boards.push([1.9, 0.05, 0.28, 0, 0.44, sd * 0.6, 0]));
+    [-0.7, 0.7].forEach(lx => legs.push([0.06, 0.82, 0.06, lx, 0.37, -0.22, 0, 0.55], [0.06, 0.82, 0.06, lx, 0.37, 0.22, 0, -0.55], [0.06, 0.05, 1.5, lx, 0.41, 0]));
+    const t = new THREE.Mesh(rvBoxesGeo(boards), wood), l = new THREE.Mesh(rvBoxesGeo(legs), RM.steel);
+    const g = new THREE.Group(); t.castShadow = l.castShadow = true; g.add(t, l); g.position.set(x, y, z); g.rotation.y = yaw; scene.add(g);
+    addObs({ cx: x, cz: z, a: yaw, hw: 0.95, hl: 0.38, f: () => y + 0.765 });
+    [-1, 1].forEach(sd => { const bc = W(0, 0, sd * 0.6); addObs({ cx: bc[0], cz: bc[2], a: yaw, hw: 0.95, hl: 0.14, f: () => y + 0.465 });
+      addRailPath([W(-0.92, 0.785, sd * 0.36), W(0.92, 0.785, sd * 0.36)], { hidden: true, ledge: true });
+      addRailPath([W(-0.92, 0.485, sd * 0.72), W(0.92, 0.485, sd * 0.72)], { hidden: true, ledge: true }); }); }
+  // a line of parking blocks on the west deck past the third bridge, between the tracks and the lip: grind one, hop the gap, grind the next
+  for (let i = 0; i < 5; i++) { const x = -23.6, z = -250 - i * 2.6, y = RV.deck, hw = 0.13, hl = 0.9, h = 0.16;
+    const b = new THREE.Mesh(rvBoxesGeo([[2 * hw, h, 2 * hl, x, y + h / 2, z]]), RM.wall); b.castShadow = b.receiveShadow = true; scene.add(b);
+    addObs({ cx: x, cz: z, a: 0, hw, hl, f: (lx, lz) => y + h * clamp(Math.min(hw - Math.abs(lx), hl - Math.abs(lz)) / 0.04, 0, 1) + 0.0001 });
+    addRailPath([[x, y + h + 0.02, z - hl + 0.04], [x, y + h + 0.02, z + hl - 0.04]], { hidden: true, ledge: true }); }
+  // a beer bottle someone jammed into a crack in the jersey barrier
+  { const bm = new THREE.MeshStandardMaterial({ color: 0x5a3410, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.92 });
+    const b = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 0.24, 8), bm), n = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.03, 0.09, 8), bm); n.position.y = 0.16; b.add(n);
+    b.position.set(JB.x - 0.13, RV.deck + 0.5, -26); b.rotation.set(0.15, 0, 0.95); scene.add(b); }
   // litter: under the bridges, round the camp, along the barriers, wherever people sit; on the ground only (never on a prop, a ramp or the guy)
   const smallObs = obstacles.filter(o => o.hw < 3 && o.hl < 3);
   const litterGround = (x, z) => {
@@ -8399,12 +8779,13 @@ if (typeof junkLitter === 'function') {
     for (const o of smallObs) { const dx = x - o.cx, dz = z - o.cz, lx = dx * o.c - dz * o.s, lz = dx * o.s + dz * o.c; if (Math.abs(lx) < o.hw + 0.12 && Math.abs(lz) < o.hl + 0.12) return null; }
     return heightAt(x, z);
   };
-  scene.add(junkLitter([
+  const LITTER = junkLitter([
     { x: RV.xc, z: RV.bridges[0].z, r: 15, n: 70 }, { x: RV.xc, z: RV.bridges[1].z, r: 15, n: 70 }, { x: RV.xc, z: RV.bridges[2].z, r: 15, n: 80 },
     { x: BUM.x, z: BUM.z, r: 5, n: 60 }, { x: 54, z: 10, r: 2.5, n: 30 }, { x: 54, z: -120, r: 2.5, n: 30 }, { x: 54, z: -260, r: 2.5, n: 25 },
     { x: 3, z: -10, r: 10, n: 25 }, { x: -60, z: -22, r: 6, n: 35 }, { x: -48, z: -150, r: 8, n: 35 }, { x: RV.xc + 9.5, z: -88, r: 7, n: 30 },
     { x: -5, z: -126, r: 5, n: 25 }, { x: -71, z: -70, r: 4, n: 25 }, { x: -2, z: 70, r: 4, n: 25 }, { x: -38, z: 30, r: 3, n: 15 },
-  ], litterGround, 777));
+  ], litterGround, 777, 1.25);
+  scene.add(LITTER); rvLitterInit(LITTER);
 }
 // ---- the cop: on a bench on the east bike path with a donut, his cruiser parked by the fence ----
 const COP = { benchX: 44.25, benchZ: 62.45, benchYaw: 0, carX: 48.9, carZ: 71.8, carYaw: 0, carHW: 0.93, carHL: 2.45,   // his bench backed up against the north end of bridge 1's wall by the tall quarter, watching the path; the car parked just past it, angled out, so you can wallride the wall and drop onto it
@@ -9675,6 +10056,7 @@ function riverTick(dt) {
   carAlarmTick(dt);
   knockTick(dt);
   debrisTick(dt);
+  propsTick(dt);
   tunnelFade(dt);
   if (game.running) gooTick(dt);
   // birds on the wires and bridge rails scatter when you roll past
@@ -12137,7 +12519,7 @@ if (location.hash === '#debug') {
   window.__cl = { P, keys, pressed, released, combo, game, letters, tape, heightAt, renderer, scene, render: () => renderer.render(scene, camera),
     step: dt => { game.clock += dt; physics(dt); for (const k in pressed) delete pressed[k]; for (const k in released) delete released[k]; },
     anim: dt => animate(dt), fx: dt => fxTick(dt), cam: dt => updateCamera(dt), rails, startGrind, legs, arms, pose, rider, camera,
-    sfx, SPAWNS, RIM, setMap, RAG, bail, glance, grad, get MAPID() { return MAPID; }, RV, ARCH, BUM, WRECK, COP, obstacles, get MP() { return MP; }, FIRE, RV_CARS, mpPresenceObj, mpNewRemote, mpTakePresence, mpDrop, mpCrash, mpTick, flames, river: dt => { game.clock += dt; physics(dt); riverTick(dt); for (const k in pressed) delete pressed[k]; for (const k in released) delete released[k]; }, get camYaw() { return camYaw; }, set camYaw(v) { camYaw = v; }, get SPIRALS() { return SPIRALS; }, get inSky() { return inSky; }, get mp() { return { MP, mpPeers, mpTick, mpPresenceObj, mpCrash, NET }; }, snap: () => [P.state, +P.pos.x.toFixed(2), +P.pos.y.toFixed(2), +P.pos.z.toFixed(2), +P.s.toFixed(2), +P.vel.y.toFixed(2), +P.heading.toFixed(2), P.switchSt ? 'sw' : ''] };
+    sfx, SPAWNS, RIM, setMap, RAG, bail, glance, grad, get MAPID() { return MAPID; }, RV, ARCH, BUM, WRECK, COP, obstacles, get MP() { return MP; }, FIRE, RV_CARS, mpPresenceObj, mpNewRemote, mpTakePresence, mpDrop, mpCrash, mpTick, flames, river: dt => { game.clock += dt; physics(dt); riverTick(dt); for (const k in pressed) delete pressed[k]; for (const k in released) delete released[k]; }, get RVP() { return { RV_KNOCK, RV_CARTS, RV_TIRES, RV_CONES, RV_BAGS, RV_PALLETS, RV_DUMPSTERS, RV_TEETERS, PCS, PUFFS, LIT, pcsMesh }; }, get camYaw() { return camYaw; }, set camYaw(v) { camYaw = v; }, get SPIRALS() { return SPIRALS; }, get inSky() { return inSky; }, get mp() { return { MP, mpPeers, mpTick, mpPresenceObj, mpCrash, NET }; }, snap: () => [P.state, +P.pos.x.toFixed(2), +P.pos.y.toFixed(2), +P.pos.z.toFixed(2), +P.s.toFixed(2), +P.vel.y.toFixed(2), +P.heading.toFixed(2), P.switchSt ? 'sw' : ''] };
 }
 
 // ---------- Main loop ----------

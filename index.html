@@ -234,6 +234,7 @@ kbd {
 #touch .b-flip { right: calc(var(--bb) * 1.42); bottom: calc(var(--bb) * 1.22); }
 #touch button.on { background: rgba(217,119,87,.45); border-color: var(--hazard); }
 body.touch { touch-action: none; overscroll-behavior: none; }
+body.touch #keysMenu, body.touch #keysPause { display: none; }   /* key rebinding is keyboard-only: the panel trapped touch players */
 #tunFade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; }
 /* on a phone the text stays small and out of the middle, so the skater and what's ahead stay in view */
 body.touch #combo { bottom: calc(clamp(62px, 17vmin, 92px) * 2.85 + 18px + env(safe-area-inset-bottom, 0px)); width: min(520px, calc(100% - 32px)); }
@@ -289,7 +290,7 @@ body.touch .readout { padding: 3px 8px 4px 7px; }
   <div class="splash-in">
     <h1>Concrete <span class="hz">Lines</span></h1>
     <p class="splash-by">Made by Jon Beam<br>with the use of Claude Code</p>
-    <p class="splash-date">Updated October 26, 2026 · Play-test 0.017</p>
+    <p class="splash-date">Updated October 26, 2026 · Play-test 0.018</p>
     <p class="splash-go">Click to play</p>
   </div>
 </div>

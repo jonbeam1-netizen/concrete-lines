@@ -246,7 +246,7 @@ body.touch .readout .lbl { font-size: 11px; }
   <div class="splash-in">
     <h1>Concrete <span class="hz">Lines</span></h1>
     <p class="splash-by">Made by Jon Beam<br>with the use of Claude Code</p>
-    <p class="splash-date">Updated October 26, 2026 · Play-test 0.006</p>
+    <p class="splash-date">Updated October 26, 2026 · Play-test 0.007</p>
     <p class="splash-go">Click to play</p>
   </div>
 </div>
@@ -8820,7 +8820,7 @@ function carAlarmTick(dt) {
   for (const C of RV_CARS) {
     const dx = P.pos.x - C.x, dz = P.pos.z - C.z, lx = dx * C.c - dz * C.s, lz = dx * C.s + dz * C.c;
     const on = game.running && (P.state === 'ground' || P.state === 'grind') && Math.abs(lx) < C.hw + 0.15 && Math.abs(lz) < C.hl + 0.15 && P.pos.y > C.y0 + 0.5;
-    if (on && C.t <= 0) { C.t = 2.2; carAlarm(); }
+    if (on && C.t <= 0) { C.t = 2.2; carAlarm(); mpAlarmOut('alarm', RV_CARS.indexOf(C)); }
     if (C.t > 0) { C.t -= dt; C.car.setAlarm(C.t > 0, game.clock); }
   }
 }
@@ -8887,7 +8887,7 @@ function copTick(dt) {
     const dx = P.pos.x - C.carX, dz = P.pos.z - C.carZ, lx = dx * Math.cos(C.carYaw) - dz * Math.sin(C.carYaw), lz = dx * Math.sin(C.carYaw) + dz * Math.cos(C.carYaw);
     const onCar = game.running && P.state !== 'bail' && Math.abs(lx) < C.carHW + 0.2 && Math.abs(lz) < C.carHL + 0.2 && P.pos.y > RV.deck + 0.6 && P.state !== 'air';
     if (onCar && C.lightsT <= 0) {
-      C.lightsT = 2.6; copSiren();
+      C.lightsT = 2.6; copSiren(); mpAlarmOut('cop', 0);
       if (C.rig && C.state === 'idle' && C.hasDonut && t > C.nextThrow) { C.state = 'throw'; C.throwT = 0; C.nextThrow = t + 6; }
     }
     if (C.lightsT > 0) { C.lightsT -= dt; C.car.setLights(true, t); if (C.lightsT <= 0) C.car.setLights(false, t); }
@@ -11260,7 +11260,7 @@ if (location.hash === '#debug') {
   window.__cl = { P, keys, pressed, released, combo, game, letters, tape, heightAt, renderer, scene, render: () => renderer.render(scene, camera),
     step: dt => { game.clock += dt; physics(dt); for (const k in pressed) delete pressed[k]; for (const k in released) delete released[k]; },
     anim: dt => animate(dt), fx: dt => fxTick(dt), cam: dt => updateCamera(dt), rails, startGrind, legs, arms, pose, rider, camera,
-    sfx, SPAWNS, RIM, setMap, RAG, bail, glance, grad, get MAPID() { return MAPID; }, RV, ARCH, BUM, WRECK, COP, obstacles, river: dt => { game.clock += dt; physics(dt); riverTick(dt); for (const k in pressed) delete pressed[k]; for (const k in released) delete released[k]; }, get camYaw() { return camYaw; }, set camYaw(v) { camYaw = v; }, get SPIRALS() { return SPIRALS; }, get inSky() { return inSky; }, get mp() { return { MP, mpPeers, mpTick, mpPresenceObj, mpCrash, NET }; }, snap: () => [P.state, +P.pos.x.toFixed(2), +P.pos.y.toFixed(2), +P.pos.z.toFixed(2), +P.s.toFixed(2), +P.vel.y.toFixed(2), +P.heading.toFixed(2), P.switchSt ? 'sw' : ''] };
+    sfx, SPAWNS, RIM, setMap, RAG, bail, glance, grad, get MAPID() { return MAPID; }, RV, ARCH, BUM, WRECK, COP, obstacles, get MP() { return MP; }, FIRE, RV_CARS, mpPresenceObj, mpNewRemote, mpTakePresence, mpDrop, mpCrash, mpTick, flames, river: dt => { game.clock += dt; physics(dt); riverTick(dt); for (const k in pressed) delete pressed[k]; for (const k in released) delete released[k]; }, get camYaw() { return camYaw; }, set camYaw(v) { camYaw = v; }, get SPIRALS() { return SPIRALS; }, get inSky() { return inSky; }, get mp() { return { MP, mpPeers, mpTick, mpPresenceObj, mpCrash, NET }; }, snap: () => [P.state, +P.pos.x.toFixed(2), +P.pos.y.toFixed(2), +P.pos.z.toFixed(2), +P.s.toFixed(2), +P.vel.y.toFixed(2), +P.heading.toFixed(2), P.switchSt ? 'sw' : ''] };
 }
 
 // ---------- Main loop ----------
@@ -11274,9 +11274,9 @@ let last = performance.now();
 }
 // ---------- Multiplayer: everyone with this page open skates in the same park ----------
 // Each player shares their rider (position, pose, ragdoll) through room presence. Running into someone fast wipes you both out.
-const MP = { room: null, user: null, mePeer: null, remotes: new Map(), names: {}, sendT: 0, crashCD: {}, wasOn: false };
+const MP = { room: null, user: null, mePeer: null, remotes: new Map(), names: {}, sendT: 0, crashCD: {}, wasOn: false, alarmTx: {}, alarmRx: {} };
 const MP_NODES = []; rider.traverse(o => { if (o !== rider) MP_NODES.push(o); });
-const MP_BOARD = MP_NODES.indexOf(boardRoot), MP_CHAR = MP_NODES.indexOf(char);
+const MP_BOARD = MP_NODES.indexOf(boardRoot), MP_CHAR = MP_NODES.indexOf(char), MP_FLIP = MP_NODES.indexOf(boardFlip);
 const mpTemplate = rider.clone(true);
 const MP_STRIDE = 13, mpView = new DataView(new ArrayBuffer(MP_NODES.length * MP_STRIDE)), mpRagView = new DataView(new ArrayBuffer(RAG.p.length * 6));
 const mpI16 = v => Math.max(-32767, Math.min(32767, Math.round(v)));
@@ -11303,6 +11303,7 @@ function mpPresenceObj() {
     v: [r2(v.x), r2(v.y), r2(v.z)], k: mpB64(mpView), bw: null, rg: null,
   };
   if (boardRoot.parent !== rider) { const bp = boardRoot.position, bq = boardRoot.quaternion; out.bw = [r2(bp.x), r2(bp.y), r2(bp.z), r3(bq.x), r3(bq.y), r3(bq.z), r3(bq.w)]; }
+  if (FIRE.t > 0) out.f = Math.max(1, Math.ceil(Math.min(1, FIRE.t / (FIRE.big ? 4 : 1.8)) * 10));   // hot wheels, 1-10
   if (RAG.on) { RAG.p.forEach((p, i) => { mpRagView.setInt16(i * 6, mpI16(p.x * 300)); mpRagView.setInt16(i * 6 + 2, mpI16(p.y * 300)); mpRagView.setInt16(i * 6 + 4, mpI16(p.z * 300)); }); out.rg = mpB64(mpRagView); }
   return out;
 }
@@ -11339,16 +11340,18 @@ function mpNewRemote(peer) {
   const g = mpTemplate.clone(true), capM = rigM.capM.clone(); capM.color.setHex(color);
   const shirtM = rigM.shirt.clone(), sleeveM = rigM.sleeve.clone();
   g.traverse(o => { if (o.material === rigM.capM) o.material = capM; if (o.material === rigM.shirt) o.material = shirtM; if (o.material === rigM.sleeve) o.material = sleeveM; });
+  const wheelM = new Map(); g.traverse(o => { if (o.isMesh && WHEEL_MATS.includes(o.material)) { if (!wheelM.has(o.material)) wheelM.set(o.material, o.material.clone()); o.material = wheelM.get(o.material); } });   // own wheels, so only a burning rider's glow
   const nodes = []; g.traverse(o => { if (o !== g) nodes.push(o); });
   const rg = ragGroup.clone(true); rg.visible = false; scene.add(rg, g);
   rg.traverse(o => { if (o.material === rigM.shirt) o.material = shirtM; });
   const tag = mpTag('Skater', color); tag.position.set(0, 2.25, 0); g.add(tag);
-  return { peer: peer.peer, by: peer.by, color, shirtM, sleeveM, sc: null, g, nodes, board: nodes[MP_BOARD], charN: nodes[MP_CHAR], rg, tag, tagName: 'Skater',
+  return { peer: peer.peer, by: peer.by, color, shirtM, sleeveM, sc: null, g, nodes, board: nodes[MP_BOARD], charN: nodes[MP_CHAR], rg, tag, tagName: 'Skater', flip: MP_FLIP >= 0 ? nodes[MP_FLIP] : null, wheelMats: [...wheelM.values()], fire: 0, fireLit: true,
     pres: null, recvAt: 0, tgt: null, tq: new THREE.Quaternion(), tp: new V3(), tv: new V3(), ragP: RAG.p.map(() => new V3()), fresh: false };
 }
 function mpDrop(r) { scene.remove(r.g, r.rg); if (r.board.parent === scene) scene.remove(r.board); MP.remotes.delete(r.peer); }
 function mpTakePresence(r, pr) {
   r.pres = pr; r.recvAt = performance.now();
+  r.fire = pr && typeof pr.f === 'number' && isFinite(pr.f) && pr.f > 0 ? Math.min(1, pr.f / 10) : 0;   // older versions don't send it: not burning
   if (!pr || !pr.on || !Array.isArray(pr.p) || !Array.isArray(pr.q) || typeof pr.k !== 'string') { r.tgt = null; return; }
   const num = a => a.every(n => typeof n === 'number' && isFinite(n));
   if (!num(pr.p) || !num(pr.q) || !Array.isArray(pr.v) || !num(pr.v)) { r.tgt = null; return; }
@@ -11397,8 +11400,51 @@ async function mpNames() {
   });
 }
 function mpCrash(msg) {
-  if (msg.sameTab || !msg.data || msg.data.to !== MP.mePeer) return;
+  if (!msg || msg.sameTab || !msg.data) return;
+  if (msg.data.ev === 'alarm' || msg.data.ev === 'cop') { mpAlarmIn(msg.data); return; }
+  if (msg.data.to !== MP.mePeer) return;
   if (game.running && !game.paused && P.state !== 'bail') { bail('Wiped out by another skater'); shake = 1.2; }
+}
+// car alarms and the cop's lights: one small event on the crash channel, so everyone on the river sees and hears it
+function mpAlarmOut(ev, i) {
+  if (!MP.room || !(i >= 0)) return;
+  const key = ev + i, now = performance.now();
+  if ((MP.alarmTx[key] || 0) > now) return;   // once per alarm length per car, at most
+  MP.alarmTx[key] = now + 2200;
+  try { MP.room.emit('crash', { ev, i, at: Date.now() }).catch(() => {}); } catch (e) {}
+}
+function mpAlarmIn(d) {
+  if (MAPID !== 'river') return;
+  const i = d.i, at = d.at, now = performance.now();
+  if (!Number.isInteger(i) || typeof at !== 'number' || !isFinite(at) || Date.now() - at > 3000) return;   // stale
+  const key = d.ev + i; if ((MP.alarmRx[key] || 0) > now) return;   // two riders on one car: once
+  if (d.ev === 'alarm') {
+    const C = RV_CARS[i]; if (!C) return;
+    MP.alarmRx[key] = now + 2200;
+    if (C.t > 0) return;
+    C.t = 2.2; carAlarm(); C.car.setAlarm(true, game.clock);
+  } else {
+    const C = COP; if (i !== 0 || !C || !C.car) return;
+    MP.alarmRx[key] = now + 2600;
+    if (C.lightsT > 0) return;
+    C.lightsT = 2.6; copSiren(); C.car.setLights(true, game.clock);
+  }
+}
+// another rider's hot wheels: glow on their own wheel materials and a thinner stream of flames into the shared pool
+const _mfW = new V3(), _mfV = new V3();
+function mpFire(r, dt, on) {
+  const heat = on && r.flip && performance.now() - r.recvAt < 1000 ? r.fire : 0;
+  if (heat > 0 || r.fireLit) { r.wheelMats.forEach(m => { if (!m.emissive) return; m.emissive.setRGB(1, 0.35, 0.05); m.emissiveIntensity = 1.4 * heat; }); r.fireLit = heat > 0; }
+  if (heat <= 0) return;
+  r.flip.updateWorldMatrix(true, false);
+  _mfV.copy(r.tv).setY(0); const sp = _mfV.length(); if (sp > 1e-3) _mfV.divideScalar(sp);
+  const chance = Math.min(1, (0.35 + sp * 0.03) * heat * dt * 60);   // about a third of the local rate per wheel
+  for (const l of WHEEL_LOCAL) {
+    if (flames.length >= FIRE_MAX * 0.7 || Math.random() > chance) continue;   // leave room for your own fire
+    _mfW.set(l[0], l[1], l[2]).applyMatrix4(r.flip.matrixWorld);
+    flames.push({ p: _mfW.clone().addScaledVector(_mfV, -0.12 - Math.random() * 0.1).add(new V3((Math.random() - 0.5) * 0.06, -0.03 + (Math.random() - 0.5) * 0.03, (Math.random() - 0.5) * 0.06)),
+      v: new V3((Math.random() - 0.5) * 0.5, 0.25 + Math.random() * 0.7, (Math.random() - 0.5) * 0.5).addScaledVector(_mfV, -0.6), life: 0, max: 0.45 + Math.random() * 0.75 });
+  }
 }
 const _mpP = new V3(), _mq = new THREE.Quaternion();
 function mpTick(dt) {
@@ -11411,7 +11457,7 @@ function mpTick(dt) {
   }
   for (const r of MP.remotes.values()) {
     const live = r.tgt && now - r.recvAt < 5000 && ((r.pres && r.pres.mp) || 'park') === MAPID;   // only riders on the same map show up
-    r.g.visible = !!live; if (!live) { r.rg.visible = false; if (r.board.parent === scene) r.board.visible = false; continue; }
+    r.g.visible = !!live; if (!live) { mpFire(r, dt, false); r.rg.visible = false; if (r.board.parent === scene) r.board.visible = false; continue; }
     r.board.visible = true;
     const t = r.tgt, age = Math.min(0.25, (now - r.recvAt) / 1000), a = damp(16, dt);
     _mpP.copy(r.tp).addScaledVector(r.tv, t.st === 'bail' ? 0 : age);
@@ -11429,6 +11475,7 @@ function mpTick(dt) {
     // ragdoll when they're wiping out
     const rag = !!(t.rg && MP_RAG); r.rg.visible = rag; r.charN.visible = !rag; r.tag.position.y = rag ? 1.2 : 2.25;
     if (rag) mpRagRender(r.rg.children, r.ragP);
+    mpFire(r, dt, true);
     // collisions: fast = both of you wipe out, slow = a shove
     if (!game.running || game.paused || P.state === 'bail' || t.st === 'bail' || now - r.recvAt > 600) continue;
     _mpP.copy(r.tp).addScaledVector(r.tv, age);
@@ -11470,7 +11517,7 @@ function netData(fromId, m) {
   } else if (m.t === 'bye' && !NET.host && typeof m.id === 'string') {
     delete NET.pres[m.id]; netRefresh();
   } else if (m.t === 'e' && m.topic === 'crash' && m.data && typeof m.data === 'object') {
-    if (m.data.to === NET.myId) mpCrash({ sameTab: false, data: m.data });
+    if (m.data.to === NET.myId || m.data.ev) mpCrash({ sameTab: false, data: m.data });
     if (NET.host) netBroadcast(m, fromId);
   }
 }

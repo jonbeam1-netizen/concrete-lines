@@ -246,7 +246,7 @@ body.touch .readout .lbl { font-size: 11px; }
   <div class="splash-in">
     <h1>Concrete <span class="hz">Lines</span></h1>
     <p class="splash-by">Made by Jon Beam<br>with the use of Claude Code</p>
-    <p class="splash-date">Updated October 25, 2026 · Play-test 0.003</p>
+    <p class="splash-date">Updated October 26, 2026 · Play-test 0.004</p>
     <p class="splash-go">Click to play</p>
   </div>
 </div>
@@ -9222,6 +9222,13 @@ function stepGround(dt, st) {
   }
   const h = heightAt(nx, nz);
   if (h - P.pos.y > 0.4 + Math.abs(dy) || (h - P.pos.y > 0.02 && (isWallAt(nx, nz, fx * dirS, fz * dirS) || stepAhead(nx, nz, h)))) { const w = wallNormal(nx, nz, fx * dirS, fz * dirS), wl = Math.hypot(w[0], w[1]) || 1;
+    // carving up a bank into a tall wall at speed (not dead on): ride straight up onto it
+    const wx = w[0] / wl, wz = w[1] / wl, into = (fx * wx + fz * wz) * dirS;
+    const rise = (P.pos.y - heightAt(P.pos.x - wx * 0.3, P.pos.z - wz * 0.3)) / 0.3;   // the bank rising toward the wall (flat ground and curbs: none)
+    if (rise > 0.4 && uphill > 0.05 && sp > 5 && into > 0.15 && into < 0.9 && wallrideOK(Math.max(h, heightAt(P.pos.x + wx * 0.2, P.pos.z + wz * 0.2)))) {
+      groundVel(P.vel); P.vel.y = Math.max(P.vel.y, 0); P.manual = null;
+      enterAir(false); startWall(wx, wz); return;
+    }
     glance(w[0], w[1]); return; }
   // Firecracker: rolling off the top of a stair set in a manual, the tail (or nose) slaps down every step instead of flying off them
   if (P.manual && ny > h + 0.004 && P.pos.y - h > 0.08 && P.pos.y - h < 0.65 && onStairs(nx, nz)) {
@@ -9365,6 +9372,11 @@ function wallDir(x, z, y) {
   const l = Math.hypot(sx, sz); return l > 1e-6 ? [sx / l, sz / l] : null;
 }
 function wallGap(x, z, y, nx, nz) { for (let d = 0; d <= 1.2; d += 0.03) if (heightAt(x + nx * d, z + nz * d) > y + 0.3) return d; return 9; }
+// a wall you can wallride: a proper tall one (not a curb, step, couch or car side) with face left above you
+// (the cooldown after leaving a wall only stops the same jump re-catching; a fresh ollie or launch can catch straight away)
+function wallrideOK(wallTop, freshAir) {
+  return !inTunnel && (P.wallCD <= 0 || freshAir) && wallTop > P.pos.y + 0.5 && wallTop - heightAt(P.pos.x, P.pos.z) > 1.3;
+}
 function startWall(wx, wz) {
   const A = P.air;
   { const wd = wallDir(P.pos.x, P.pos.z, P.pos.y); if (wd) { wx = wd[0]; wz = wd[1]; } }
@@ -9558,9 +9570,10 @@ function stepAir(dt, st) {
       const into = P.vel.x * wx + P.vel.z * wz, vhw = Math.hypot(P.vel.x, P.vel.z);
       const wallTop = Math.max(h, heightAt(P.pos.x + wx * 0.2, P.pos.z + wz * 0.2));
       // (only proper walls: anything low like a couch or a car side just bumps you off)
-      // a wallride only from a real air: up off the ground by half a metre or more (rolling in, or a tiny hop, just bumps you along it)
+      // a wallride from any real air: any ollie, or a launch off a bank (a roll-off stutter of a few frames just bumps you along it)
       const up = P.pos.y - heightAt(P.pos.x - wx * 0.3, P.pos.z - wz * 0.3);
-      if (!inTunnel && P.wallCD <= 0 && up > 0.5 && wallTop > P.pos.y + 0.7 && wallTop - heightAt(P.pos.x, P.pos.z) > 1.3 && vhw > 2.8 && into > 0 && into / vhw < 0.995 && !(A.flip && A.flip.t < 0.45)) { startWall(wx, wz); return; }
+      // near head-on it still catches when you come in fast (startWall turns you along it); slow and near head-on you just stop against it
+      if (wallrideOK(wallTop, !A.wallOut) && (up > 0.2 || A.time > 0.15 || P.anim.takeoff === 'ollie') && vhw > 2.8 && into > 0 && (into / vhw < 0.9 || vhw > 5) && !(A.flip && A.flip.t < 0.25)) { startWall(wx, wz); return; }
       if (into > 0) { P.vel.x -= wx * into * 1.1; P.vel.z -= wz * into * 1.1; }
       P.pos.y = Math.max(ny, heightAt(P.pos.x, P.pos.z)); return;
     }

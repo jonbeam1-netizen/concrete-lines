@@ -246,7 +246,7 @@ body.touch .readout .lbl { font-size: 11px; }
   <div class="splash-in">
     <h1>Concrete <span class="hz">Lines</span></h1>
     <p class="splash-by">Made by Jon Beam<br>with the use of Claude Code</p>
-    <p class="splash-date">Updated October 26, 2026 · Play-test 0.013</p>
+    <p class="splash-date">Updated October 26, 2026 · Play-test 0.014</p>
     <p class="splash-go">Click to play</p>
   </div>
 </div>
@@ -12200,6 +12200,7 @@ function animate(dt) {
   pose.hipX = lerp(pose.hipX, hipX, k); pose.hipZ = lerp(pose.hipZ, c * hipZ, k);
   pose.leanT = lerp(pose.leanT, leanT, k); pose.leanA = lerp(pose.leanA, c * leanA, k);
   pose.twist = lerp(pose.twist, twist, k); pose.headY = lerp(pose.headY, -c * 0.85 * travel, damp(6, dt));
+  pose.twistS = lerp(pose.twistS ?? -c * twist, -c * twist, k);   // the signed shoulder twist eases through a stance flip (revert) instead of snapping the hands across
   const fastBoard = st === 'air' && an.takeoff === 'ollie' && an.ollieT >= 0 && an.ollieT < 0.4;
   pose.lift = lerp(pose.lift, lift, fastBoard ? kf : (st === 'grind' || st === 'ground') && lift < pose.lift ? damp(45, dt) : k);
   // keep a believable bend in the knees: feet never fold up into the backside
@@ -12269,8 +12270,8 @@ function animate(dt) {
   char.position.set(sox, 0, soz);
   pelvis.position.set(pose.hipX, pose.hipY, pose.hipZ);
   const slam = smooth(Math.min(1, pose.slam || 0));
-  spine.rotation.set(pose.leanA, -c * pose.twist + pose.spinLead, pose.leanT - 0.42 * slam + Math.sin(game.clock * 2.1) * 0.012);   // shoulders fold forward over the board on impact
-  head.rotation.y = pose.headY + c * pose.twist * 0.5 - pose.spinLead * 0.5;
+  spine.rotation.set(pose.leanA, pose.twistS + pose.spinLead, pose.leanT - 0.42 * slam + Math.sin(game.clock * 2.1) * 0.012);   // shoulders fold forward over the board on impact
+  head.rotation.y = pose.headY - pose.twistS * 0.5 - pose.spinLead * 0.5;
   head.rotation.z = pose.headPitch;
   rider.updateMatrixWorld(true);
 

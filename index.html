@@ -8183,7 +8183,7 @@ const sfx = {
 // Every action has a key the player can rebind; K mirrors the bindings for the game code
 const ACTIONS = [
   ['push', 'Push', 'KeyW'], ['brake', 'Brake / powerslide', 'KeyS'], ['left', 'Carve / spin left', 'KeyA'], ['right', 'Carve / spin right', 'KeyD'],
-  ['jump', 'Ollie (hold for higher)', 'Space'], ['trick', 'Right-side trick (also left click)', 'KeyE'], ['trick2', 'Left-side trick (also right click)', 'KeyQ'], ['grind', 'Lock onto grind', 'KeyR'],
+  ['jump', 'Ollie (hold for higher)', 'Space'], ['trick', 'Right-side trick (also left click)', 'KeyE'], ['trick2', 'Left-side trick (also right click)', 'KeyQ'], ['grind', 'Manual / grind catch', 'KeyR'],
   ['reset', 'Respawn', 'KeyB'], ['spawn', 'Next drop-in spot', 'KeyN'], ['cam', 'Camera', 'KeyC'], ['pause', 'Pause', 'KeyP'], ['mute', 'Mute', 'KeyM'],
 ];
 const DEFAULT_BIND = Object.fromEntries(ACTIONS.map(a => [a[0], a[2]]));
@@ -8296,7 +8296,7 @@ const CONTROLS = () => {
       [[k('trick')], 'Right-side flips: kickflip, FS shove-it, impossible, anti-bigspin, inward heelflip and more. Also left click.'],
       [[k('trick2')], 'Left-side flips: heelflip, BS shove-it, hardflip, 360 shove-it, tre flip and more. Also right click.'],
       [['Air'], 'The game picks a flip from that side that fits your hang time. Tap again for a double, hold to keep it spinning.'],
-      [[k('grind')], 'Lock onto grind: press near a rail, ledge or coping (up to about 4 m away) and he jumps onto it and locks in. Works in the air too. With no rail nearby on the ground, it starts a manual or nose manual; press it again to revert and keep manualing. W rolls out and pushes; S drops out and brakes or powerslides.'],
+      [[k('grind')], 'Manual / grind catch: on the ground, starts a manual or nose manual; press it again to revert and keep manualing. In the air, press it to arm a catch: land on a rail, ledge or coping to grind it, land on the ground to manual. W rolls out and pushes; S drops out and brakes or powerslides.'],
       [['Grinds'], 'Hold a direction as you land on a rail: nothing = a random grind, W = Nosegrind, S = 5-0, A = Boardslide, D = Lipslide, W+A = Crooked, W+D = Noseslide, S+A = Smith, S+D = Tailslide. FS or BS comes from the side you approach. Press R on the rail to flip into a Darkslide, R again to flip back into a random grind, and so on.'],
       [['Landing'], 'Tap just before you land: manual on flat, revert on a ramp. Keeps the combo going.'],
       [['Ground'], 'Pops a flip straight off the ground.'],
@@ -9012,6 +9012,8 @@ function wallNormal(x, z, tx, tz) {
   if (!wx && !wz) { wx = tx; wz = tz; }
   return [wx, wz];
 }
+// head-on wall hit speed that takes you out: only near top speed in Arcade, lower in Real mode
+const WALL_BAIL_S = () => REAL ? 7 : 9.5;
 // Glance off a wall: keep the speed along it, lose the part that went into it
 function glance(wx, wz) {
   const L = Math.hypot(wx, wz) || 1; wx /= L; wz /= L;
@@ -9020,7 +9022,7 @@ function glance(wx, wz) {
   if (into <= 0.01) { wx = vx; wz = vz; into = 1; }
   // nearly head-on (within ~25 degrees): fast, and it takes you out; slow, and you just stop against it with a little knock back
   if (into > 0.9) {
-    if (Math.abs(P.s) > 7 && P.state === 'ground') { bail('Ran into a wall'); return; }
+    if (Math.abs(P.s) > WALL_BAIL_S() && P.state === 'ground') { bail('Ran into a wall'); return; }
     P.s = -dirS * Math.min(0.8, Math.abs(P.s) * 0.15); P.anim.impact = Math.max(P.anim.impact, 0.3); if (Math.abs(P.s) > 0.3) sfx.bump(); return;
   }
   let tx = vx - wx * into, tz = vz - wz * into, tl = Math.hypot(tx, tz);
@@ -9488,7 +9490,8 @@ function stepAir(dt, st) {
   }
   if (A.special) { if (held(K.flip) || held(K.grab)) A.special.t += dt; else finalizeSpecial(); }
 
-  if (A.wantRail) {
+  // only the wallride -> rail hop (wallToGrind) is steered onto its rail; R in the air never pulls you toward one (tryGrind catches it if you come down on it)
+  if (A.wantRail && A.wallHop) {
     let r = A.wantRail, u = ((P.pos.x - r.a.x) * r.dx + (P.pos.z - r.a.z) * r.dz) / r.lenH2;
     if (u > 1 && r.next) { r = A.wantRail = r.next; u = ((P.pos.x - r.a.x) * r.dx + (P.pos.z - r.a.z) * r.dz) / r.lenH2; }
     else if (u < 0 && r.prev) { r = A.wantRail = r.prev; u = ((P.pos.x - r.a.x) * r.dx + (P.pos.z - r.a.z) * r.dz) / r.lenH2; }
@@ -9667,10 +9670,15 @@ function grindAssist() {
 }
 // the way reverts spin: fixed by your stance (not flipped by riding switch), so revert after revert keeps turning the same way round
 const revDir = () => stance === 'regular' ? -1 : 1;
+const REVERT_DUR = 0.65;
+// a revert's half turn is still playing: a new revert press is ignored (wall glances and powerslides don't block)
+const revertBusy = () => !!(P.recover && P.recover.revert && game.clock - P.recover.at < P.recover.dur);
 function revert() {
-  // spin the board back around on landing and keep the line going
+  // pivot the board a half turn on its wheels on landing and keep the line going: same direction of travel, now the other stance
+  if (revertBusy()) return;
+  P.switchSt = !P.switchSt;
   addTrick('Revert', 100); P.pending = 0.9; P.revertable = 0; P.didRevert = true;
-  P.recover = { t: 0, off: -revDir() * 1.3 }; pose.yaw = pose.charYaw = P.recover.off;   // always the same way round (revert again and he keeps turning that way)
+  P.recover = { t: 0, off: -revDir() * Math.PI, dur: REVERT_DUR, revert: true, at: game.clock }; pose.yaw = pose.charYaw = P.recover.off;   // always the same way round (revert again and he keeps turning that way)
 }
 // Nearest rail, ledge or coping the rider could reach: ahead, roughly lined up, not far above
 function findRail(maxDist, fromGround, maxUp, maxSide = 1.6) {
@@ -9696,30 +9704,6 @@ function findRail(maxDist, fromGround, maxUp, maxSide = 1.6) {
   }
   return best;
 }
-function lockGrind() {
-  if (P.state === 'ground') {
-    const t = findRail(6.5, true);
-    if (!t) return false;
-    // pop just high enough to come down on it, aimed at the rail
-    const sp = Math.max(4, Math.abs(P.s)), time = clamp(t.dh / sp, 0.28, 0.75);
-    const vy = Math.max(3.2, (t.ry + 0.12 - P.pos.y + 0.5 * AIR_G * time * time) / time);
-    P.manual = null; P.pending = 0; P.push.phase = -1; P.charge = 0;
-    ollie(vy);
-    const dx = t.cx - P.pos.x, dz = t.cz - P.pos.z, dl = Math.hypot(dx, dz) || 1, hv = Math.max(sp, dl / time);
-    P.vel.x = dx / dl * hv; P.vel.z = dz / dl * hv;
-    P.air.wantGrind = true; P.air.wantRail = t.r; P.air.lockOn = true; P.air.aimed = true;
-    return true;
-  }
-  if (P.state === 'air') {
-    if (P.grindCD > 0) return false;   // just left a rail: no re-grabbing it mid-pop
-    if (P.air.popRail) { P.air.wantGrind = true; P.air.wantRail = P.air.popRail; P.air.regrind = true; P.air.popRail = null; return true; }
-    const t = findRail(1.3, false, undefined, 1.3);   // only a rail right beside you: no reaching across to one metres away
-    if (!t || Math.abs(t.ry - P.pos.y) > 1.2) return false;
-    P.air.wantGrind = true; P.air.wantRail = t.r; P.air.lockOn = true;
-    return true;
-  }
-  return false;
-}
 // From a wallride, R jumps you up onto the nearest rail (like the top of the railing)
 function wallToGrind() {
   const sp = Math.max(4, Math.hypot(P.vel.x, P.vel.z));
@@ -9730,7 +9714,7 @@ function wallToGrind() {
   P.vel.y = Math.max(2.5, (t.ry + 0.15 - P.pos.y + 0.5 * AIR_G * time * time) / time);
   const dx = t.cx - P.pos.x, dz = t.cz - P.pos.z, dl = Math.hypot(dx, dz) || 1, hv = Math.max(dl / time, 2);
   P.vel.x = dx / dl * hv + Math.sin(P.heading) * sp * 0.6; P.vel.z = dz / dl * hv + Math.cos(P.heading) * sp * 0.6;
-  P.air.wantGrind = true; P.air.wantRail = t.r; P.air.lockOn = true; P.air.aimed = true;
+  P.air.wantGrind = true; P.air.wantRail = t.r; P.air.lockOn = true; P.air.aimed = true; P.air.wallHop = true;
   sfx.pop(); P.anim.ollieT = 0; P.anim.takeoff = 'ollie';
 }
 function groundInput() {
@@ -9912,11 +9896,12 @@ function stepBail(dt) {
 
 // R in a manual: revert and stay in the manual. The board spins round, you keep your speed, line and manual, now switch
 function manualRevert() {
+  if (revertBusy()) return;   // still mid-revert: ignore the press (no credit, no stance change, no restart)
   P.switchSt = !P.switchSt;   // (no whole-body snap: your line doesn't change, only the board and stance turn)
   addTrick('Revert', 100); P.manual.t = 0;
   // always the same way round, so reverting again keeps him turning in a circle instead of spinning back; the whole half-turn at a readable pace
   const dir = revDir();
-  P.recover = { t: 0, off: -dir * Math.PI, dur: 0.42 }; pose.yaw = pose.charYaw = P.recover.off;
+  P.recover = { t: 0, off: -dir * Math.PI, dur: REVERT_DUR, revert: true, at: game.clock }; pose.yaw = pose.charYaw = P.recover.off;
   P.manual.nose = !P.manual.nose;   // it pivots on the wheels that are down, so that end leads afterwards (manual <-> nose manual)
 }
 function physics(dt) {
@@ -9948,19 +9933,16 @@ function physics(dt) {
   }
   else if (P.state === 'ground' && tapped(K.grind)) {
     P.rArmT = game.clock;
-    // R on the ground: lock onto a rail if one's close, otherwise manual (R again reverts in it)
-    if (!lockGrind()) {
-      // used up on the manual: popping out of it doesn't count as R pressed for the air (only a fresh R press does)
-      if (P.manual) { manualRevert(); P.rArmT = -9; }
-      else if (Math.abs(P.s) > 1.5) { const nose = (combo.counts['Nose Manual'] || 0) + Math.random() * 0.9 < (combo.counts['Manual'] || 0) + Math.random() * 0.9; startManual(nose); P.rArmT = -9; }
-    }
+    // R on the ground: manual (R again reverts in it). Never pops you toward a rail.
+    // used up on the manual: popping out of it doesn't count as R pressed for the air (only a fresh R press does)
+    if (P.manual) { manualRevert(); P.rArmT = -9; }
+    else if (Math.abs(P.s) > 1.5) { const nose = (combo.counts['Nose Manual'] || 0) + Math.random() * 0.9 < (combo.counts['Manual'] || 0) + Math.random() * 0.9; startManual(nose); P.rArmT = -9; }
   }
   else if (P.state === 'air') {
-    // R in the air, Tony Hawk style: right beside a rail it locks you onto it (pressed a touch early, it still catches for a quarter second);
-    // anywhere else there's no pull toward rails at all, it just arms a catch: you grind if you come down onto one, manual if you land on the ground
+    // R in the air only arms a catch (it stays armed until you land): no pull toward rails at all.
+    // Come down onto a rail and tryGrind catches it; land on the ground and it's a manual.
     const A = P.air;
     if (tapped(K.grind) || (!A.popRail && A.time < 0.1 && game.clock - (P.rArmT ?? -9) < 1)) { A.rArmed = true; A.rTap = game.clock; }
-    if (A.rArmed && !A.wantRail && (A.popRail || game.clock - (A.rTap ?? -9) < 0.25)) lockGrind();
   }
   if (P.state === 'air' && P.air.vert && !P.air.free && (tapped(K.jump) || tapped(K.up))) freeAir();   // only a fresh Space or W press while already in the air
   if (P.state === 'air') airInput();
@@ -10127,7 +10109,16 @@ function animate(dt) {
     if (sp > 12.5) { hipY -= 0.04 * Math.min(1, (sp - 12.5) / 6); leanT -= 0.05; }
     hipX += c * turnLean * 0.08; leanT -= c * turnLean * 0.22;
     hipY -= clamp(an.ay / 45, 0, 0.2);          // compress through transitions
-    if (P.recover) {
+    let revDip = 0;
+    if (P.recover && P.recover.revert) {
+      // revert: the board pivots a half turn on the wheels that are down, eased in and out; the body turns through it a little ahead
+      // of the board (shoulders and hips are round by ~80% of the turn), hips drop a touch mid-pivot and rise again at the end
+      P.recover.t += dt;
+      const p = clamp(P.recover.t / P.recover.dur, 0, 1);
+      yaw = P.recover.off * (1 - smooth(p)); charYaw = P.recover.off * (1 - smooth(p / 0.8));
+      revDip = 0.07 * Math.sin(Math.PI * p); leanT = 0.06 * Math.sin(Math.PI * p);
+      if (P.recover.t > P.recover.dur) P.recover = null;
+    } else if (P.recover) {
       // board scrubs back straight under the rider after a sketchy landing or a wall glance
       P.recover.t += dt;
       const kk = 1 - smooth(P.recover.t / (P.recover.dur || 0.5));
@@ -10154,6 +10145,7 @@ function animate(dt) {
     } else if (P.tuck) {
       hipY = 0.92; leanT = -0.2; leanA = 0.05;   // holding push: a light, mostly upright tuck
     }
+    hipY -= revDip;   // after the manual / push poses, so the revert's dip shows in a manual too
   } else if (st === 'air') {
     const t = an.ollieT, hAbove = P.pos.y - heightAt(P.pos.x, P.pos.z);
     arm = ARM.air;

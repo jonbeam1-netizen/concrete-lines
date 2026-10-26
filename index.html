@@ -246,7 +246,7 @@ body.touch .readout .lbl { font-size: 11px; }
   <div class="splash-in">
     <h1>Concrete <span class="hz">Lines</span></h1>
     <p class="splash-by">Made by Jon Beam<br>with the use of Claude Code</p>
-    <p class="splash-date">Updated October 26, 2026 · Play-test 0.015</p>
+    <p class="splash-date">Updated October 26, 2026 · Play-test 0.016</p>
     <p class="splash-go">Click to play</p>
   </div>
 </div>
@@ -9828,7 +9828,7 @@ const sfx = {
 const ACTIONS = [
   ['push', 'Push', 'KeyW'], ['brake', 'Brake / powerslide', 'KeyS'], ['left', 'Carve / spin left', 'KeyA'], ['right', 'Carve / spin right', 'KeyD'],
   ['jump', 'Ollie (hold for higher)', 'Space'], ['trick', 'Right-side trick (also left click)', 'KeyE'], ['trick2', 'Left-side trick (also right click)', 'KeyQ'], ['grind', 'Manual / rail hop / grind catch', 'KeyR'],
-  ['reset', 'Respawn', 'KeyB'], ['spawn', 'Next drop-in spot', 'KeyN'], ['cam', 'Camera', 'KeyC'], ['pause', 'Pause', 'KeyP'], ['mute', 'Mute', 'KeyM'],
+  ['walk', 'Walk / get on board', 'KeyF'], ['reset', 'Respawn', 'KeyB'], ['spawn', 'Next drop-in spot', 'KeyN'], ['cam', 'Camera', 'KeyC'], ['pause', 'Pause', 'KeyP'], ['mute', 'Mute', 'KeyM'],
 ];
 const DEFAULT_BIND = Object.fromEntries(ACTIONS.map(a => [a[0], a[2]]));
 let BIND = { ...DEFAULT_BIND };
@@ -9836,7 +9836,7 @@ try { const sv = JSON.parse(localStorage.getItem('concrete-lines-keys2') || 'nul
 if (/^Shift/.test(BIND.trick)) BIND.trick = DEFAULT_BIND.trick;
 const K = {};
 function syncKeys() {
-  Object.assign(K, { up: BIND.push, down: BIND.brake, left: BIND.left, right: BIND.right, jump: BIND.jump, trick: BIND.trick, trick2: BIND.trick2, grind: BIND.grind,
+  Object.assign(K, { up: BIND.push, down: BIND.brake, left: BIND.left, right: BIND.right, jump: BIND.jump, trick: BIND.trick, trick2: BIND.trick2, grind: BIND.grind, walk: BIND.walk,
     reset: BIND.reset, spawn: BIND.spawn, cam: BIND.cam, pause: BIND.pause, mute: BIND.mute });
 }
 syncKeys();
@@ -9926,6 +9926,19 @@ if (isTouch) {
   document.addEventListener('gesturestart', e => e.preventDefault());   // no pinch-zooming the page mid-line
 }
 
+// ---- Walk button (touch only): hold it ~0.5 s to step off the board / throw it down and get back on. Self-contained: delete this block to remove it ----
+if (isTouch) {
+  const wb = document.createElement('button'); wb.className = 'hud-btn'; wb.id = 'walkBtn'; wb.type = 'button'; wb.textContent = 'Walk';
+  wb.style.cssText = 'position:relative;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none';
+  const bar = document.createElement('span'); bar.style.cssText = 'position:absolute;left:0;bottom:0;height:3px;width:0;background:var(--hazard);pointer-events:none'; wb.appendChild(bar);
+  let raf = null, t0 = 0;
+  const cancel = () => { if (raf !== null) cancelAnimationFrame(raf); raf = null; bar.style.width = '0'; };
+  const tick = () => { const k = Math.min(1, (performance.now() - t0) / 500); bar.style.width = (k * 100) + '%'; if (k >= 1) { cancel(); pressed[BIND.walk] = true; return; } raf = requestAnimationFrame(tick); };
+  wb.addEventListener('pointerdown', e => { e.preventDefault(); cancel(); t0 = performance.now(); raf = requestAnimationFrame(tick); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => wb.addEventListener(ev, cancel));
+  const pb = $('pauseBtn'); if (pb && pb.parentNode) pb.parentNode.insertBefore(wb, pb);
+}
+
 // ---------- Controls reference ----------
 const CONTROLS = () => {
   const k = a => keyName(BIND[a]);
@@ -9946,7 +9959,7 @@ const CONTROLS = () => {
       [['Ground'], 'Pops a flip straight off the ground.'],
       [['Rail'], 'On a rail: pop off into a flip. Grinds last as long as the rail; Space, a trick, or left / right gets you off.'],
     ]],
-    ['Other', [[[k('jump')], 'Into a wall mid-air: wallride, then ollie off it'], [[k('cam')], 'Switch camera'], [[k('spawn')], 'Next drop-in spot: mega ramp, halfpipe, bowl, pump track, tabletops'], [[k('reset'), k('pause'), k('mute')], 'Respawn, pause, mute'], [['Real mode'], 'Pick it on the menu. Land flips all the way round and roll away straight (or switch), never drop too far, and lean with ' + k('left') + ' / ' + k('right') + ' to keep grinds and manuals balanced. ' + k('jump') + ' hops off a rail.']]],
+    ['Other', [[[k('walk')], 'Walk / get on board: kicks the board up into his hand; W A S D walk, Space jumps; press again to throw it down and ride off.'], [[k('jump')], 'Into a wall mid-air: wallride, then ollie off it'], [[k('cam')], 'Switch camera'], [[k('spawn')], 'Next drop-in spot: mega ramp, halfpipe, bowl, pump track, tabletops'], [[k('reset'), k('pause'), k('mute')], 'Respawn, pause, mute'], [['Real mode'], 'Pick it on the menu. Land flips all the way round and roll away straight (or switch), never drop too far, and lean with ' + k('left') + ' / ' + k('right') + ' to keep grinds and manuals balanced. ' + k('jump') + ' hops off a rail.']]],
   ];
 };
 function renderControls(el) {
@@ -10054,7 +10067,7 @@ function respawn() {
   inSky = !!SP.sky; inTunnel = false; inDome = MAPID === 'park' && Math.hypot(SP.x - DOME.x, SP.z - DOME.z) < DOME.Rd;
   P.pos.set(SP.x, heightAt(SP.x, SP.z), SP.z); P.vel.set(0, 0, 0); P.heading = SP.heading; P.s = 0;
   P.state = 'ground'; P.air = null; P.grind = null; P.manual = null; P.charge = 0; P.pending = 0; P.switchSt = false;
-  P.push.phase = -1; P.anim.ollieT = -1; P.recover = null; P.wall = null; P.pipe = null;
+  P.push.phase = -1; P.anim.ollieT = -1; P.recover = null; P.wall = null; P.pipe = null; P.walk = null;
   if (RAG.on) endRagdoll();
   resetCombo();
   camYaw = P.heading; camera.position.set(P.pos.x - Math.sin(P.heading) * 7, P.pos.y + 3, P.pos.z - Math.cos(P.heading) * 7); camY = P.pos.y + 2.5;
@@ -10117,6 +10130,7 @@ function setMap(id, opts = {}) {
   $('letters').hidden = id !== 'park';
   try { localStorage.setItem('concrete-lines-map', id); } catch (e) {}
   if (NET.host && !opts.quiet) netBroadcast({ t: 'map', m: id });
+  if (P.state === 'walk') { P.state = 'ground'; P.walk = null; P.vel.set(0, 0, 0); }   // off foot on the old map: back on the board
   if (game.running) respawn();
 }
 
@@ -11893,6 +11907,116 @@ function manualRevert() {
   P.manual.nose = !P.manual.nose;   // it pivots on the wheels that are down, so that end leads afterwards (manual <-> nose manual)
   pose.pitch = -pose.pitch;   // same picture at the half-turn start: the board keeps its tilt through the spin instead of easing through flat
 }
+// ---------- Walk mode: F on the ground kicks the board up into his hand and he walks; F again throws it down and he rides off ----------
+const WALK_V = 2.2, RUN_V = 3.2, WALK_G = 22, WALK_JUMP = Math.sqrt(2 * WALK_G * 1.0), WALK_STEP = 0.56, WALK_KICK = 0.5, WALK_TOSS = 0.5, WALK_PUSH = 3.6;
+const WALK_R = RIDER_R * 0.75;   // how far his body keeps off walls and anything too tall to step onto
+function walkStart() {
+  const gv = groundVel(new V3()), iF = cs() > 0 ? 1 : 0;
+  P.manual = null; bankCombo(P.pendingNote || '');
+  P.state = 'walk'; P.s = 0; P.vel.set(gv.x, 0, gv.z); P.charge = 0; P.push.phase = -1; P.recover = null; P.sliding = false; P.tuck = false; P.switchSt = false; P.snapYaw = false; P.skidT = 0; P.air = null;
+  P.walk = { ph: 'kick', t: 0, vy: 0, air: false, jump: false, queue: false, runT: 0, gait: 0, idle: 0, land: 0, popped: false, clacked: false, iF, snap: null, L: null };
+}
+// is (x, z) somewhere he can be, coming from feet height y: nothing under him or just ahead rises more than tol
+function walkFree(x, z, y, tol, mx, mz) {
+  if (x < -LIMX || x > LIMX || z < LIMZS || z > LIMZN) return false;
+  if (heightAt(x, z) - y > tol) return false;
+  const ml = Math.hypot(mx, mz); if (ml < 1e-7) return true;
+  const ux = mx / ml, uz = mz / ml;
+  for (const a of [0, 0.8, -0.8]) {
+    const ca = Math.cos(a), sa = Math.sin(a), dx = ux * ca + uz * sa, dz = -ux * sa + uz * ca;
+    if (heightAt(x + dx * WALK_R, z + dz * WALK_R) - y > tol + (a ? 0.1 : 0)) return false;
+  }
+  return true;
+}
+function walkInput(dt) {
+  const W = P.walk; W.t += dt; W.land = Math.max(0, W.land - dt * 3);
+  if (W.ph === 'toss') {
+    if (!W.clacked && W.t >= 0.32) { W.clacked = true; sfx.land(0.25); }
+    if (W.t >= WALK_TOSS && !W.air) walkRemount();
+    return;
+  }
+  if (tapped(K.walk)) W.queue = true;
+  if (W.ph === 'kick') {
+    if (!W.popped && W.t >= 0.17) { W.popped = true; sfx.pop(); }
+    if (W.t >= WALK_KICK) { W.ph = 'walk'; W.t = 0; }
+  }
+  const canMove = W.ph === 'walk' || W.t > 0.35;
+  W.runT = canMove && held(K.up) ? W.runT + dt : 0;
+  if (W.ph === 'walk' && W.queue) { W.queue = false; walkToss(); return; }
+  if (W.ph === 'walk' && !W.air && tapped(K.jump)) W.jump = true;
+}
+function walkToss() {
+  const W = P.walk, p = P.pos, fx = Math.sin(P.heading), fz = Math.cos(P.heading);
+  const v0 = Math.max(0, P.vel.x * fx + P.vel.z * fz), v1 = WALK_PUSH + (v0 > 2.6 ? 0.4 : 0), D = WALK_TOSS * (v0 + v1) / 2;
+  const gy = W.air ? heightAt(p.x, p.z) : Math.max(p.y, heightAt(p.x, p.z));
+  // the board needs flat-ish clear ground ahead to land on and roll away over; otherwise it just drops at his feet
+  let clear = true;
+  for (let k = 1; k <= 10 && clear; k++) {
+    const d = (D + 0.5) * k / 10, x = p.x + fx * d, z = p.z + fz * d;
+    if (Math.abs(heightAt(x, z) - gy) > 0.22 || Math.abs(heightAt(x + fz * 0.2, z - fx * 0.2) - gy) > 0.3 || Math.abs(heightAt(x - fz * 0.2, z + fx * 0.2) - gy) > 0.3) clear = false;
+  }
+  if (Math.abs(p.x + fx * (D + 0.5)) > LIMX || p.z + fz * (D + 0.5) > LIMZN || p.z + fz * (D + 0.5) < LIMZS) clear = false;
+  const Ld = clear ? D : 0;
+  Object.assign(W, { ph: 'toss', t: 0, drop: !clear, clacked: false, v0, v1: clear ? v1 : 0, tf: [fx, fz], p0: [p.x, p.z], yaw: P.heading, rel: null, jump: false, queue: false });
+  W.L = new V3(p.x + fx * Ld, 0, p.z + fz * Ld); W.L.y = heightAt(W.L.x, W.L.z);
+}
+function walkRemount() {
+  const W = P.walk;
+  if (W.L) { P.pos.x = W.L.x; P.pos.z = W.L.z; }
+  P.pos.y = heightAt(P.pos.x, P.pos.z);
+  P.state = 'ground'; P.walk = null; P.s = W.v1 || 0; P.vel.set(0, 0, 0); P.air = null; P.manual = null; P.push.phase = -1; P.recover = null;
+  P.anim.impact = Math.max(P.anim.impact, 0.15);
+}
+function stepWalk(dt) {
+  const W = P.walk, p = P.pos;
+  if (W.ph === 'toss' && !W.drop) {
+    // stepping onto the board: an even speed-up from walking pace to the push he rides away with
+    const T = WALK_TOSS, tt = Math.min(W.t, T), d = W.v0 * tt + 0.5 * (W.v1 - W.v0) / T * tt * tt, v = tt < T ? W.v0 + (W.v1 - W.v0) * tt / T : 0;
+    p.x = W.p0[0] + W.tf[0] * d; p.z = W.p0[1] + W.tf[1] * d; P.vel.x = W.tf[0] * v; P.vel.z = W.tf[1] * v;
+  } else {
+    let tvx = 0, tvz = 0;
+    const canMove = W.ph === 'walk' || (W.ph === 'kick' && W.t > 0.35);
+    if (canMove) {
+      const ix = -(P.steer || 0), iz = (held(K.up) ? 1 : 0) - (held(K.down) ? 1 : 0), il = Math.hypot(ix, iz);
+      if (il > 0.1) {
+        // camera-relative: W away from the camera, S toward it, A / D across; he turns to face where he's going
+        let dx = Math.sin(camYaw) * iz - Math.cos(camYaw) * ix, dz = Math.cos(camYaw) * iz + Math.sin(camYaw) * ix; const dl = Math.hypot(dx, dz); dx /= dl; dz /= dl;
+        const off = angDiff(P.heading, Math.atan2(dx, dz));
+        P.heading += off * damp(11, dt);
+        const sp = (W.runT > 0.5 ? RUN_V : WALK_V) * Math.min(1, il) * Math.max(0, Math.cos(angDiff(P.heading, Math.atan2(dx, dz))));
+        tvx = Math.sin(P.heading) * sp; tvz = Math.cos(P.heading) * sp;
+      }
+    }
+    if (W.ph === 'toss' && W.L && W.t > 0.3) { tvx = (W.L.x - p.x) * 6; tvz = (W.L.z - p.z) * 6; }   // dropped at his feet: settle onto it
+    const k = damp(W.air ? 2.5 : W.ph === 'kick' && W.t < 0.35 ? 9 : 12, dt);
+    P.vel.x += (tvx - P.vel.x) * k; P.vel.z += (tvz - P.vel.z) * k;
+    const mx = P.vel.x * dt, mz = P.vel.z * dt, tol = W.air ? 0.15 : WALK_STEP, ry = W.air ? p.y : Math.max(p.y, heightAt(p.x, p.z));
+    if (mx || mz) {
+      if (walkFree(p.x + mx, p.z + mz, ry, tol, mx, mz)) { p.x += mx; p.z += mz; }
+      else if (Math.abs(mx) > 1e-7 && walkFree(p.x + mx, p.z, ry, tol, mx, 0)) { p.x += mx; P.vel.z = 0; }
+      else if (Math.abs(mz) > 1e-7 && walkFree(p.x, p.z + mz, ry, tol, 0, mz)) { p.z += mz; P.vel.x = 0; }
+      else { P.vel.x = 0; P.vel.z = 0; }
+    }
+  }
+  // up and down: follows steps and stairs, a short fall off anything bigger, a little hop on Space
+  const gh = heightAt(p.x, p.z);
+  if (!W.air) {
+    if (W.jump) { W.jump = false; W.air = true; W.vy = WALK_JUMP; p.y = Math.max(p.y, gh); }
+    else if (gh < p.y - 0.4) { W.air = true; W.vy = 0; }
+    else { p.y += (gh - p.y) * damp(gh > p.y ? 20 : 16, dt); if (Math.abs(gh - p.y) < 0.002) p.y = gh; }
+  }
+  if (W.air) {
+    W.vy -= WALK_G * dt; p.y += W.vy * dt;
+    if (p.y <= gh && W.vy <= 0) { W.land = Math.min(1, Math.max(W.land, -W.vy / 9)); p.y = gh; W.air = false; W.vy = 0; }
+    else if (p.y < gh) p.y = gh;
+  }
+  P.vel.y = W.air ? W.vy : 0;
+  // the stride: one gait cycle is two steps, advanced by the distance walked so the planted foot never slides
+  const v = Math.hypot(P.vel.x, P.vel.z), step = 0.33 + 0.09 * v;
+  if (!W.air) W.gait = (W.gait + v * dt / (2 * step)) % 1;
+  W.idle += ((v < 0.15 && !W.air && W.ph !== 'toss' ? 1 : 0) - W.idle) * damp(v < 0.15 ? 5 : 14, dt);
+}
+
 function physics(dt) {
   // once you're in the tunnel you stay in it until you leave by an end, whatever height you reach inside
   // the floating bowl switches on once you're up at its rim, and off once you've dropped well below it
@@ -11911,6 +12035,7 @@ function physics(dt) {
   P.grindCD = Math.max(0, P.grindCD - dt); P.wallCD = Math.max(0, (P.wallCD || 0) - dt);
   if (tapped(K.reset)) { respawn(); return; }
   if (tapped(K.spawn)) { spawnIdx = (spawnIdx + 1) % SPAWNS.length; respawn(); toast(SPAWNS[spawnIdx].name, 'drop-in spot', 'info'); return; }
+  if (P.state === 'ground' && tapped(K.walk)) walkStart(); else if (P.state === 'walk') walkInput(dt);   // F: off the board and walking / back on
   if (P.state === 'wall' && tapped(K.grind)) wallToGrind();   // from a wallride, R hops up onto the rail on top
   else if (P.state === 'ground' && P.manual && tapped(K.down)) {
     // S in a manual: drop the wheels and bank it; still holding S carries straight on into the usual powerslide / brake
@@ -11970,6 +12095,7 @@ function physics(dt) {
     else if (P.state === 'wall') stepWall(h);
     else if (P.state === 'pipe') stepPipe(h, st);
     else if (P.state === 'dome') stepDome(h, st);
+    else if (P.state === 'walk') stepWalk(h);
     else stepBail(h);
     if (MAPID === 'park') { fenceStop(); boostCheck(); bowlStop(); } else riverStop();
     { const vh = Math.hypot(P.vel.x, P.vel.z); if (P.state === 'air' && vh > 32) { P.vel.x *= 32 / vh; P.vel.z *= 32 / vh; } if (P.state === 'ground' && Math.abs(P.s) > 32) P.s = Math.sign(P.s) * 32; }
@@ -12080,9 +12206,208 @@ function orientRider(dt) {
   rider.quaternion.slerp(qT, damp(rate, dt));
 }
 
+// ---------- Walk mode animation: the gait, standing about, the kick-up into his hand, the toss and the step back on ----------
+const WK = { q0: new THREE.Quaternion(), q1: new THREE.Quaternion(), q2: new THREE.Quaternion(), qc: new THREE.Quaternion(), qr: new THREE.Quaternion(), qx: new THREE.Quaternion(),
+  p0: new V3(), p1: new V3(), p2: new V3(), a: new V3(), b: new V3(), m: new THREE.Matrix4(), feet: [new V3(), new V3()], lift: [0, 0], toe: [0, 0], onB: [0, 0],
+  bx: new V3(), by: new V3(), bz: new V3(), hand: new V3() };
+const WALK_FOOT_Y = 0.108, WALK_SF = 0.55;   // ankle over the deck, the stance share of a gait cycle
+// the board's world transform from a rider-local one
+function wkToWorld(lp, lq, outP, outQ) { outP.copy(lp).applyMatrix4(rider.matrixWorld); outQ.copy(rider.quaternion).multiply(lq); }
+// a board lying flat at ground point g, nose along yaw
+function wkFlat(g, yaw, outP, outQ) { outP.set(g.x, g.y + BOARD_Y, g.z); outQ.setFromAxisAngle(UP, yaw); }
+// foot anchor on a flat board (world): z along the board, + toward the nose
+function wkAnchor(bp, bq, z, out) { return out.set(0, WALK_FOOT_Y, z).applyQuaternion(bq).add(bp); }
+// the ground under the whole shoe (heel to toe, along his heading): on a stair edge the foot sits on the higher step, never in it
+function wkGround(x, z) { const fx = Math.sin(P.heading), fz = Math.cos(P.heading); return Math.max(heightAt(x, z), heightAt(x - fx * 0.1, z - fz * 0.1), heightAt(x + fx * 0.17, z + fz * 0.17)); }
+function animateWalk(dt) {
+  const W = P.walk, t = W.t, ph = W.ph, c = cs(), iF = W.iF, iB = 1 - iF;
+  const v = Math.hypot(P.vel.x, P.vel.z), spF = Math.min(1, v / RUN_V), clock = game.clock;
+  rider.updateMatrixWorld(true);
+  if (!W.snap) {   // the first frame off the board: everything starts exactly where the skating pose left it
+    W.snap = { cy: char.rotation.y, bp: boardRoot.position.clone(), bq: boardRoot.quaternion.clone(),
+      feet: legs.map(l => rider.worldToLocal(l.foot.getWorldPosition(new V3()))), fq: legs.map(l => l.foot.quaternion.clone()) };
+  }
+  const S = W.snap, base = c < 0 ? Math.PI : 0, FWD = -Math.PI / 2;
+  // ---- how far through each move ----
+  const kOff = ph === 'kick' ? smooth((t - 0.06) / 0.36) : 1;             // turned from side-on on the board to facing forward
+  const kOn = ph === 'toss' ? smooth((t - 0.26) / 0.22) : 0;             // turning back side-on as he steps on
+  const cy = ph === 'kick' ? S.cy + angDiff(S.cy, FWD) * kOff : ph === 'toss' ? FWD + angDiff(FWD, base) * kOn : FWD;
+  char.rotation.order = 'YXZ'; char.rotation.set(0, cy, 0); char.position.set(0, 0, 0);
+  boardSpin.rotation.y = 0; boardFlip.rotation.set(0, 0, 0);
+
+  // ---- the gait (rider frame: +z where he's walking, +x his left) ----
+  const g = W.gait, A = WALK_SF * (0.33 + 0.09 * v), idle = W.idle;
+  const zg = [0, 0];
+  for (let i = 0; i < 2; i++) {
+    const s = legs[i].s, u = (g + (i ? 0.5 : 0)) % 1;
+    let z, lift = 0, toe = 0;
+    if (u < WALK_SF) z = A - 2 * A * u / WALK_SF;
+    else { const k = (u - WALK_SF) / (1 - WALK_SF); z = -A + 2 * A * smooth(k); lift = (0.07 + 0.06 * spF) * Math.sin(Math.PI * k); toe = -0.5 * Math.sin(Math.PI * Math.min(1, k * 1.7)) + 0.22 * smooth((k - 0.65) / 0.35); }
+    if (W.air) { z = 0.12 * (i === iF ? 1 : -1); lift = 0.14 + 0.06 * (i === iF ? 1 : 0); toe = -0.3; }
+    zg[i] = z;
+    // standing: weight on legs[0], the other foot a touch forward and out
+    const ix = -s * (i === 0 ? 0.12 : 0.16), iz = i === 0 ? -0.02 : 0.07;
+    const x = lerp(-s * 0.11, ix, idle), zz = lerp(z, iz, idle);
+    lift = lerp(lift, 0, idle) + 0.09 * Math.sin(Math.PI * idle) * clamp(Math.abs(z - iz) / 0.25, 0, 1) * (W.air ? 0 : 1);
+    toe = lerp(toe, 0, idle);
+    const f = WK.feet[i].set(x, 0, zz).applyMatrix4(rider.matrixWorld);
+    f.y = (W.air ? P.pos.y : wkGround(f.x, f.z)) + PUSH_ANK + lift;
+    WK.lift[i] = lift; WK.toe[i] = toe; WK.onB[i] = 0;
+  }
+
+  // ---- the board when it's on the ground (kick start, toss landing) and the feet that ride it ----
+  let bState = 'hand';
+  const bp = WK.p0, bq = WK.q0;
+  if (ph === 'kick' && t < 0.2) {
+    // back foot stomps the tail: the board tips nose-up round its back wheels
+    bState = 'ground';
+    const th = -0.45 * smooth((t - 0.12) / 0.08), piv = WK.a.set(0, -BOARD_Y, -AXLE);
+    WK.qx.setFromAxisAngle(_xAx, th);
+    const lq = WK.q1.copy(S.bq).multiply(WK.qx), lp = WK.b.copy(piv).sub(WK.p2.copy(piv).applyQuaternion(WK.qx)).applyQuaternion(S.bq).add(S.bp);
+    wkToWorld(lp, lq, bp, bq);
+  } else if (ph === 'toss' && t >= 0.32) { bState = 'ground'; wkFlat(W.L, W.yaw, bp, bq); }
+  else if (ph === 'toss' && t >= 0.16) bState = 'fly';
+  else if (ph === 'kick' && t < 0.42) bState = 'pop';
+  // feet: the kick-up and the step-on take over from the gait
+  if (ph === 'kick') {
+    const wg = smooth((t - 0.35) / 0.15);   // into the walk
+    for (let i = 0; i < 2; i++) {
+      const gaitP = WK.b.copy(WK.feet[i]), sP = WK.a.copy(S.feet[i]).applyMatrix4(rider.matrixWorld);
+      const s = legs[i].s, stepP = WK.p2.set(-s * 0.13, 0, i === iF ? 0.12 : -0.06).applyMatrix4(rider.matrixWorld); stepP.y = wkGround(stepP.x, stepP.z) + PUSH_ANK;
+      let cur;
+      if (i === iF) {   // front foot steps off the deck onto the ground first
+        cur = sP.lerp(stepP, smooth(t / 0.14)); cur.y += 0.12 * Math.sin(Math.PI * clamp(t / 0.14, 0, 1));
+      } else {          // back foot rides the tail down, then steps off as the board pops
+        if (!W.tail) W.tail = new V3();
+        if (t < 0.2) { wkAnchor(bp, bq, -0.3, W.tail); W.tail.y += 0.02; cur = sP.lerp(W.tail, smooth(t / 0.12)); }
+        else { const k = clamp((t - 0.2) / 0.16, 0, 1); cur = WK.p1.copy(W.tail).lerp(stepP, smooth(k)); cur.y += 0.1 * Math.sin(Math.PI * k); }
+      }
+      WK.feet[i].copy(cur).lerp(gaitP, wg);
+      WK.onB[i] = (1 - wg) * (i === iB ? (t < 0.2 ? 1 : 1 - smooth((t - 0.2) / 0.12)) : 1 - smooth(t / 0.1));
+      if (i === iF || t >= 0.2) WK.lift[i] = Math.max(WK.lift[i], 0.05);
+    }
+  } else if (ph === 'toss' && bState === 'ground') {
+    const fb = WK.p1;
+    for (let i = 0; i < 2; i++) {
+      const t0 = i === iF ? 0.32 : 0.38, k = clamp((t - t0) / 0.12, 0, 1);
+      wkAnchor(bp, bq, i === iF ? 0.16 : -0.2, fb); WK.feet[i].lerp(fb, smooth(k)); WK.feet[i].y += 0.12 * Math.sin(Math.PI * k); WK.onB[i] = smooth(k);
+      if (k > 0 && k < 1) WK.lift[i] = 0.05;
+    }
+  }
+
+  // ---- hips: high over the standing leg, low between steps, swaying onto it; capped so planted feet always reach ----
+  const sw = 1 - idle, skateW = Math.max(ph === 'kick' ? 1 - kOff : 0, kOn);
+  let hipY = 1.06 - 0.025 * spF + 0.022 * Math.cos(TAU * (2 * g - WALK_SF)) * spF * sw + idle * (Math.sin(clock * 2.1) * 0.006 - 0.012) - W.land * 0.14;
+  if (ph === 'kick') hipY -= 0.07 * Math.sin(Math.PI * clamp((t - 0.12) / 0.2, 0, 1));                 // dips into the stomp
+  if (ph === 'toss') hipY = lerp(hipY, 0.97, kOn) - 0.05 * Math.sin(Math.PI * clamp(t / 0.2, 0, 1));    // a little dip behind the throw
+  if (W.air) hipY = 0.96;
+  let hipZ = lerp(0.03 * legs[0].s * Math.cos(TAU * (g - WALK_SF / 2)) * Math.min(1, v), 0.04 * legs[0].s, idle);
+  let hipX = 0.02 + 0.03 * spF;
+  hipZ *= 1 - skateW; hipX = lerp(hipX, 0.02, skateW);
+  W.hy = W.hy === undefined ? pose.hipY : lerp(W.hy, hipY, damp(18, dt));
+  let hy = W.hy;
+  { // IK limits from where the feet actually are (he's upright here, and char sits at the rider's origin)
+    const ry = rider.position.y, sc = Math.sin(cy), cc = Math.cos(cy);
+    let hiCap = Infinity, loCap = -Infinity;
+    for (let i = 0; i < 2; i++) {
+      const s = legs[i].s, hz = hipZ + s * 0.1, hxl = hipX * cc + hz * sc, hzl = -hipX * sc + hz * cc;   // the hip in the rider frame
+      const hw = WK.a.set(hxl, 0, hzl).applyMatrix4(rider.matrixWorld), f = WK.feet[i], d = Math.hypot(f.x - hw.x, f.z - hw.z);
+      if (WK.lift[i] < 0.02 || WK.onB[i] > 0.5) hiCap = Math.min(hiCap, f.y + Math.sqrt(Math.max(0, 0.885 * 0.885 - d * d)));
+      loCap = Math.max(loCap, f.y + Math.sqrt(Math.max(0, 0.5 * 0.5 - d * d)));
+    }
+    let yh = hy - 0.07 + ry;
+    if (yh > hiCap) yh = hiCap;
+    if (yh < loCap) yh = loCap;
+    hy = yh + 0.07 - ry; W.hy = Math.min(W.hy, hy + 0.05);
+  }
+  pelvis.position.set(hipX, hy, hipZ);
+  const hipYaw = 0.15 * (zg[1] - zg[0]) * sw * (1 - skateW) * (W.air ? 0 : 1);
+  pelvis.rotation.set(-hipZ * 0.6, hipYaw, 0);
+  // ---- torso and head ----
+  const leanT = lerp(-0.05 - 0.07 * spF + Math.sin(clock * 2.1) * 0.01 * idle - W.land * 0.25 - (ph === 'kick' ? 0.18 * Math.sin(Math.PI * clamp((t - 0.1) / 0.35, 0, 1)) : 0) - (ph === 'toss' ? 0.15 * Math.sin(Math.PI * clamp(t / 0.3, 0, 1)) : 0), -0.06, skateW);
+  const twist = lerp(-hipYaw * 1.6, -c * 0.3, skateW);
+  const kk = damp(14, dt);
+  pose.leanT = lerp(pose.leanT, leanT, kk); pose.leanA = lerp(pose.leanA, hipZ * 0.5, kk); pose.twistS = lerp(pose.twistS ?? 0, twist, kk); pose.spinLead = 0; pose.slam = 0; pose.flail = 0;
+  spine.rotation.set(pose.leanA, pose.twistS, pose.leanT);
+  W.headY = lerp(W.headY ?? head.rotation.y, lerp(Math.sin(clock * 0.4) * 0.25 * idle, -c * 0.85 - pose.twistS * 0.5, skateW), damp(8, dt));
+  head.rotation.y = W.headY; head.rotation.z = lerp(head.rotation.z, -0.12 - (ph === 'kick' && t < 0.4 ? 0.3 : 0) - (ph === 'toss' ? 0.25 * Math.sin(Math.PI * clamp(t / 0.45, 0, 1)) : 0), damp(8, dt));
+  // ---- arms: swinging opposite the legs; the right hand (arms[1]) carries the board ----
+  arms.forEach((a, j) => {
+    const carry = j === 1, zl = zg[j] / Math.max(0.05, A), swing = (0.12 + 0.3 * spF) * sw * (W.air ? 0 : 1);
+    let spread, fwd, el;
+    if (carry) { spread = 0.24; fwd = -swing * 0.35 * zl; el = 0.14; }
+    else { spread = 0.1 + (W.air ? 0.35 : 0); fwd = -swing * zl + Math.sin(clock * 1.3) * 0.03 * idle; el = 0.2 + 0.3 * Math.max(0, fwd) + 0.1 * spF; }
+    if (ph === 'kick') {
+      const reach = Math.sin(Math.PI * clamp((t - 0.12) / 0.38, 0, 1));
+      if (carry) { spread = lerp(spread, 0.12, reach); fwd = lerp(fwd, 0.6, reach); el = lerp(el, 0.45, reach); }
+      else { spread += 0.3 * reach; fwd -= 0.15 * reach; }
+    } else if (ph === 'toss') {
+      const back = Math.sin(Math.PI * clamp(t / 0.14, 0, 1)), thr = clamp((t - 0.08) / 0.1, 0, 1), after = smooth((t - 0.18) / 0.2);
+      if (carry) { fwd = lerp(fwd - 0.35 * back, 0.75, smooth(thr)); spread = 0.24 + 0.1 * back; el = 0.2; fwd = lerp(fwd, ARM.ride[1], after); spread = lerp(spread, ARM.ride[0], after); el = lerp(el, ARM.ride[2], after); }
+      else { fwd = lerp(-0.3 * Math.sin(Math.PI * clamp(t / 0.25, 0, 1)), ARM.ride[1], after); spread = lerp(0.2, ARM.ride[0], after); el = lerp(0.25, ARM.ride[2], after); }
+    }
+    const ka = damp(12, dt);
+    a.x = lerp(a.x, -a.s * spread, ka); a.z = lerp(a.z, fwd, ka); a.e = lerp(a.e, el, ka);
+    a.shoulder.rotation.set(a.x, 0, a.z); a.elbow.rotation.z = a.e;
+  });
+  rider.updateMatrixWorld(true);
+  // ---- the board in his hand: on its edge beside his leg, wheels out, nose forward, swinging a little with the arm ----
+  if (bState !== 'ground') {
+    const a = arms[1], s = a.s;
+    WK.hand.set(0.004, -0.31, 0); a.elbow.localToWorld(WK.hand);   // the palm
+    char.getWorldQuaternion(WK.qc);
+    WK.bz.set(1, 0, 0); WK.by.set(0, 0, -s); WK.bx.crossVectors(WK.by, WK.bz);
+    WK.m.makeBasis(WK.bx, WK.by, WK.bz); WK.q2.setFromRotationMatrix(WK.m);
+    WK.qx.setFromAxisAngle(_zAx, a.z * 0.5); WK.q2.premultiply(WK.qx).premultiply(WK.qc);
+    const hp = WK.p2.set(0.1, 0, 0).applyQuaternion(WK.q2).add(WK.hand);   // the board's +x points down: its centre hangs below the grip
+    if (bState === 'hand') { bp.copy(hp); bq.copy(WK.q2); }
+    else if (bState === 'pop') {
+      // off the tail and up into the hand: nose-up as it rises, turned onto its edge as he catches it
+      const u = clamp((t - 0.2) / 0.22, 0, 1), piv = WK.a.set(0, -BOARD_Y, -AXLE);
+      WK.qx.setFromAxisAngle(_xAx, -0.45);
+      const lq = WK.q1.copy(S.bq).multiply(WK.qx), lp = WK.b.copy(piv).sub(WK.p1.copy(piv).applyQuaternion(WK.qx)).applyQuaternion(S.bq).add(S.bp);
+      const p0 = WK.p1, q0 = WK.qr; wkToWorld(lp, lq, p0, q0);
+      const qm = WK.q1.copy(rider.quaternion).multiply(WK.qx.setFromAxisAngle(_xAx, -1.35));
+      bp.copy(p0).lerp(hp, smooth(u)); bp.y += 0.25 * Math.sin(Math.PI * u);
+      if (u < 0.5) bq.copy(q0).slerp(qm, smooth(u * 2)); else bq.copy(qm).slerp(WK.q2, smooth(u * 2 - 1));
+    } else {   // thrown: arcs down ahead of him and lands flat
+      if (!W.rel) W.rel = { p: hp.clone(), q: WK.q2.clone() };
+      const u = clamp((t - 0.16) / 0.16, 0, 1), qf = WK.q1, pf = WK.p1; wkFlat(W.L, W.yaw, pf, qf);
+      bp.copy(W.rel.p).lerp(pf, u); bp.y += 0.18 * Math.sin(Math.PI * u) * (1 - u);
+      bq.copy(W.rel.q).slerp(qf, smooth(u * 1.15));
+    }
+  }
+  // into the rider's frame (the board stays a child of the rider, so presence sends it along with the joints)
+  boardRoot.position.copy(bp); rider.worldToLocal(boardRoot.position);
+  boardRoot.quaternion.copy(rider.quaternion).invert().multiply(bq);
+  pose.truckRoll = lerp(pose.truckRoll || 0, 0, damp(20, dt)); TRUCKS.forEach(tr => tr.g.rotation.set(0, pose.truckRoll * 0.45 * tr.dir, pose.truckRoll));
+  // ---- legs ----
+  rider.updateMatrixWorld(true);
+  char.getWorldQuaternion(qChar); boardFlip.getWorldQuaternion(qBoard);
+  qStance.setFromAxisAngle(UP, c < 0 ? Math.PI : 0);
+  for (let i = 0; i < 2; i++) {
+    const leg = legs[i], s = leg.s;
+    // shoe: flat along his own heading on the ground (the toe pitching through the swing), the board's angle once he's on it
+    qShoe.copy(qChar).invert().multiply(qBoard).multiply(qStance);
+    leg.foot.quaternion.setFromAxisAngle(_zAx, WK.toe[i] * (1 - WK.onB[i]));
+    if (WK.onB[i] > 0) leg.foot.quaternion.slerp(ph === 'kick' ? S.fq[i] : qShoe, WK.onB[i]);
+    leg.target.copy(WK.feet[i]); char.worldToLocal(leg.target);
+    leg.target.addScaledVector(_ankleBack.set(1, 0, 0).applyQuaternion(leg.foot.quaternion), -0.045);
+    const hip = vB.copy(pelvis.position).add(vC.set(0, -0.07, s * 0.1));
+    _hint.set(1, 0, s * lerp(0.12, 0.35, skateW)).normalize();
+    solveLeg(leg, hip, leg.target, _hint);
+  }
+  // ---- hand-off: leave the skating pose's smoothed values where this frame is, so getting back on carries straight on ----
+  pose.hipY = hy; pose.hipYv = 0; pose.hipX = hipX; pose.hipZ = hipZ; pose.twist = 0.3; pose.lift = 0; pose.pitch = 0; pose.pivot = 0; pose.yaw = 0; pose.roll = 0;
+  pose.slideOff = 0; pose.footFree = 0; pose.frontZ = 0.16; pose.backZ = -0.2; pose.fall = 0; pose.boardOff = 0; pose.pushW = 0; pose.pushBlend = 0; pose.railTilt = 0; pose.nod = 0;
+  pose.charYaw = angDiff(base, cy); pose.headY = head.rotation.y + pose.twistS * 0.5; pose.headPitch = head.rotation.z;
+}
+
 function animate(dt) {
   orientRider(dt);
   if (RAG.on) { ragRender(); return; }
+  if (P.state === 'walk' && P.walk) { animateWalk(dt); return; }
+  pelvis.rotation.set(0, 0, 0);   // (only the walk turns the hips)
   const c = cs(), st = P.state, A = P.air, g = P.grind, man = P.manual, an = P.anim;
   const sp = st === 'ground' ? Math.abs(P.s) : st === 'grind' ? Math.abs(g.vr) : Math.hypot(P.vel.x, P.vel.z);
   const spF = Math.min(1, sp / 10);
@@ -12602,7 +12927,7 @@ function fxTick(dt) {
 }
 
 // ---------- Camera ----------
-let camYaw = 0, camY = 3, shake = 0, camMode = 'high';
+let camYaw = 0, camY = 3, shake = 0, camMode = 'high', camWalk = 0;
 try { camMode = localStorage.getItem('concrete-lines-cam') || 'high'; } catch (e) {}
 const camPos = new V3(), lookAt = new V3(), _cn = new V3(), _cf = new V3(1, 0, 0), camWall = { x: 0, z: 0 };
 function travelYaw() {
@@ -12644,19 +12969,22 @@ function updateCamera(dt) {
   }
   if (camera.up.y < 0.9999) { camera.up.lerp(UP, damp(5, dt)).normalize(); if (camera.up.y > 0.9995) camera.up.copy(UP); }
   P.camFwd = null;
-  const moving = (P.state === 'ground' && Math.abs(P.s) > 0.6) || P.state === 'grind' || P.state === 'wall';
+  const walking = P.state === 'walk' && !!P.walk;
+  camWalk += ((walking ? 1 : 0) - camWalk) * damp(walking ? 4 : 2.5, dt);   // on foot: in closer and lower, and quicker to follow
+  const moving = (P.state === 'ground' && Math.abs(P.s) > 0.6) || P.state === 'grind' || P.state === 'wall' || (walking && P.walk.ph !== 'toss' && Math.hypot(P.vel.x, P.vel.z) > 0.3 && Math.cos(angDiff(camYaw, P.heading)) > -0.2);
   // on a rail the camera tucks in closer and swings round with you quickly, so curving rails like the spiral don't leave it dragging behind
   const grinding = P.state === 'grind';
-  if (moving) camYaw += angDiff(camYaw, travelYaw()) * damp(grinding ? 9 : P.state === 'wall' ? 5 : 2.6, dt);
+  if (moving) camYaw += angDiff(camYaw, travelYaw()) * damp(grinding ? 9 : P.state === 'wall' ? 5 : walking ? 3.5 : 2.6, dt);
   const sp = P.state === 'ground' ? Math.abs(P.s) : grinding ? Math.abs(P.grind.vr) : Math.hypot(P.vel.x, P.vel.z);
   const low = camMode === 'low';
   const dist = grinding ? (low ? 3.8 : 4.6) + sp * 0.03 : (low ? 4.3 : 6.0) + sp * (low ? 0.04 : 0.06);
   const hgt = (low ? 1.3 : grinding ? 2.0 : 2.3) + (P.air && P.air.vert ? (low ? 0.6 : 1.0) : 0);
+  const distW = lerp(dist, low ? 2.8 : 3.5, camWalk), hgtW = lerp(hgt, low ? 1.15 : 1.65, camWalk);
   // on a wallride the camera eases out away from the wall, so it looks along it at you instead of swinging into it
   { const wx = P.state === 'wall' ? -P.wall.nx * 2.8 : 0, wz = P.state === 'wall' ? -P.wall.nz * 2.8 : 0, kw = damp(P.state === 'wall' ? 6 : 2.5, dt);
     camWall.x += (wx - camWall.x) * kw; camWall.z += (wz - camWall.z) * kw; }
-  const cx = P.pos.x - Math.sin(camYaw) * dist + camWall.x, cz = P.pos.z - Math.cos(camYaw) * dist + camWall.z;
-  camY += (P.pos.y + hgt - camY) * damp(P.state === 'air' ? 2.6 : grinding ? 8 : 4, dt);
+  const cx = P.pos.x - Math.sin(camYaw) * distW + camWall.x, cz = P.pos.z - Math.cos(camYaw) * distW + camWall.z;
+  camY += (P.pos.y + hgtW - camY) * damp(P.state === 'air' ? 2.6 : grinding ? 8 : walking ? 6 : 4, dt);
   let floor = heightAt(clamp(cx, -PX, PX), clamp(cz, PZS, PZN)) + 0.9;
   // trailing behind you inside the tunnel: stay in the pipe (the ground there would otherwise count as the top of the tower)
   const inPipeCam = MAPID === 'park' && P.pos.y < TUN.ceil && Math.abs(cx) < TUN.xOut + 1 && Math.abs(cz - TUN.z) < TUN.R;
@@ -12676,10 +13004,10 @@ function updateCamera(dt) {
       }
     }
   }
-  camera.position.lerp(camPos, damp(grinding ? 14 : 7, dt));
+  camera.position.lerp(camPos, damp(grinding ? 14 : 7 + 3 * camWalk, dt));
   if (shake > 0) { camera.position.y += (Math.random() - 0.5) * shake * 0.12; shake = Math.max(0, shake - dt * 3); }
   const ahead = low ? 2.4 : 1.6;
-  lookAt.set(P.pos.x + Math.sin(camYaw) * ahead, P.pos.y + (low ? 0.75 : 1.0), P.pos.z + Math.cos(camYaw) * ahead);
+  lookAt.set(P.pos.x + Math.sin(camYaw) * ahead, P.pos.y + lerp(low ? 0.75 : 1.0, 1.05, camWalk), P.pos.z + Math.cos(camYaw) * ahead);
   camera.lookAt(lookAt);
   const fov = 62 + Math.min(10, sp * 0.6);
   if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = lerp(camera.fov, fov, damp(3, dt)); camera.updateProjectionMatrix(); }

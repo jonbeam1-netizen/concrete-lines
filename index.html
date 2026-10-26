@@ -290,7 +290,7 @@ body.touch .readout { padding: 3px 8px 4px 7px; }
   <div class="splash-in">
     <h1>Concrete <span class="hz">Lines</span></h1>
     <p class="splash-by">Made by Jon Beam<br>with the use of Claude Code</p>
-    <p class="splash-date">Updated October 26, 2026 · Play-test 0.025</p>
+    <p class="splash-date">Updated October 26, 2026 · Play-test 0.026</p>
     <p class="splash-go">Click to play</p>
   </div>
 </div>
@@ -9434,13 +9434,16 @@ const L1 = 0.45, L2 = 0.45;
   const shirtTex = cv(512, 256, (g, w, h) => paintShirt(g, w, h, shirtName));
   shirtTexG = shirtTex;
   shirtTex.wrapS = THREE.RepeatWrapping;
-  const denim = holeAt => cv(128, 256, (g, w, h) => {
-    g.fillStyle = '#4b6f9e'; g.fillRect(0, 0, w, h);
+  const denim = (holeAt, fadeK = 0.3, hemK = 0) => cv(128, 256, (g, w, h) => {
+    g.fillStyle = '#4d72a3'; g.fillRect(0, 0, w, h);
     g.strokeStyle = 'rgba(25,40,75,0.3)'; g.lineWidth = 1;
     for (let x = -h; x < w; x += 3) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x + h, h); g.stroke(); }
     grain(g, w, h, 22);
-    const fade = g.createLinearGradient(w * 0.05, 0, w * 0.45, 0); fade.addColorStop(0, 'rgba(205,220,240,0)'); fade.addColorStop(0.5, 'rgba(205,220,240,0.3)'); fade.addColorStop(1, 'rgba(205,220,240,0)');
+    const fade = g.createLinearGradient(w * 0.05, 0, w * 0.45, 0); fade.addColorStop(0, 'rgba(205,220,240,0)'); fade.addColorStop(0.5, 'rgba(205,220,240,' + fadeK + ')'); fade.addColorStop(1, 'rgba(205,220,240,0)');
     g.fillStyle = fade; g.fillRect(0, 0, w, h);                                          // worn-in fade down the front
+    { const bk = g.createLinearGradient(w * 0.55, 0, w * 0.95, 0); bk.addColorStop(0, 'rgba(205,220,240,0)'); bk.addColorStop(0.5, 'rgba(205,220,240,' + fadeK * 0.45 + ')'); bk.addColorStop(1, 'rgba(205,220,240,0)');
+      g.fillStyle = bk; g.fillRect(0, 0, w, h); }                                         // and a softer one down the back
+    if (hemK > 0) { const hm = g.createLinearGradient(0, h * 0.72, 0, h); hm.addColorStop(0, 'rgba(18,28,55,0)'); hm.addColorStop(1, 'rgba(18,28,55,' + hemK + ')'); g.fillStyle = hm; g.fillRect(0, 0, w, h); }   // darker where it stacks at the hem
     // the seams run down the sides of the leg (u = 0 and 0.5 face sideways; 0.25 is the front, 0.75 the back, kept plain)
     [0, 0.5].forEach(u => {
       const x = u * w;
@@ -9469,7 +9472,8 @@ const L1 = 0.45, L2 = 0.45;
   const knit = cv(64, 64, (g, w, h) => { g.fillStyle = '#e8e8e8'; g.fillRect(0, 0, w, h); grain(g, w, h, 30); });
   const sleeveM = new THREE.MeshStandardMaterial({ map: knit, color: SHIRT_COLORS[shirtName] || SHIRT_COLORS.red, roughness: 0.9 });
   const pants = new THREE.MeshStandardMaterial({ map: denim(null), roughness: 0.9 });
-  const thighM = pants, shinM = pants;
+  const thighM = new THREE.MeshStandardMaterial({ map: denim(null, 0.42), roughness: 0.9 });                   // stonewash: lightest down the thighs
+  const shinM = new THREE.MeshStandardMaterial({ map: denim(null, 0.26, 0.5), roughness: 0.9, side: THREE.DoubleSide });   // open at the hem
   const skin = new THREE.MeshStandardMaterial({ color: 0xd29a74, roughness: 0.65 });
   const hair = new THREE.MeshStandardMaterial({ color: 0x3a2618, roughness: 0.9 });
   const dark = new THREE.MeshStandardMaterial({ color: 0x0e0e10, roughness: 0.5 });
@@ -9493,12 +9497,31 @@ const L1 = 0.45, L2 = 0.45;
   [-1, 1].forEach(z => { const p = add(pelvis, new THREE.BoxGeometry(0.008, 0.075, 0.07), pants, -0.115, -0.03, z * 0.075); p.rotation.y = z * 0.25; });   // back pockets
   // torso: chest wider than the waist, flattened front to back
   { // torso: a loose tee over a body that's broad across the shoulders and shallow front to back up top, with traps sloping up to the neck
-    const tee = lathe([[0.238, -0.16], [0.226, -0.08], [0.206, 0.05], [0.202, 0.2], [0.215, 0.32], [0.228, 0.41], [0.232, 0.455], [0.215, 0.49], [0.165, 0.525], [0.1, 0.552], [0.056, 0.572]], 32, shirt, 1);
+    const tee = lathe([[0.214, -0.15], [0.236, -0.165], [0.24, -0.15], [0.226, -0.08], [0.206, 0.05], [0.202, 0.2], [0.215, 0.32], [0.228, 0.41], [0.232, 0.455], [0.215, 0.49], [0.165, 0.525], [0.1, 0.552], [0.056, 0.572]], 32, shirt, 1);
     const pa = tee.geometry.attributes.position;
-    for (let i = 0; i < pa.count; i++) { const y = pa.getY(i), k = 0.8 - 0.22 * smoothT((y - 0.05) / 0.4); pa.setX(i, pa.getX(i) * k); }   // deep at the hem (room for the hips), flatter through the chest and shoulders
+    for (let i = 0; i < pa.count; i++) {
+      const y = pa.getY(i), x = pa.getX(i), z = pa.getZ(i), a = Math.atan2(x, z);
+      let k = 0.8 - 0.22 * smoothT((y - 0.05) / 0.4);   // deep at the hem (room for the hips), flatter through the chest and shoulders
+      k = lerp(k, 0.86, smoothT((y - 0.5) / 0.07));       // the neck opening rounds out again, so the back of the neck meets the collar
+      // the hem hangs loose: a few soft folds that fade out up the body, and an edge that rises and falls with them
+      const hw = 1 - smoothT((y + 0.16) / 0.2), fo = Math.sin(5 * a + 0.7) * 0.6 + Math.sin(3 * a + 2.1) * 0.4;
+      const rk = 1 + 0.028 * fo * hw;
+      pa.setX(i, x * k * rk); pa.setZ(i, z * rk);
+      if (y < -0.14) pa.setY(i, y + 0.01 * fo + 0.006 * Math.cos(a));
+    }
     pa.needsUpdate = true; tee.geometry.computeVertexNormals(); spine.add(tee);
   }
-  add(spine, new THREE.TorusGeometry(0.05, 0.012, 6, 16), sleeveM, 0, 0.565, 0).rotation.x = Math.PI / 2;
+  { // ribbed crew collar: a knit ring hugging the neck, dipping a little at the front
+    const cg = new THREE.TorusGeometry(0.055, 0.0105, 8, 48), cp = cg.attributes.position;
+    for (let i = 0; i < cp.count; i++) {
+      const x = cp.getX(i), y = cp.getY(i), z = cp.getZ(i), a = Math.atan2(y, x), rr = Math.hypot(x, y), c = (rr - 0.055);
+      const tube = Math.hypot(c, z), rib = 1 + 0.12 * Math.sin(48 * a) * (tube > 1e-6 ? Math.max(0, c / tube) : 0);
+      const nr = 0.055 + c * rib;
+      cp.setXYZ(i, Math.cos(a) * nr * 0.9, Math.sin(a) * nr, z + 0.014 * Math.pow(Math.max(0, Math.cos(a)), 2));   // ring in x-y here; rotated flat below (+x stays the front)
+    }
+    cg.computeVertexNormals();
+    add(spine, cg, sleeveM, 0, 0.566, 0).rotation.x = Math.PI / 2;
+  }
   add(spine, new THREE.CylinderGeometry(0.045, 0.05, 0.1, 10), skin, 0, 0.57, 0);
   // head: skull, jaw, face, ears, hair, trucker hat (front of the face is +x)
   const skull = add(head, new THREE.SphereGeometry(0.115, 20, 16), skin, 0, 0.1, 0); skull.scale.set(1, 1.08, 0.94); skullMesh = skull;
@@ -9511,7 +9534,19 @@ const L1 = 0.45, L2 = 0.45;
   add(head, new THREE.ConeGeometry(0.018, 0.04, 6), skin, 0.122, 0.085, 0).rotation.z = -Math.PI / 2;
   add(head, new THREE.BoxGeometry(0.008, 0.008, 0.04), new THREE.MeshStandardMaterial({ color: 0x8a4a3a }), 0.105, 0.04, 0);
   // hair at the back and sides only (the face is at phi = PI on a sphere, so leave PI +/- 0.3 PI open)
-  add(head, new THREE.SphereGeometry(0.12, 16, 10, Math.PI * 1.55, Math.PI * 0.9, Math.PI * 0.3, Math.PI * 0.3), hair, -0.005, 0.1, 0).scale.set(1.02, 1.08, 0.98);
+  // the bottom edge is a taper: lowest at the nape, cut up at an angle behind each ear and short over the ears; it thins into the skin at the edge
+  {
+    const PH0 = Math.PI * 1.36, PHL = Math.PI * 1.28, TH0 = Math.PI * 0.3;
+    const hg = new THREE.SphereGeometry(0.12, 36, 12, PH0, PHL, TH0, Math.PI * 0.3), hp = hg.attributes.position, huv = hg.attributes.uv;
+    for (let i = 0; i < hp.count; i++) {
+      const u = huv.getX(i), v = 1 - huv.getY(i), ph = PH0 + u * PHL, dl = Math.abs(ph - Math.PI * 2) / (PHL / 2);   // 0 at the nape, 1 at the front edge over the ears
+      const thMax = Math.PI * (0.415 + 0.215 * (1 - smoothT((dl - 0.3) / 0.5)) + 0.012 * Math.cos(dl * 9) * (1 - dl));
+      const th = TH0 + v * (thMax - TH0), r = 0.12 - 0.0065 * v * v;
+      hp.setXYZ(i, -r * Math.cos(ph) * Math.sin(th), r * Math.cos(th), r * Math.sin(ph) * Math.sin(th));
+    }
+    hg.computeVertexNormals();
+    add(head, hg, hair, -0.005, 0.1, 0).scale.set(1.02, 1.08, 0.98);
+  }
   add(head, new THREE.SphereGeometry(0.128, 24, 12, 0, TAU, 0, Math.PI / 2), capM, 0, 0.142, 0).scale.set(1.02, 0.86, 0.98);
   add(head, new THREE.SphereGeometry(0.012, 8, 6), capRed, 0, 0.251, 0);
   { // a flat snapback bill: D-shaped, wrapping the front of the crown, with a dark underside and rows of stitching on top
@@ -9570,7 +9605,7 @@ const L1 = 0.45, L2 = 0.45;
   const extrudeUp = (shape, depth, bevel, size, segs) => { const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelThickness: bevel, bevelSize: size, bevelSegments: segs, curveSegments: 20 }); g.rotateX(-Math.PI / 2); return g; };
   const soleG = extrudeUp(footprint(1), 0.026, 0.004, 0.003, 2); soleG.translate(0, -0.083 + 0.004, 0);
   const outsoleG = extrudeUp(footprint(1), 0.003, 0.002, 0.0045, 1); outsoleG.translate(0, -0.083 + 0.002, 0);   // a thin gum strip under the white cupsole
-  const upperG = extrudeUp(footprint(0.84), 0.04, 0.022, 0.014, 4);   // sits inside the sole's edge, so the cupsole shows all round upperG.translate(0, -0.052 + 0.022, 0);
+  const upperG = extrudeUp(footprint(0.84), 0.04, 0.022, 0.014, 4); upperG.translate(0, -0.052 + 0.022, 0);   // sits inside the sole's edge, so the cupsole shows all round
   { // the upper rises to the ankle and drops toward the toe
     const pa = upperG.attributes.position, base = -0.048;
     for (let i = 0; i < pa.count; i++) { const x = pa.getX(i), y = pa.getY(i); if (y <= base) continue; const k = x < 0 ? 1 : 1 - 0.62 * smoothT(x / 0.21); pa.setY(i, base + (y - base) * k); }
@@ -9588,18 +9623,29 @@ const L1 = 0.45, L2 = 0.45;
     tongue.rotation.z = -Math.atan2(topY(0.035) - topY(0.155), 0.12);
     [0.06, 0.085, 0.11, 0.135].forEach(x => { const l = add(foot, new THREE.BoxGeometry(0.009, 0.007, 0.056), shoeWhite, x, topY(x) + 0.012, 0); l.rotation.z = tongue.rotation.z; });
     add(foot, new THREE.TorusGeometry(0.05, 0.017, 8, 20), shoeMaroon, 0.0, 0.034, 0).rotation.x = Math.PI / 2;   // padded collar round the ankle
-    add(foot, new THREE.BoxGeometry(0.012, 0.045, 0.036), shoeMaroon, -0.083, -0.008, 0);                            // heel tab
     add(foot, new THREE.SphereGeometry(0.04, 16, 12), skin, -0.018, 0.03, 0);                                       // his heel, filling the collar opening
   };
   // legs: baggy jeans and skate shoes
   [-1, 1].forEach(s => {
-    // baggy, straight-leg jeans: roomy all the way down, the hem stacking over the top of the shoe
-    const thigh = new THREE.Group(); thigh.add(limb(0.076, 0.09, L1, thighM, 18)); char.add(thigh);
-    const shin = new THREE.Group(); shin.add(limb(0.092, 0.09, L2 - 0.05, shinM, 18));
-    add(shin, new THREE.SphereGeometry(0.087, 14, 10), pants);                                                  // knee
-    const stack = add(shin, new THREE.CylinderGeometry(0.099, 0.096, 0.05, 18, 1, true), pants, 0, -(L2 - 0.09), 0);   // fabric bunching at the ankle
-    stack.material = pants;
-    add(shin, new THREE.TorusGeometry(0.09, 0.008, 6, 22), pants, 0, -(L2 - 0.05), 0).rotation.x = Math.PI / 2;   // the hem, just above the shoe
+    // baggy, straight-leg jeans: loose lathed tubes, soft vertical folds, a rounded knee where the thigh and shin overlap (it bends with
+    // the joint, no seam band), flaring a touch to a hem that stacks over the shoe, longer at the heel than over the laces
+    const jean = (prof, seed, hem) => {
+      const g = new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r, y)), 24), pa = g.attributes.position;
+      const yLo = prof[0][1];
+      for (let i = 0; i < pa.count; i++) {
+        const x = pa.getX(i), y = pa.getY(i), z = pa.getZ(i), a = Math.atan2(x, z);
+        let f = (0.032 * Math.sin(5 * a + seed + 5 * y) + 0.018 * Math.sin(3 * a + 2 * seed - 7 * y)) * (hem ? 0.7 + 0.6 * smoothT((-y - 0.1) / 0.3) : 0.6);
+        if (hem) f += 0.022 * Math.sin(y * 105 + seed) * smoothT((-y - 0.33) / 0.07);   // stacking just above the break
+        pa.setX(i, x * (1 + f)); pa.setZ(i, z * (1 + f));
+        if (hem && y < yLo + 0.03) pa.setY(i, y + 0.016 * (Math.hypot(x, z) > 1e-6 ? x / Math.hypot(x, z) : 0) + 0.006 * Math.sin(4 * a + seed));
+      }
+      g.computeVertexNormals(); return g;
+    };
+    const thigh = new THREE.Group(); char.add(thigh);
+    thigh.add(new THREE.Mesh(jean([[0.0, -0.535], [0.048, -0.52], [0.077, -0.493], [0.09, -0.455], [0.092, -0.4], [0.09, -0.3], [0.087, -0.16], [0.083, -0.03], [0.07, 0.03], [0.0, 0.05]], s * 1.7, false), thighM));
+    const shin = new THREE.Group();
+    shin.add(new THREE.Mesh(jean([[0.09, -0.452], [0.101, -0.468], [0.106, -0.452], [0.104, -0.42], [0.1, -0.37], [0.095, -0.27], [0.092, -0.15], [0.09, -0.04], [0.083, 0.03], [0.06, 0.065], [0.0, 0.08]], s * 2.9 + 1, true), shinM));
+    thigh.children.concat(shin.children).forEach(m => { m.castShadow = true; });
     char.add(shin);
     const foot = new THREE.Group(); char.add(foot);
     buildShoe(foot);
@@ -9614,7 +9660,7 @@ const _qTilt = new THREE.Quaternion(), _wq = new THREE.Quaternion(), _wn = new V
 const _ankleBack = new V3();
 function solveLeg(leg, hip, target, hint) {
   _d.subVectors(target, hip);
-  const dist = clamp(_d.length(), 0.44, L1 + L2 - 0.003);
+  const dist = clamp(_d.length(), 0.25, L1 + L2 - 0.003);   // a deep tuck folds the knee further rather than pushing the foot down through the deck
   _d.normalize();
   const a = Math.acos(clamp((L1 * L1 + dist * dist - L2 * L2) / (2 * L1 * dist), -1, 1));
   _n.crossVectors(_d, hint); if (_n.lengthSq() < 1e-8) _n.set(0, 0, 1); _n.normalize();
@@ -12438,6 +12484,12 @@ function monoKey(K, t) {
 // points on the sole in the shoe's own frame (origin at the ankle, +x the toe): heel, ball, toe tip
 const SOLE_HEEL = new V3(-0.075, -0.083, 0), SOLE_BALL = new V3(0.13, -0.083, 0), SOLE_TOE = new V3(0.215, -0.078, 0);
 const _pv = new V3(), _pv2 = new V3(), _pfq = new THREE.Quaternion();
+// the grip's height in the deck's own frame (the same nose/tail kick and concave the deck mesh is bent with), and points round the
+// edge of the sole (shoe frame) that have to stay on top of it
+const gripKick = a => a < 0.24 ? 0 : a < 0.31 ? (a - 0.24) * (a - 0.24) / (2 * 0.07) * Math.tan(KICK) : (0.035 + (a - 0.31)) * Math.tan(KICK);
+const gripTopAt = (x, z) => 0.0145 + gripKick(Math.abs(z)) + 0.008 * Math.pow(x / 0.105, 2);
+const SOLE_RIM = [[-0.074, 0], [-0.066, 0.03], [-0.066, -0.03], [0, 0.046], [0, -0.046], [0.07, 0.052], [0.07, -0.052], [0.13, 0.056], [0.13, -0.056], [0.19, 0.045], [0.19, -0.045], [0.222, 0]].map(([x, z]) => new V3(x, -0.083, z));
+const _sr = new V3(), _sUp = new V3(), _bfInv = new THREE.Matrix4();
 // pushing: the hips turn to face down the line (the board stance limits it short of square), the chest leads them a little,
 // the standing foot pivots on its ball toward the nose
 const PUSH_HIP = 1.08, PUSH_CHEST = 0.24, PUSH_FRONT_FOOT = 0.8, PUSH_BALL = 0.075;
@@ -13107,7 +13159,12 @@ function animate(dt) {
       }
     }
     // the shoe's orientation first (this frame's, so the ankle offsets below don't lag a frame behind it)
-    qShoe.copy(qChar).invert().multiply(qBoard); if (flipped) qShoe.multiply(qTmp.setFromAxisAngle(_zAx, Math.PI)); qShoe.multiply(qStance);
+    qShoe.copy(qChar).invert().multiply(qBoard);
+    if (!flipped) {   // a foot out on the nose or tail lies along the kick under it rather than flat through it
+      const az = Math.abs(zA), kt = Math.atan((gripKick(az + 0.05) - gripKick(Math.max(0, az - 0.05))) / 0.1);
+      if (kt > 1e-4) qShoe.multiply(qTmp.setFromAxisAngle(_xAx, -Math.sign(zA) * kt));
+    }
+    if (flipped) qShoe.multiply(qTmp.setFromAxisAngle(_zAx, Math.PI)); qShoe.multiply(qStance);
     // on a wall the deck is near vertical: the shoes ease part way back toward his legs so they don't look snapped sideways at the ankle
     leg.foot.quaternion.copy(qShoe).slerp(qTmp.identity(), clamp(pose.footFree + (end < 0 ? pushFoot : 0), 0, 1));
     // off the board the toes point down, and during a flip the front foot rolls with its flick
@@ -13139,6 +13196,23 @@ function animate(dt) {
     if (fPiv !== 0 && pose.footFree < 0.5) {   // the standing foot turns on its ball, so the heel swings and the toes stay put on the grip
       const b0 = vC.set(1, 0, 0).applyQuaternion(qShoe), b1 = _ankleBack.set(Math.cos(fPiv), 0, -Math.sin(fPiv)).applyQuaternion(qShoe);
       leg.target.addScaledVector(b0.sub(b1), PUSH_BALL);
+    }
+    if (!flipped && st !== 'bail') {
+      // the sole on top of the grip: find the lowest point round its edge against the deck under it (kick and concave included) and
+      // move the shoe along the deck's up so it rests 2 mm over it. Planted on the deck it's held there both ways; once the foot lifts
+      // off (flips, the push) it's only ever pushed up out of the board, never pulled down onto it
+      const onDeck = (1 - pose.footFree) * (end < 0 ? 1 - pushFoot : 1);
+      _bfInv.copy(boardFlip.matrixWorld).invert(); let gap = 1e9;
+      SOLE_RIM.forEach(sp => {
+        _sr.copy(sp).applyQuaternion(leg.foot.quaternion).add(leg.target); char.localToWorld(_sr); _sr.applyMatrix4(_bfInv);
+        if (Math.abs(_sr.x) < 0.105 && Math.abs(_sr.z) < 0.4 && _sr.y > -0.07) gap = Math.min(gap, _sr.y - gripTopAt(_sr.x, _sr.z));
+      });
+      if (gap < 1e8) {
+        const want = 0.004, lift = gap < want ? (want - gap) * Math.max(onDeck, gap < 0 ? 1 : 0) : (want - gap) * onDeck * onDeck;
+        if (Math.abs(lift) > 1e-5) {
+          _sUp.set(0, 1, 0).transformDirection(boardFlip.matrixWorld); _sr.copy(leg.target); char.localToWorld(_sr); _sr.addScaledVector(_sUp, lift); char.worldToLocal(_sr); leg.target.copy(_sr);
+        }
+      }
     }
     solveLeg(leg, hip, leg.target, _hint);
   });

@@ -290,7 +290,7 @@ body.touch .readout { padding: 3px 8px 4px 7px; }
   <div class="splash-in">
     <h1>Concrete <span class="hz">Lines</span></h1>
     <p class="splash-by">Made by Jon Beam<br>with the use of Claude Code</p>
-    <p class="splash-date">Updated October 26, 2026 · Play-test 0.019</p>
+    <p class="splash-date">Updated October 26, 2026 · Play-test 0.020</p>
     <p class="splash-go">Click to play</p>
   </div>
 </div>
@@ -7227,8 +7227,8 @@ RV.bridges.forEach((B, bi) => {
   [[x0 + 1, RV.upper], [x1 - 1, 0]].forEach(([ax, ay]) => { const a = new THREE.Mesh(new THREE.BoxGeometry(2, RV.top - ay, B.w), RM.bridge); a.position.set(ax, (RV.top + ay) / 2, B.z); a.castShadow = a.receiveShadow = true; scene.add(a); rvBoxUV(a, 6, 6, 0); });
   // parapet walls with a steel rail on top (birds sit on these)
   [z0 + 0.25, z1 - 0.25].forEach(z => {
-    const p = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, 1.1, 0.5), RM.bridge); p.position.set((x0 + x1) / 2, RV.top + 0.55, z); p.castShadow = true; scene.add(p); rvBoxUV(p, 6, 6, RV.top);
-    cylBetween(new V3(x0, RV.top + 1.6, z), new V3(x1, RV.top + 1.6, z), 0.05, RM.steel);
+    const p = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, 0.5, 0.5), RM.bridge); p.position.set((x0 + x1) / 2, RV.top + 0.25, z);   // a low parapet with the rail above it, so the traffic on top shows from the channel p.castShadow = true; scene.add(p); rvBoxUV(p, 6, 6, RV.top);
+    cylBetween(new V3(x0, RV.top + 1.1, z), new V3(x1, RV.top + 1.1, z), 0.05, RM.steel);
     for (let x = x0; x <= x1; x += 3) RV_POSTS.push([x, z]);   // (instanced below)
   });
   // a few cars and a truck parked in the traffic on top, just for the silhouette
@@ -7245,8 +7245,8 @@ RV.bridges.forEach((B, bi) => {
   // columns up on the decks and the upper street
   [[-27, RV.deck], [48, RV.deck], [-62, RV.upper], [73, RV.deck], [91, 0]].forEach(([x, y]) => { rvColumn(x, B.z - B.w / 4, 0.7, y, RV.under, RM.column); rvColumn(x, B.z + B.w / 4, 0.7, y, RV.under, RM.column); });
 });
-{ const pg = new THREE.CylinderGeometry(0.04, 0.04, 0.5, 8), ip = new THREE.InstancedMesh(pg, RM.steel, RV_POSTS.length), m4 = new THREE.Matrix4();
-  RV_POSTS.forEach(([x, z], i) => { m4.makeTranslation(x, RV.top + 1.35, z); ip.setMatrixAt(i, m4); }); ip.castShadow = true; scene.add(ip); }
+{ const pg = new THREE.CylinderGeometry(0.04, 0.04, 0.6, 8), ip = new THREE.InstancedMesh(pg, RM.steel, RV_POSTS.length), m4 = new THREE.Matrix4();
+  RV_POSTS.forEach(([x, z], i) => { m4.makeTranslation(x, RV.top + 0.8, z); ip.setMatrixAt(i, m4); }); ip.castShadow = true; scene.add(ip); }
 // the middle bridge is an old arched viaduct: arch fascias on both faces, springing from the piers and the bank tops
 RM.bridgeIn = Object.assign(RM.bridge.clone(), { side: THREE.DoubleSide });
 {
@@ -7741,7 +7741,7 @@ const RV_BACKDROP = { mesh: null };
     poly('bridge', [[RVR.eTop, -0.2, zo], [RVR.eTop, -0.2, zi], [RVR.eTop, RV.top, zi], [RVR.eTop, RV.top, zo]], palette.grey, { t: 8 });   // the east abutment face
     // the viaduct over the frontage road: deck, girders, parapets with their steel rail, one bent of columns
     box('bridge', 96, RVR.eTop, RV.under, RV.top, zo, zi, palette.grey, { t: 8 });
-    [zo + 0.25, zi - 0.25].forEach(z => box('bridge', 96, RVR.eTop, RV.top, RV.top + 1.1, z - 0.25, z + 0.25, palette.grey, { t: 8 }));
+    [zo + 0.25, zi - 0.25].forEach(z => box('bridge', 96, RVR.eTop, RV.top, RV.top + 0.5, z - 0.25, z + 0.25, palette.grey, { t: 8 }));
     for (let k = 0; k < 5; k++) { const z = zo + 1.5 + k * (B.w - 3) / 4; box('bridge', 96, RVR.eTop, RV.under - 0.9, RV.under, z - 0.25, z + 0.25, palette.grey, { t: 8 }); }
     [-1, 0, 1].forEach(k => { const c = new THREE.CylinderGeometry(0.75, 0.75, RV.under, 12); c.translate(113, RV.under / 2, B.z + k * B.w / 3); RVM.add('bridge', c, null, palette.grey, { keep: true, su: 1, sv: 2 }); });
     for (let x = RVR.wSt + 14, k = 0; x < RVR.eSt - 10; x += 34, k++) { const side = k % 2 ? 1 : -1; LP.push([x, rvRoadY(x) + 0.16, side > 0 ? zi - 1.6 : zo + 1.6, side]); }
@@ -9920,7 +9920,8 @@ window.addEventListener('keyup', e => {
   if (e.target && e.target.tagName === 'INPUT' && e.target.type !== 'range') return;
   if (menuSpace && (e.code === 'Space' || e.code === K.jump)) { menuSpace = false; if (!game.running && !$('menu').hidden) { e.preventDefault(); startGame(); } }
 });
-window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (game.running && !game.paused) togglePause(); });
+window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });   // losing focus (screenshots, alt-tab) only drops held keys; the game keeps running
+document.addEventListener('visibilitychange', () => { if (document.hidden) { for (const k in keys) keys[k] = false; if (game.running && !game.paused) togglePause(); } });   // only a hidden tab / minimised window pauses
 const held = c => !!keys[c];
 const tapped = c => !!pressed[c];
 // which trick key was just hit: +1 = E (right-side tricks), -1 = Q (left-side tricks), 0 = neither
@@ -10184,7 +10185,7 @@ if (typeof makeBirds === 'function') {
   // mostly down where you skate (fence tops, the barriers, rails, the bank lips, the top of the retaining wall) so you can scare them off;
   // only a few stay up on the wires and the bridge railings
   const perches = RV_PERCHES.filter((p, i) => !p.wire || i % 4 === 0), seg = (x0, y0, z0, x1, y1, z1) => perches.push({ pts: [[x0, y0, z0], [x1, y1, z1]] });
-  RV.bridges.forEach((B, bi) => seg(bi * 30 - 20, RV.top + 1.62, B.z + B.w / 2 - 0.25, bi * 30 - 14, RV.top + 1.62, B.z + B.w / 2 - 0.25));
+  RV.bridges.forEach((B, bi) => seg(bi * 30 - 20, RV.top + 1.12, B.z + B.w / 2 - 0.25, bi * 30 - 14, RV.top + 1.12, B.z + B.w / 2 - 0.25));
   for (let z = RV.PZS + 12; z < RV.PZN - 8; z += 26) {
     seg(RV.fenceX, RV.deck + 3.34, z, RV.fenceX, RV.deck + 3.34, z + 3.4);                        // the east fence top
     seg(JB.x, RV.deck + JB.h + 0.01, z + 11, JB.x, RV.deck + JB.h + 0.01, z + 14.4);               // the jersey barriers

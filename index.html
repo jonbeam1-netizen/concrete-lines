@@ -246,7 +246,7 @@ body.touch .readout .lbl { font-size: 11px; }
   <div class="splash-in">
     <h1>Concrete <span class="hz">Lines</span></h1>
     <p class="splash-by">Made by Jon Beam<br>with the use of Claude Code</p>
-    <p class="splash-date">Updated October 26, 2026 · Play-test 0.004</p>
+    <p class="splash-date">Updated October 26, 2026 · Play-test 0.005</p>
     <p class="splash-go">Click to play</p>
   </div>
 </div>
@@ -7863,6 +7863,8 @@ function startRagdoll(vel) {
     set('el' + sd, arms[i].elbow.getWorldPosition(new V3()));
     set('hand' + sd, arms[i].elbow.localToWorld(new V3(0, -0.28, 0)));
   });
+  // a foot or hand that starts just under the surface (the pose dipping into a bank or a curb) sits on it instead of being shoved out later
+  for (let i = 0; i < 15; i++) { const h = heightAt(P_[i].x, P_[i].z) + RAG.r[i]; if (P_[i].y < h && h - P_[i].y < 0.5) P_[i].y = h; }
   STICKS.forEach(s => { s.L = P_[s.a].distanceTo(P_[s.b]); });
   const fwd = vel.clone().setY(0); const fl = fwd.length(); if (fl > 0.1) fwd.divideScalar(fl);
   for (let i = 0; i < 15; i++) {
@@ -7880,13 +7882,27 @@ function startRagdoll(vel) {
   spray(RAG.p[1], vel, 45, 4.5);
 }
 const _rd = new V3(), _rq = new THREE.Quaternion(), _rw = new V3();
+// the direction (as a heading angle) of the nearest spot around (x, z) that's open at height y, or null when there's none close by
+function ragOpenSide(x, z, y) {
+  for (const rr of [0.08, 0.16, 0.3, 0.5, 0.75]) {
+    let best = null, bh = Infinity;
+    for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4, hh = heightAt(x + Math.sin(a) * rr, z + Math.cos(a) * rr); if (hh < bh) { bh = hh; best = a; } }
+    if (bh < y + 0.3) return best;
+  }
+  return null;
+}
 function ragStep(dt) {
   RAG.t += dt;
   const p = RAG.p, v = RAG.v, prev = RAG.prev;
   const drag = Math.exp(-0.15 * dt);
-  const vy0 = v.map(x => x.y);
+  const vy0 = v.map(x => x.y), vh0 = v.map(x => Math.hypot(x.x, x.z));
   for (let i = 0; i < 15; i++) { prev[i].copy(p[i]); v[i].y -= G * dt; v[i].multiplyScalar(drag); p[i].addScaledVector(v[i], dt); RAG.cd[i] -= dt; }
-  const contact = [];
+  const contact = [], buried = [];
+  for (let i = 0; i < 15; i++) {
+    // a point that's inside something (a wall face, a ledge side): ease it out the nearest open side instead of popping it up
+    buried[i] = heightAt(prev[i].x, prev[i].z) - prev[i].y > 0.35;
+    if (buried[i]) { const a = ragOpenSide(prev[i].x, prev[i].z, prev[i].y); if (a !== null) { p[i].x += Math.sin(a) * 3 * dt; p[i].z += Math.cos(a) * 3 * dt; } }
+  }
   for (let it = 0; it < 6; it++) {
     for (const s of STICKS) {
       _rd.subVectors(p[s.b], p[s.a]); const L = _rd.length() || 1e-6, k = (L - s.L) / L * 0.5;
@@ -7898,14 +7914,22 @@ function ragStep(dt) {
         if (dd > 0) { const e = 0.05, gx = RIM.dOut(p[i].x + e, p[i].z) - RIM.dOut(p[i].x - e, p[i].z), gz = RIM.dOut(p[i].x, p[i].z + e) - RIM.dOut(p[i].x, p[i].z - e), gl = Math.hypot(gx, gz) || 1; p[i].x -= gx / gl * dd; p[i].z -= gz / gl * dd; } }
       const h = heightAt(p[i].x, p[i].z), r = RAG.r[i];
       if (p[i].y < h + r) {
-        if (h - prev[i].y > 0.35) { p[i].x = prev[i].x; p[i].z = prev[i].z; }
-        else { p[i].y = h + r; contact[i] = true; }
+        if (buried[i]) { if (h - p[i].y < 0.35) { p[i].y = Math.min(h + r, prev[i].y + 8 * dt); contact[i] = true; } }
+        else if (h - prev[i].y > 0.35) { p[i].x = prev[i].x; p[i].z = prev[i].z; }
+        // up a curb or a steep face it climbs at most 8 m/s (a fall is always caught in full), so the push out can't fling it
+        else { p[i].y = Math.min(h + r, Math.max(p[i].y, prev[i].y + 8 * dt)); contact[i] = true; }
       }
     }
   }
   const fr = Math.pow(0.04, dt);
   for (let i = 0; i < 15; i++) {
     v[i].subVectors(p[i], prev[i]).divideScalar(dt);
+    // never a launch: being pushed out of the ground or a wall or yanked by the joints adds at most 3 m/s upward (a bail that was
+    // already flying up keeps that and decays as it would), sideways speed only builds up gradually, and nothing outruns a hard bail
+    const upCap = Math.max(3, vy0[i] - G * dt);
+    if (v[i].y > upCap) v[i].y = upCap;
+    const hv = Math.hypot(v[i].x, v[i].z), hCap = Math.min(13, Math.max(4, vh0[i] + 25 * dt));
+    if (hv > hCap) { v[i].x *= hCap / hv; v[i].z *= hCap / hv; }
     if (contact[i]) {
       v[i].x *= fr; v[i].z *= fr;
       if (vy0[i] < -3.2 && RAG.cd[i] <= 0 && (i <= 2 || i === 5 || i === 6 || i === 9 || i === 10)) {
@@ -9003,6 +9027,48 @@ function stepAhead(nx, nz, h) {
   }
   return false;
 }
+// The rider's body has some size: he keeps off tall wall faces (anything taller than ~1.3 m above his feet; curbs, ledges and
+// steps aren't touched by this) by about his knees' and shoulders' reach to the side, and the board's half-length (nose / tail) end-on
+const RIDER_R = 0.4, RIDER_NOSE = 0.46, TALL_WALL = 1.3;
+// how far he keeps off a face whose into-wall direction is (nx, nz): side-on RIDER_R, end-on (board pointing at it) RIDER_NOSE
+const riderReach = (nx, nz) => { const c = nx * Math.sin(P.heading) + nz * Math.cos(P.heading); return RIDER_R + (RIDER_NOSE - RIDER_R) * c * c; };
+// distance along (dx, dz) from (x, z) to a tall wall face within reach (feet at height y), or Infinity; the face's into-wall direction in _wgN
+const _wgN = [0, 0];
+function faceGap(x, z, dx, dz, y, reach) {
+  let prev = heightAt(x, z);
+  if (prev - y > TALL_WALL) return Infinity;   // already on/in it: that's the normal wall code's business
+  for (let k = 1, n = Math.ceil(reach / 0.03); k <= n; k++) {
+    const d = reach * k / n, sx = x + dx * d, sz = z + dz * d, hh = heightAt(sx, sz);
+    if (hh - y > TALL_WALL && hh - prev > 0.25) {
+      const e = 0.06, gx = heightAt(sx + e, sz) - heightAt(sx - e, sz), gz = heightAt(sx, sz + e) - heightAt(sx, sz - e), gl = Math.hypot(gx, gz);
+      if (gl > 1e-4) { _wgN[0] = gx / gl; _wgN[1] = gz / gl; } else { _wgN[0] = dx; _wgN[1] = dz; }
+      return d - reach / n * 0.5;
+    }
+    prev = hh;
+  }
+  return Infinity;
+}
+// How far inside his keep-off distance from the nearest tall wall face he'd be at (x, z) (feet at y): > 0 is too close, and
+// the face's into-wall direction is in _wnN. A ring of 8 cheap samples first; only a direction that reaches something tall is marched.
+const _wnN = [0, 0];
+function wallPen(x, z, y) {
+  let best = 0, bx = 0, bz = 0;
+  for (let k = 0; k < 8; k++) {
+    const a = k * Math.PI / 4, dx = Math.sin(a), dz = Math.cos(a);
+    if (heightAt(x + dx * RIDER_NOSE, z + dz * RIDER_NOSE) - y <= TALL_WALL) continue;
+    const g = faceGap(x, z, dx, dz, y, RIDER_NOSE), c = dx * _wgN[0] + dz * _wgN[1];
+    if (g < Infinity && c > 0.3) { const pen = riderReach(_wgN[0], _wgN[1]) - g * c; if (pen > best) { best = pen; bx = _wgN[0]; bz = _wgN[1]; } }
+  }
+  _wnN[0] = bx; _wnN[1] = bz; return best;
+}
+// Rolling along (or standing by) a tall wall: ease him back out to his keep-off distance from the face (not on a bank rising into it)
+function wallClear(dt) {
+  const pen = wallPen(P.pos.x, P.pos.z, P.pos.y), nx = _wnN[0], nz = _wnN[1];
+  if (pen <= 0) return;
+  if ((P.pos.y - heightAt(P.pos.x - nx * 0.3, P.pos.z - nz * 0.3)) / 0.3 > 0.4) return;
+  const push = Math.min(pen, 3 * dt), x = P.pos.x - nx * push, z = P.pos.z - nz * push, hh = heightAt(x, z);
+  if (Math.abs(hh - P.pos.y) < 0.05) P.pos.set(x, hh, z);
+}
 // Direction into a wall the board just ran into (falls back to the travel direction)
 function wallNormal(x, z, tx, tz) {
   const y = P.pos.y;
@@ -9173,7 +9239,11 @@ function stepGround(dt, st) {
   const [gx, gz] = grad(P.pos.x, P.pos.z);
   // slope along the heading, sampled just behind the board so drops ahead don't bleed in
   const back = 0.06 * dirS;
-  const m = clamp((P.pos.y - heightAt(P.pos.x - fx * back, P.pos.z - fz * back)) / back, -4.5, 4.5);
+  let hb = heightAt(P.pos.x - fx * back, P.pos.z - fz * back);
+  // right at the foot of a wall (rolling back off it after a knock) that sample lands on the wall itself: it isn't a slope,
+  // so read the ground on the other side instead (both sides up a wall: flat)
+  if (hb - P.pos.y > 0.25) { const hf = heightAt(P.pos.x + fx * back, P.pos.z + fz * back); hb = hf - P.pos.y > 0.25 ? P.pos.y : 2 * P.pos.y - hf; }
+  const m = clamp((P.pos.y - hb) / back, -4.5, 4.5);
   const inv = 1 / Math.sqrt(1 + m * m), sinT = m * inv;
   // banked surfaces carve the board back downhill
   const lat = gx * Math.cos(P.heading) - gz * Math.sin(P.heading);
@@ -9221,6 +9291,12 @@ function stepGround(dt, st) {
     P.pos.set(nx, Math.max(ny, DOME.Hl + 0.01), nz); enterDome(P.vel); return;
   }
   const h = heightAt(nx, nz);
+  // his body has width: he stops / glances off a tall wall a body's width short of the face instead of with his shoulders in it
+  // (on flat-ish ground only; a carve up a bank into the wall still reaches the face, so wallrides start exactly as before)
+  if (Math.abs(m) < 0.6 && sp > 0.05 && wallPen(nx, nz, P.pos.y) > 0) {
+    const wx = _wnN[0], wz = _wnN[1], rise = (P.pos.y - heightAt(P.pos.x - wx * 0.3, P.pos.z - wz * 0.3)) / 0.3;
+    if (rise <= 0.4 && (fx * wx + fz * wz) * dirS > 0.02) { glance(wx, wz); return; }
+  }
   if (h - P.pos.y > 0.4 + Math.abs(dy) || (h - P.pos.y > 0.02 && (isWallAt(nx, nz, fx * dirS, fz * dirS) || stepAhead(nx, nz, h)))) { const w = wallNormal(nx, nz, fx * dirS, fz * dirS), wl = Math.hypot(w[0], w[1]) || 1;
     // carving up a bank into a tall wall at speed (not dead on): ride straight up onto it
     const wx = w[0] / wl, wz = w[1] / wl, into = (fx * wx + fz * wz) * dirS;
@@ -9286,6 +9362,7 @@ function stepGround(dt, st) {
     return;
   }
   P.pos.set(nx, h, nz);
+  wallClear(dt);
 }
 
 function finalizeGrab() {
@@ -9575,7 +9652,13 @@ function stepAir(dt, st) {
       // near head-on it still catches when you come in fast (startWall turns you along it); slow and near head-on you just stop against it
       if (wallrideOK(wallTop, !A.wallOut) && (up > 0.2 || A.time > 0.15 || P.anim.takeoff === 'ollie') && vhw > 2.8 && into > 0 && (into / vhw < 0.9 || vhw > 5) && !(A.flip && A.flip.t < 0.25)) { startWall(wx, wz); return; }
       if (into > 0) { P.vel.x -= wx * into * 1.1; P.vel.z -= wz * into * 1.1; }
-      P.pos.y = Math.max(ny, heightAt(P.pos.x, P.pos.z)); return;
+      P.pos.y = Math.max(ny, heightAt(P.pos.x, P.pos.z));
+      // sliding along a tall wall: his body stays a body's width off the face instead of in it
+      if (wallTop - P.pos.y > TALL_WALL) {
+        const gap = faceGap(P.pos.x, P.pos.z, wx, wz, P.pos.y, RIDER_NOSE + 0.1), pen = riderReach(wx, wz) - gap;
+        if (pen > 0) { const x = P.pos.x - wx * pen, z = P.pos.z - wz * pen; if (heightAt(x, z) <= P.pos.y) { P.pos.x = x; P.pos.z = z; } }
+      }
+      return;
     }
     land(nx, h, nz); return;
   }
@@ -9956,7 +10039,7 @@ function stepGrind(dt, st) {
 }
 
 function bail(reason, quiet) {
-  if (P.state === 'ground') groundVel(P.vel);
+  if (P.state === 'ground') { groundVel(P.vel); P.vel.y = Math.min(P.vel.y, 3); }   // bailing up a steep face (a curb's round side, a ramp): he slumps, he isn't shot up it
   else if (P.state === 'grind') { const g = P.grind; P.vel.copy(g.r.dir).multiplyScalar(g.vr); }
   const snap = P.state === 'air' && P.vel.y < -16;   // came down from way up: the deck can't take it
   startRagdoll(P.vel.clone());
@@ -10836,7 +10919,7 @@ if (location.hash === '#debug') {
   window.__cl = { P, keys, pressed, released, combo, game, letters, tape, heightAt, renderer, scene, render: () => renderer.render(scene, camera),
     step: dt => { game.clock += dt; physics(dt); for (const k in pressed) delete pressed[k]; for (const k in released) delete released[k]; },
     anim: dt => animate(dt), fx: dt => fxTick(dt), cam: dt => updateCamera(dt), rails, startGrind, legs, arms, pose, rider, camera,
-    sfx, SPAWNS, RIM, setMap, get MAPID() { return MAPID; }, RV, BUM, WRECK, COP, obstacles, river: dt => { game.clock += dt; physics(dt); riverTick(dt); for (const k in pressed) delete pressed[k]; for (const k in released) delete released[k]; }, get camYaw() { return camYaw; }, set camYaw(v) { camYaw = v; }, get SPIRALS() { return SPIRALS; }, get inSky() { return inSky; }, get mp() { return { MP, mpPeers, mpTick, mpPresenceObj, mpCrash, NET }; }, snap: () => [P.state, +P.pos.x.toFixed(2), +P.pos.y.toFixed(2), +P.pos.z.toFixed(2), +P.s.toFixed(2), +P.vel.y.toFixed(2), +P.heading.toFixed(2), P.switchSt ? 'sw' : ''] };
+    sfx, SPAWNS, RIM, setMap, RAG, bail, glance, grad, get MAPID() { return MAPID; }, RV, BUM, WRECK, COP, obstacles, river: dt => { game.clock += dt; physics(dt); riverTick(dt); for (const k in pressed) delete pressed[k]; for (const k in released) delete released[k]; }, get camYaw() { return camYaw; }, set camYaw(v) { camYaw = v; }, get SPIRALS() { return SPIRALS; }, get inSky() { return inSky; }, get mp() { return { MP, mpPeers, mpTick, mpPresenceObj, mpCrash, NET }; }, snap: () => [P.state, +P.pos.x.toFixed(2), +P.pos.y.toFixed(2), +P.pos.z.toFixed(2), +P.s.toFixed(2), +P.vel.y.toFixed(2), +P.heading.toFixed(2), P.switchSt ? 'sw' : ''] };
 }
 
 // ---------- Main loop ----------

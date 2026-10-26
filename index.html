@@ -246,7 +246,7 @@ body.touch .readout .lbl { font-size: 11px; }
   <div class="splash-in">
     <h1>Concrete <span class="hz">Lines</span></h1>
     <p class="splash-by">Made by Jon Beam<br>with the use of Claude Code</p>
-    <p class="splash-date">Updated October 26, 2026 · Play-test 0.014</p>
+    <p class="splash-date">Updated October 26, 2026 · Play-test 0.015</p>
     <p class="splash-go">Click to play</p>
   </div>
 </div>
@@ -9142,6 +9142,8 @@ const TRUCKS = [];   // each truck's hanger (with its axle and wheels), which pi
   });
 }
 const BOARD_Y = 0.11;   // deck centre above the contact point
+const PUSH_D0 = 0.22, PUSH_D1 = 0.58;
+const WALL_STICK = 0.13;   // how long the board takes to slap round onto a wall   // the planted part of a kick-push cycle (foot on the ground, driving back)
 const AXLE = 0.26;
 
 // ---------- Skater rig (IK legs, FK arms) ----------
@@ -10703,6 +10705,7 @@ const WALL_BAIL_S = () => REAL ? 7 : 10.2;
 // Glance off a wall: keep the speed along it, lose the part that went into it
 function glance(wx, wz) {
   const L = Math.hypot(wx, wz) || 1; wx /= L; wz /= L;
+  if (P.push.phase >= 0) { P.push.phase = -1; P.push.gap = 0.25; }   // knocked mid-push: the foot comes straight back onto the board
   const dirS = Math.sign(P.s) || 1, vx = Math.sin(P.heading) * dirS, vz = Math.cos(P.heading) * dirS;
   let into = vx * wx + vz * wz;
   if (into <= 0.01) { wx = vx; wz = vz; into = 1; }
@@ -11034,18 +11037,38 @@ function stepGround(dt, st) {
   if (sp > 0.3) P.heading -= clamp(G * (lat / Math.sqrt(1 + lat * lat)) / Math.max(sp, 2) * 0.6, -3, 3) * dt * dirS;
 
   P.s -= G * sinT * dt;
-  // no kick-push: holding push just builds speed, strongest from a standstill and fading toward top speed (~24 mph; a few seconds to get there)
-  const topSpeed = 10.7 * (P.special >= 1 ? 1.1 : 1);
+  // kick-push: from a standstill or a slow roll, holding push gives a few real back-foot pushes, each a burst of speed timed to
+  // the foot driving back along the ground (the first from a dead stop is a longer, slower shove); they space out as he builds
+  // speed and stop at cruising speed (~70% of top), where holding push is a light tuck and a gentle glide on up to top speed (~24 mph)
+  const topSpeed = 10.7 * (P.special >= 1 ? 1.1 : 1), cruise = topSpeed * 0.7;
   P.tuck = !man && !slide && P.charge === 0 && held(K.up) && sp >= 7;
-  const uphill = Math.max(0, m * dirS);
-  if (!man && !slide && held(K.up) && sp < topSpeed) {
-    P.s += dirS * (sp < 6.5 ? 4 : 1.6) * (1 + Math.min(1.2, uphill)) * dt;
+  const uphill = Math.max(0, m * dirS), pu = P.push;
+  const canPush = !man && !slide && P.charge === 0 && !held(K.down) && P.s > -0.3 && Math.abs(m) < 0.35 && !P.recover;
+  if (pu.phase >= 0 && !canPush) { pu.phase = -1; pu.gap = 0.1; }   // crouching to ollie, a manual, a slide, braking or a bank: the foot goes straight back onto the tail
+  if (pu.phase < 0) {
+    pu.gap = Math.max(0, (pu.gap || 0) - dt);
+    if (sp < 0.3) pu.n = 0;   // stopped: the next push is a fresh start
+    if (canPush && held(K.up) && sp < cruise && pu.gap <= 0) {
+      pu.first = !pu.n && sp < 1.2; pu.phase = 0; pu.dist = 0; pu.n = (pu.n || 0) + 1;
+      pu.dur = pu.first ? 1.15 : lerp(0.95, 0.86, clamp(sp / cruise, 0, 1));
+      pu.dv = (pu.first ? 3.3 : 3.1 - 0.4 * clamp(sp / cruise, 0, 1)) * (1 + Math.min(1.2, uphill));
+    }
+  }
+  if (pu.phase >= 0) {
+    const p0 = pu.phase; pu.phase += dt / pu.dur;
+    // the drive: the planted foot shoves back between PUSH_D0 and PUSH_D1 of the cycle; the speed swells in smoothly over it
+    const u0 = clamp((p0 - PUSH_D0) / (PUSH_D1 - PUSH_D0), 0, 1), u1 = clamp((pu.phase - PUSH_D0) / (PUSH_D1 - PUSH_D0), 0, 1);
+    if (u1 > u0) P.s += pu.dv * 0.5 * (Math.cos(Math.PI * u0) - Math.cos(Math.PI * u1));
+    if (p0 >= PUSH_D0) pu.dist += sp * dt;   // how far the board has rolled past the planted foot
+    if (pu.phase >= 1) { pu.phase = -1; pu.gap = 0.03 + 0.2 * clamp(sp / cruise, 0, 1); }
+  }
+  if (!man && !slide && held(K.up) && sp < topSpeed && pu.phase < 0 && (sp >= cruise || !canPush)) {
+    P.s += dirS * (sp < 6.5 ? 4 : 1.6) * (1 + Math.min(1.2, uphill)) * dt;   // past cruising speed (or up a bank, or crouched): no pushing, a steady glide
   }
   // holding the ollie crouch is a speed tuck: builds speed on its own and tops out higher
   if (!man && !slide && P.charge > 0 && sp < topSpeed * 1.13) {
     P.s += dirS * (sp < 6.5 ? 3.5 : 1.8) * (1 + Math.min(1.2, uphill)) * dt;
   }
-  P.push.phase = -1;
   if (man) {
     man.t += dt;
     if (REAL) { if (realBalance(man, st, dt)) { bail('Lost the manual'); return; } }
@@ -11247,29 +11270,37 @@ function startWall(wx, wz) {
   const into = P.vel.x * wx + P.vel.z * wz, vh0 = Math.hypot(P.vel.x, P.vel.z);
   P.vel.x -= wx * into; P.vel.z -= wz * into;
   // hit it nearly head-on: turn along it (the way you're steering) and keep most of your speed
+  const headOn = Math.hypot(P.vel.x, P.vel.z) < vh0 * 0.6;
   { let tx = P.vel.x, tz = P.vel.z; const tl = Math.hypot(tx, tz);
-    if (tl < vh0 * 0.6) { const sd = P.steer ? -P.steer : (tx * -wz + tz * wx >= 0 ? 1 : -1); tx = -wz * sd; tz = wx * sd; const sp = Math.max(tl, vh0 * 0.75); P.vel.x = tx * sp; P.vel.z = tz * sp; } }
-  P.vel.y = Math.max(P.vel.y, 0) + 1.5;
+    if (headOn) { const sd = P.steer ? -P.steer : (tx * -wz + tz * wx >= 0 ? 1 : -1); tx = -wz * sd; tz = wx * sd; const sp = Math.max(tl, vh0 * 0.75); P.vel.x = tx * sp; P.vel.z = tz * sp; }
+    else if (tl > 0.1) { const sp = Math.min(Math.max(tl * 1.08, tl + 0.6), Math.max(tl, vh0)); P.vel.x *= sp / tl; P.vel.z *= sp / tl; } }   // a little kick along it as he sticks, so a wallride never kills the line
+  // part of the speed you hit it with carries you up it: a flat entry rides about a second, a fast diagonal one a couple of metres up
+  P.vel.y = Math.max(P.vel.y, 0) * 0.6 + 1.3 + 0.45 * clamp(into, 0, 5) * (headOn ? 0.5 : 1);
   const ty = Math.atan2(P.vel.x, P.vel.z);
   if (Math.abs(angDiff(P.heading, ty)) > Math.PI / 2) { P.switchSt = !P.switchSt; P.snapYaw = true; }
   P.heading = ty;
   P.wall = { nx: wx, nz: wz, n0x: wx, n0z: wz, t: 0 };
   { const gp = wallGap(P.pos.x, P.pos.z, P.pos.y, wx, wz); if (gp < 1.2) { P.pos.x += wx * (gp - 0.03); P.pos.z += wz * (gp - 0.03); } }   // straight onto the wall, no settling wobble
-  P.state = 'wall'; P.air = null; P.anim.impact = 0.3; P.pending = 0;
+  P.state = 'wall'; P.air = null; P.anim.impact = 0.45; P.pending = 0;   // the stick: knees soak it up as the board slaps onto the wall
   addTrick('Wallride', 200);
   sfx.bump(); sfx.scuff();
+  if (MAPID === 'river') rvPuff(P.pos.x + wx * 0.1, P.pos.y + 0.15, P.pos.z + wz * 0.1, [0x9a948a, 0x857f74], 3, 0.15, 0.75, 0.4, 0.5);   // a little grit off the wall
 }
 function exitWall(push, vy) {
   const w = P.wall;
   P.vel.x -= w.nx * push; P.vel.z -= w.nz * push; P.vel.y += vy;
-  P.wall = null; P.wallCD = 0.5;
+  P.wall = null; P.wallCD = 0.35;
   enterAir(false);
   P.air.wallOut = true; P.air.wallRoll = P.wallRoll || 0;   // ease back out of the wallride pose
 }
 function stepWall(dt) {
   const w = P.wall; w.t += dt;
   P.vel.y -= G * (w.t < 0.6 ? 0.25 : 0.7) * dt;
-  combo.base += 160 * dt;
+  // A / D steer him up or down the wall (into the wall climbs, away from it drops); the ride along it bleeds off gently
+  { const tw = clamp(P.steer * (Math.cos(P.heading) * w.nx - Math.sin(P.heading) * w.nz), -1, 1);
+    if (tw > 0 ? P.vel.y < 4 : P.vel.y > -6) P.vel.y += 5.5 * tw * dt; }
+  P.vel.x *= 1 - 0.1 * dt; P.vel.z *= 1 - 0.1 * dt;
+  combo.base += (110 + 150 * Math.min(1, w.t / 0.8)) * dt;   // the longer you hold it, the more it's worth
   // on the outer railing: follow its curve, so corners and posts never knock you off
   if (MAPID === 'park' && RIM.dOut(P.pos.x, P.pos.z) > FENCE.d - 1.5) {
     const e = 0.05, px = P.pos.x, pz = P.pos.z;
@@ -11452,6 +11483,7 @@ function stepAir(dt, st) {
 
 function land(nx, h, nz) {
   const A = P.air;
+  if (A && A.wallOut) P.softLand = 0.22;   // down off a wallride: the board settles back level over a moment instead of snapping flat
   // a mattress: boing. You stay in the air (a flip carries on), each bounce a bit lower until you settle
   if (P.vel.y < -2.5 && onBouncy(nx, nz)) {
     P.pos.set(nx, h + 0.02, nz); P.vel.y = Math.min(12, -P.vel.y * 0.72); P.vel.x *= 0.9; P.vel.z *= 0.9;
@@ -11974,7 +12006,8 @@ const ARM = {
 const m4 = new THREE.Matrix4(), qT = new THREE.Quaternion(), qTmp = new THREE.Quaternion(), qYawPi = new THREE.Quaternion().setFromAxisAngle(UP, Math.PI);
 const V3UP = new V3(0, 1, 0);
 const upV = new V3(), fwdV = new V3(), rightV = new V3(), tF = new V3(), tR = new V3();
-const vA = new V3(), vB = new V3(), vC = new V3();
+const vA = new V3(), vB = new V3(), vC = new V3(), _pushA = new V3(), _pushB = new V3();
+const PUSH_ANK = 0.084;   // ankle height over the ground with the shoe flat on it
 const qStance = new THREE.Quaternion(), qChar = new THREE.Quaternion(), qBoard = new THREE.Quaternion(), qShoe = new THREE.Quaternion();
 
 function surfaceUp(out) {
@@ -12008,7 +12041,7 @@ function orientRider(dt) {
     if (P.state === 'ground' || P.state === 'bail') surfaceUp(upV);
     else if (P.state === 'wall') {
       // his body only leans out ~30 degrees (the board does the rest, turned almost flat to the wall), and he rolls into it over a moment
-      const tl = smooth(Math.min(1, P.wall.t / 0.2));
+      const tl = smooth(Math.min(1, P.wall.t / WALL_STICK));
       upV.set(-P.wall.nx * 0.85 * tl, 1 - 0.47 * tl, -P.wall.nz * 0.85 * tl).normalize();   // his whole body leans well out from the wall (~58 degrees)
       rider.position.x -= P.wall.nx * 0.65 * (1 - tl); rider.position.z -= P.wall.nz * 0.65 * (1 - tl);   // comes in to the wall as the board rolls onto it
     }
@@ -12042,7 +12075,8 @@ function orientRider(dt) {
   fwdV.addScaledVector(upV, -fwdV.dot(upV)).normalize();
   rightV.crossVectors(upV, fwdV);
   m4.makeBasis(rightV, upV, fwdV); qT.setFromRotationMatrix(m4);
-  const rate = P.state === 'wall' ? 60 : P.state === 'pipe' || P.state === 'dome' ? 30 : P.state === 'air' ? (P.air && P.air.wallOut && P.air.time < 0.4 ? 7 : P.air && P.air.snappy && P.air.time < 0.3 ? 22 : P.air && P.air.vert ? 12 : 10) : 24;
+  if (P.softLand > 0) P.softLand -= dt;
+  const rate = P.state === 'ground' && P.softLand > 0 ? 11 : P.state === 'wall' ? 60 : P.state === 'pipe' || P.state === 'dome' ? 30 : P.state === 'air' ? (P.air && P.air.wallOut && P.air.time < 0.4 ? 7 : P.air && P.air.snappy && P.air.time < 0.3 ? 22 : P.air && P.air.vert ? 12 : 10) : 24;
   rider.quaternion.slerp(qT, damp(rate, dt));
 }
 
@@ -12101,10 +12135,14 @@ function animate(dt) {
     } else if (P.sliding) {
       yaw = P.slideDir * 1.25; charYaw = yaw; hipY = 0.78; leanT = 0.18; arm = ARM.slide;
     } else if (P.push.phase >= 0) {
-      // kick-push: shoulders open to the nose, weight dips onto the front knee during the drive
+      // kick-push: the standing knee bends as the back foot leaves the tail, the shoulders open toward the nose, and the hips
+      // sink a little further through the drive (more on the first shove from a dead stop); it all rises again as the foot comes home
       pushT = P.push.phase;
-      const drive = pushT > 0.2 && pushT < 0.58 ? Math.sin((pushT - 0.2) / 0.38 * Math.PI) : 0;
-      hipY = 0.88 - 0.09 * drive; hipZ = 0.15; leanT = -0.26 - 0.08 * drive; leanA = 0.12; twist = 0.95; frontZ = 0.2;
+      const big = P.push.first ? 1 : 0;
+      const sit = smooth(clamp(pushT / 0.2, 0, 1)) * (1 - smooth(clamp((pushT - 0.72) / 0.28, 0, 1)));
+      const drive = Math.sin(Math.PI * clamp((pushT - PUSH_D0 + 0.05) / (PUSH_D1 - PUSH_D0 + 0.12), 0, 1));
+      hipY = 0.97 - 0.09 * sit - (0.07 + 0.03 * big) * drive; hipZ = 0.05 * sit; hipX = 0.02 - 0.03 * sit;
+      leanT = -0.1 - 0.18 * sit - (0.1 + 0.05 * big) * drive; leanA += 0.04 * sit + 0.05 * drive; twist = 0.3 + 0.5 * sit; frontZ = 0.16 + 0.05 * sit;
     } else if (P.tuck) {
       hipY = 0.92; leanT = -0.2; leanA = 0.05;   // holding push: a light, mostly upright tuck
     }
@@ -12178,7 +12216,7 @@ function animate(dt) {
     }
   } else if (st === 'wall') {
     // which side of him the wall is on, in his own frame
-    const tl = smooth(Math.min(1, P.wall.t / 0.2));
+    const tl = smooth(Math.min(1, P.wall.t / WALL_STICK));
     _wq.copy(rider.quaternion).invert(); const side = Math.sign(_wn.set(P.wall.nx, 0, P.wall.nz).applyQuaternion(_wq).x) || 1;
     roll = side * 0.06 * tl;                                   // board tilts with him; the trucks bend the rest of the way onto the wall                                   // the rest of the way for the board: deck close to vertical, wheels on the wall
     hipX = -side * (c > 0 ? 1 : -1) * 0.06 * tl;                // hips pushed out over the board, away from the wall
@@ -12229,6 +12267,9 @@ function animate(dt) {
   pose.flail = Math.max(0, (pose.flail || 0) - dt * 2.4);
   pose.slam = Math.max(0, (pose.slam || 0) - dt * 2.2);   // the landing's weight through the shoulders, easing off
   pose.pushW = lerp(pose.pushW || 0, pushT >= 0 ? 1 : 0, damp(10, dt));
+  // how far the push foot is off the deck (its shoe turns from the board's angle to his own) and the ease back after a cut-short push
+  const pushFoot = pushT >= 0 ? smooth(clamp(pushT / 0.12, 0, 1)) * (1 - smooth(clamp((pushT - 0.86) / 0.14, 0, 1))) : (pose.pushFoot || 0) * smooth(pose.pushBlend || 0);
+  if (pushT >= 0) { pose.pushBlend = 1; pose.pushFoot = pushFoot; } else pose.pushBlend = Math.max(0, (pose.pushBlend || 0) - dt / 0.15);
   pose.boardOff = st === 'bail' ? lerp(pose.boardOff, 1, damp(5, dt)) : lerp(pose.boardOff, 0, damp(10, dt));
 
   // ---- board transform: pitch around an axle when one is set ----
@@ -12279,7 +12320,12 @@ function animate(dt) {
   arms.forEach(a => {
     const front = a.s === c ? 1 : -1;
     let [spread, fwd, el] = arm;
-    if (pushT >= 0) { const sw = Math.sin(pushT * TAU); fwd = 0.2 + 0.55 * sw * front; spread = 0.25 + 0.15 * front; el = 0.45 + 0.2 * Math.max(0, sw * front); }
+    if (pushT >= 0) {
+      // a light counter-swing: as the push foot drives back, the arm on its side comes forward and the lead arm eases back
+      const sw = pushT < PUSH_D0 ? -0.5 * smooth(pushT / PUSH_D0) : pushT < PUSH_D1 ? -0.5 + 1.5 * smooth((pushT - PUSH_D0) / (PUSH_D1 - PUSH_D0)) : 1 - smooth((pushT - PUSH_D1) / (1 - PUSH_D1));
+      const env = smooth(clamp(pushT / 0.15, 0, 1)) * (1 - smooth(clamp((pushT - 0.85) / 0.15, 0, 1)));
+      spread = ARM.ride[0] + (0.12 + 0.06 * front) * env; fwd = ARM.ride[1] - 0.32 * sw * front * env; el = ARM.ride[2] + (0.15 + 0.1 * Math.max(0, -sw * front)) * env;
+    }
     if (grabArm) {
       const useBack = grabArm === 'indy' || grabArm === 'tail' || grabArm === 'method';
       if ((useBack && front < 0) || (!useBack && front > 0)) { spread = grabArm === 'method' ? -0.2 : 0.15; fwd = grabArm === 'method' ? -0.9 : 1.3; el = 0.1; }
@@ -12373,15 +12419,34 @@ function animate(dt) {
       tgt = att.lerp(free, pose.footFree);
     }
     if (st === 'bail') { tgt = vC.set(0.15 * c, 0.1, end * 0.2); rider.localToWorld(tgt); }
-    if (pushT >= 0 && end < 0) {
-      // push foot: off the tail, down beside the board, sweep back, return
-      // reach forward beside the front truck, plant, drive back past the tail, swing up and return
-      const gnd = (z, y = 0.086) => vC.set(c * 0.2, y, z);
-      let p;
-      if (pushT < 0.2) { const kk = smooth(pushT / 0.2); p = gnd(lerp(-0.1, 0.18, kk), 0.086 + 0.12 * Math.sin(kk * Math.PI)); rider.localToWorld(p); p = att.clone().lerp(p, kk); }
-      else if (pushT < 0.58) { const kk = (pushT - 0.2) / 0.38; p = gnd(lerp(0.18, -0.58, kk)); rider.localToWorld(p); }
-      else { const kk = smooth((pushT - 0.58) / 0.42); p = gnd(lerp(-0.58, -0.3, kk), 0.086 + 0.26 * Math.sin(kk * Math.PI)); rider.localToWorld(p); p.lerp(att, smooth((kk - 0.4) / 0.6)); }
-      tgt = p;
+    if (end < 0 && st !== 'bail') {
+      if (pushT >= 0) {
+        // push foot (always the back foot, so never mongo): lifts off the tail and out over the toe-side edge, swings forward to plant
+        // beside the front truck, stays put on the ground while the board rolls past it (it only ever moves back, never drags forward),
+        // then lifts behind and swings up and home onto the tail. Worked out in the rider's own frame, then laid onto the real ground.
+        const aL = _pushA.copy(att); rider.worldToLocal(aL);
+        const xs = c * 0.22, ZP = 0.2, ZE = -0.5, ANK = PUSH_ANK, pd = P.push.dist || 0;
+        let x, y, z, gw = 1, lift = 0;
+        if (pushT < PUSH_D0) {
+          const kk = pushT / PUSH_D0;
+          x = lerp(aL.x, xs, smooth(Math.min(1, kk / 0.55))); z = lerp(aL.z, ZP, smooth(kk));
+          y = lerp(aL.y, ANK, smooth(clamp((kk - 0.45) / 0.55, 0, 1))); lift = 0.07 * Math.sin(Math.PI * kk); gw = smooth(clamp((kk - 0.5) / 0.5, 0, 1));
+        } else if (pushT < PUSH_D1) {
+          const kk = (pushT - PUSH_D0) / (PUSH_D1 - PUSH_D0), want = ZP - Math.max(pd, (ZP - ZE) * 0.55 * kk), over = Math.max(0, ZE - want);
+          x = xs; z = Math.max(ZE - 0.08, want + over * 0.8); y = ANK; lift = Math.min(0.1, over * 0.35);   // rolled past the reach: the toe flicks up a touch
+        } else {
+          const kk = (pushT - PUSH_D1) / (1 - PUSH_D1), z0 = Math.max(ZE - 0.08, Math.min(ZP, ZP - Math.max(pd, (ZP - ZE) * 0.55)));
+          z = lerp(z0, aL.z, smooth(kk)); x = lerp(xs, aL.x, smooth(clamp((kk - 0.45) / 0.55, 0, 1)));
+          y = lerp(ANK, aL.y, smooth(clamp((kk - 0.35) / 0.65, 0, 1))); lift = 0.2 * Math.sin(Math.PI * Math.min(1, kk * 1.15)) * (1 - smooth(clamp((kk - 0.75) / 0.25, 0, 1)));
+          gw = 1 - smooth(clamp((kk - 0.4) / 0.6, 0, 1));
+        }
+        const p = vC.set(x, y + lift, z); leg.pushLoc = (leg.pushLoc || new V3()).copy(p); rider.localToWorld(p);
+        if (gw > 0) { const q = _pushB.set(x, ANK, z); rider.localToWorld(q); p.y += gw * (heightAt(q.x, q.z) + ANK - q.y); }   // laid onto the real ground under it
+        tgt = p;
+      } else if ((pose.pushBlend || 0) > 0 && leg.pushLoc) {
+        // a push cut short (ollie, a knock, braking): the foot comes back onto the tail over ~0.15 s instead of teleporting
+        const p = vC.copy(leg.pushLoc); rider.localToWorld(p); tgt = p.lerp(att, smooth(1 - pose.pushBlend));
+      }
     }
     leg.target.copy(tgt); char.worldToLocal(leg.target);
     leg.target.addScaledVector(_ankleBack.set(1, 0, 0).applyQuaternion(leg.foot.quaternion), -0.045);   // the ankle sits back over the heel; the shoe stays where it was
@@ -12390,7 +12455,7 @@ function animate(dt) {
     solveLeg(leg, hip, leg.target, _hint);
     qShoe.copy(qChar).invert().multiply(qBoard); if (flipped) qShoe.multiply(qTmp.setFromAxisAngle(_zAx, Math.PI)); qShoe.multiply(qStance);
     // on a wall the deck is near vertical: the shoes ease part way back toward his legs so they don't look snapped sideways at the ankle
-    leg.foot.quaternion.copy(qShoe).slerp(qTmp.identity(), clamp(pose.footFree + (pushT >= 0 && end < 0 ? 1 : 0), 0, 1));
+    leg.foot.quaternion.copy(qShoe).slerp(qTmp.identity(), clamp(pose.footFree + (end < 0 ? pushFoot : 0), 0, 1));
     // off the board the toes point down, and during a flip the front foot rolls with its flick
     if (pose.footFree > 0.01 && st !== 'bail') {
       leg.foot.quaternion.multiply(qTmp.setFromAxisAngle(_zAx, -0.55 * pose.footFree));
@@ -12419,6 +12484,21 @@ function addMark(ax, az, bx, bz, w, dark, life) {
   _mkn.set(-gx, 1, -gz).normalize();
   _mkq.setFromAxisAngle(UP, Math.atan2(bx - ax, bz - az)); _mkq2.setFromUnitVectors(UP, _mkn); _mkq.premultiply(_mkq2);
   _mkp.set(mx, heightAt(mx, mz), mz).addScaledVector(_mkn, 0.012); _mks.set(w, 1, L + 0.02);
+  const i = markIdx % MARK_MAX; _mkm.compose(_mkp, _mkq, _mks); markMesh.setMatrixAt(i, _mkm);
+  markAge[i] = 0; markLife[i] = life; markDark[i] = dark; markMesh.setColorAt(i, _mkc.setScalar(1 - dark));
+  markIdx++; markMesh.count = Math.min(markIdx, MARK_MAX); markMesh.instanceMatrix.needsUpdate = true; markMesh.instanceColor.needsUpdate = true;
+}
+// the same marks laid on a wall face (n points into the wall); only where the wheel is actually on the face
+const _wmN = new V3(), _wmD = new V3(), _wmX = new V3(), _wmM = new V3();
+function addWallMark(a, b, nx, nz, w, dark, life) {
+  _wmM.addVectors(a, b).multiplyScalar(0.5);
+  let fd = null; for (let d = -0.12; d <= 0.14; d += 0.01) if (heightAt(_wmM.x + nx * d, _wmM.z + nz * d) > _wmM.y + 0.05) { fd = d; break; }
+  if (fd === null) return;
+  _wmN.set(-nx, 0, -nz);
+  _wmD.subVectors(b, a); _wmD.addScaledVector(_wmN, -_wmD.dot(_wmN)); const L = _wmD.length(); if (L < 0.01) return; _wmD.divideScalar(L);
+  _wmX.crossVectors(_wmN, _wmD);
+  _mkm.makeBasis(_wmX, _wmN, _wmD); _mkq.setFromRotationMatrix(_mkm);
+  _mkp.set(_wmM.x + nx * fd, _wmM.y, _wmM.z + nz * fd).addScaledVector(_wmN, 0.012); _mks.set(w, 1, L + 0.02);
   const i = markIdx % MARK_MAX; _mkm.compose(_mkp, _mkq, _mks); markMesh.setMatrixAt(i, _mkm);
   markAge[i] = 0; markLife[i] = life; markDark[i] = dark; markMesh.setColorAt(i, _mkc.setScalar(1 - dark));
   markIdx++; markMesh.count = Math.min(markIdx, MARK_MAX); markMesh.instanceMatrix.needsUpdate = true; markMesh.instanceColor.needsUpdate = true;
@@ -12481,12 +12561,14 @@ function fxTick(dt) {
   P.skidT = Math.max(0, (P.skidT || 0) - dt);
   const skid = P.state === 'ground' && (P.sliding || P.skidT > 0 || (P.recover && P.recover.t < 0.45 && Math.abs(P.recover.off) > 0.25));
   const scorch = P.state === 'ground' && hot;
+  const scuff = P.state === 'wall' && P.wall && P.wall.t > WALL_STICK * 0.6;   // wallrides leave a dark scuff along the wall
   wheels.forEach((w, i) => {
-    const pv = wheelPrev[i];
-    if ((skid || scorch) && pv && Math.hypot(w.x - pv.x, w.z - pv.z) < 1.5) {
-      if (Math.hypot(w.x - pv.x, w.z - pv.z) >= 0.07) {
+    const pv = wheelPrev[i], d = pv ? (scuff ? w.distanceTo(pv) : Math.hypot(w.x - pv.x, w.z - pv.z)) : 9;
+    if ((skid || scorch || scuff) && pv && d < 1.5) {
+      if (d >= 0.07) {
         if (scorch) addMark(pv.x, pv.z, w.x, w.z, 0.07, 0.8 * heat, 9);
         if (skid) addMark(pv.x, pv.z, w.x, w.z, 0.045, 0.55, 26);
+        if (scuff) addWallMark(pv, w, P.wall.nx, P.wall.nz, 0.04, 0.26, 14);
         wheelPrev[i] = w;
       }
     } else wheelPrev[i] = w;

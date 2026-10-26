@@ -290,7 +290,7 @@ body.touch .readout { padding: 3px 8px 4px 7px; }
   <div class="splash-in">
     <h1>Concrete <span class="hz">Lines</span></h1>
     <p class="splash-by">Made by Jon Beam<br>with the use of Claude Code</p>
-    <p class="splash-date">Updated October 26, 2026 · Play-test 0.018</p>
+    <p class="splash-date">Updated October 26, 2026 · Play-test 0.019</p>
     <p class="splash-go">Click to play</p>
   </div>
 </div>
@@ -8087,7 +8087,7 @@ const TRACK = { x: -38, gauge: 1.435, bed: 0.28 };
     }
     for (let j = 0; j < ND; j++) for (let i = 0; i < NX; i++) { const a = j * (NX + 1) + i, b = a + 1, c = a + NX + 1, e = c + 1; if (B[a] > 0.15 || B[b] > 0.15 || B[c] > 0.15 || B[e] > 0.15) { if (sd > 0) hi.push(a, c, b, b, c, e); else hi.push(a, b, c, b, e, c); } }
     const hg = new THREE.BufferGeometry(); hg.setAttribute('position', new THREE.Float32BufferAttribute(hp, 3)); hg.setAttribute('color', new THREE.Float32BufferAttribute(hc, 3)); hg.setIndex(hi); hg.computeVertexNormals();
-    const hill = new THREE.Mesh(hg, new THREE.MeshStandardMaterial({ vertexColors: true, map: RM.dirt.map, roughness: 1, side: THREE.DoubleSide })); hill.receiveShadow = true;   // two-sided: never see-through from behind or below scene.add(hill);
+    const hill = new THREE.Mesh(hg, new THREE.MeshStandardMaterial({ vertexColors: true, map: RM.dirt.map, roughness: 1, side: THREE.DoubleSide })); hill.receiveShadow = true; scene.add(hill);   // two-sided: never see-through from behind or below scene.add(hill);
     // wing walls: the portal face carried on out past each end, its top stepping down with the hill's front edge until the hill meets the ground,
     // so the hill always sits on concrete there instead of hanging off the face's corners as a cliff
     { const zf = sd > 0 ? z : z - 1.2, zk = zf + 1.2, P = [], U = [], I = [];

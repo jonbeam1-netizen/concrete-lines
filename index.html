@@ -6936,7 +6936,10 @@ function rvAccessRamp(side, zLow, zHigh) {
   const hAt = z => RV.deck * clamp((z - zLow) * dirZ / L, 0, 1);   // a straight, steady climb
   const lip = RV.xc + side * (RV.floor + RV.bank - 0.6);
   const outer = h => side > 0 ? Math.min(rvBankX(Math.max(h, 0.3), side), lip) : Math.max(rvBankX(Math.max(h, 0.3), side), lip);   // where the bank reaches the ramp's height: a straight line in plan
-  const xIn = h => outer(h) - side * W;
+  // the lane narrows over its last stretch and comes to a point right where the bank meets the street, so it merges into the top of the bank
+  // (no wall across its end, no slab hanging out over the slope)
+  const Wh = h => W * smoothT((RV.deck - h) / 1.6);
+  const xIn = h => outer(h) - side * Wh(h);
   const x0 = side > 0 ? RV.xc + RV.floor - W - 1 : RV.lipW - 1, x1 = side > 0 ? RV.lipE + 1 : RV.xc - RV.floor + W + 1;
   addObs({ cx: (x0 + x1) / 2, cz: zc, a: 0, hw: (x1 - x0) / 2, hl: L / 2, f: (lx, lz) => {
     const x = (x0 + x1) / 2 + lx, h = hAt(zc + lz); if (h <= 0) return 0;

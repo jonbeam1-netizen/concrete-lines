@@ -290,7 +290,7 @@ body.touch .readout { padding: 3px 8px 4px 7px; }
   <div class="splash-in">
     <h1>Concrete <span class="hz">Lines</span></h1>
     <p class="splash-by">Made by Jon Beam<br>with the use of Claude Code</p>
-    <p class="splash-date">Updated October 26, 2026 · Play-test 0.027</p>
+    <p class="splash-date">Updated October 26, 2026 · Play-test 0.028</p>
     <p class="splash-go">Click to play</p>
   </div>
 </div>
@@ -8560,22 +8560,32 @@ function rvWedge(x0, x1, z0, z1, yBase, hFn, topMat = RM.pourTop, sideMat = RM.r
   // a stretch of red-painted curb you can grind
   { const red = new THREE.MeshStandardMaterial({ color: 0xa8322a, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
     [[-50, -27], [96, 116]].forEach(([za, zb]) => { rvSweep([[x1 + 0.02, RV.upper + 0.03], [x1 + 0.4, RV.upper + 0.152]], za, zb, red); }); }
-  // a bus stop: bench (grind the seat edge or the backrest), the stop sign, a couple of newspaper boxes to wallie
+  // a bus stop: bench (grind the seat edge or the backrest) and the stop sign
   if (typeof makeBench === 'function') {
     const bx = -53.4, bz = -40, yaw = Math.PI / 2, c = Math.cos(yaw), s = Math.sin(yaw), BL = (lx, y, lz) => [bx + lx * c + lz * s, S + y, bz - lx * s + lz * c];
     const b = makeBench(); b.position.set(bx, S, bz); b.rotation.y = yaw; scene.add(b);
     addObs({ cx: bx, cz: bz, a: yaw, hw: 0.95, hl: 0.32, f: () => S + 0.46 });
     addRailPath([BL(-0.88, 0.47, 0.21), BL(0.88, 0.47, 0.21)], { hidden: true }); addRailPath([BL(-0.88, 0.86, -0.34), BL(0.88, 0.86, -0.34)], { hidden: true });
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.9, 8), RM.steel); pole.position.set(-56.9, S + 1.45, -37); scene.add(pole);
-    const sc = document.createElement('canvas'); sc.width = 128; sc.height = 160; const sg = sc.getContext('2d'); sg.fillStyle = '#e8e8e2'; sg.fillRect(0, 0, 128, 160); sg.fillStyle = '#d23a2a'; sg.fillRect(0, 0, 128, 44);
-    sg.fillStyle = '#fff'; sg.font = 'bold 30px Arial'; sg.textAlign = 'center'; sg.fillText('BUS', 64, 33); sg.fillStyle = '#222'; sg.font = 'bold 22px Arial'; sg.fillText('STOP', 64, 78); sg.fillText('94  96', 64, 118);
-    const sign = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.62, 0.5), [new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(sc), roughness: 0.6 }), new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(sc), roughness: 0.6 }), RM.steel, RM.steel, RM.steel, RM.steel]);
-    sign.position.set(-56.9, S + 2.55, -37); scene.add(sign);
-    [[-53.7, -36.8, 0x2a5aa8], [-53.7, -36.1, 0xc8322a]].forEach(([x, z, col]) => {
-      const nb = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.05, 0.46), new THREE.MeshStandardMaterial({ color: col, roughness: 0.6, metalness: 0.2 })); nb.position.set(x, S + 0.525, z); nb.castShadow = nb.receiveShadow = true; scene.add(nb);
-      const win = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.26), new THREE.MeshStandardMaterial({ color: 0x1a2028, roughness: 0.2, metalness: 0.5 })); win.rotation.y = -Math.PI / 2; win.position.set(x - 0.252, S + 0.78, z); scene.add(win);
-      addObs({ cx: x, cz: z, a: 0, hw: 0.25, hl: 0.23, f: () => S + 1.05 });
-    });
+    // the stop sign: a slim galvanised pole with a plain plate clamped flush to its top, facing the road (a bus pictogram over a blank route block)
+    { const px = -56.9, pz = -37, PH = 2.6, PR = 0.035, PW = 0.4, PHt = 0.6, PT = 0.02;
+      const galv = new THREE.MeshStandardMaterial({ color: 0xa9adb0, roughness: 0.45, metalness: 0.75 });
+      rvColumn(px, pz, PR, S, S + PH, galv, 0.1);
+      const cap = new THREE.Mesh(new THREE.CylinderGeometry(PR + 0.004, PR + 0.004, 0.02, 12), galv); cap.position.set(px, S + PH + 0.01, pz); scene.add(cap);
+      const sc = document.createElement('canvas'); sc.width = 128; sc.height = 192; const sg = sc.getContext('2d');
+      sg.fillStyle = '#f2f1ec'; sg.fillRect(0, 0, 128, 192); sg.strokeStyle = '#2c3033'; sg.lineWidth = 6; sg.strokeRect(3, 3, 122, 186);
+      const rr = (x, y, w, h, r) => { sg.beginPath(); sg.moveTo(x + r, y); sg.arcTo(x + w, y, x + w, y + h, r); sg.arcTo(x + w, y + h, x, y + h, r); sg.arcTo(x, y + h, x, y, r); sg.arcTo(x, y, x + w, y, r); sg.closePath(); };
+      sg.fillStyle = '#2c3033'; rr(22, 22, 84, 62, 12); sg.fill();                          // the bus
+      sg.fillStyle = '#f2f1ec'; rr(30, 30, 30, 22, 4); sg.fill(); rr(68, 30, 30, 22, 4); sg.fill();   // windscreen panes
+      sg.fillRect(30, 62, 14, 6); sg.fillRect(84, 62, 14, 6);                                  // lights
+      sg.fillStyle = '#2c3033'; [42, 86].forEach(wx => { sg.beginPath(); sg.arc(wx, 88, 10, 0, Math.PI * 2); sg.fill(); });   // two wheels
+      sg.fillStyle = '#3d4247'; rr(18, 116, 92, 58, 6); sg.fill();                              // the route block: blank
+      sg.fillStyle = '#4a5055'; rr(24, 122, 80, 46, 4); sg.fill();
+      const face = new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(sc), roughness: 0.55 }), back = new THREE.MeshStandardMaterial({ color: 0x9a9ea2, roughness: 0.5, metalness: 0.6 });
+      const sign = new THREE.Mesh(new THREE.BoxGeometry(PT, PHt, PW), [back, face, back, back, back, back]);   // -x face (the road side) carries the picture
+      sign.position.set(px - PR - PT / 2, S + PH - PHt / 2, pz); sign.castShadow = true; scene.add(sign);
+      [PH - 0.1, PH - PHt + 0.1].forEach(y => {   // two clamp bands round the pole, bolted through the plate
+        const band = new THREE.Mesh(new THREE.CylinderGeometry(PR + 0.008, PR + 0.008, 0.04, 12), galv); band.position.set(px, S + y, pz); scene.add(band);
+        const tab = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.04, 0.1), galv); tab.position.set(px - PR - PT - 0.006, S + y, pz); scene.add(tab); }); }
   }
   // a planter ledge: concrete box with a shrub, both long edges grind
   { const px = -53.6, pz = -132, hx = 0.6, hz = 1.6, ph = 0.5;
@@ -9327,8 +9337,8 @@ if (typeof junkLitter === 'function') {
     addObs({ cx: x, cz: z, a: 0, hw, hl, f: () => y + h });
     [-1, 1].forEach(sd => addRailPath([[x + sd * (hw - 0.03), y + h + 0.02, z - hl + 0.05], [x + sd * (hw - 0.03), y + h + 0.02, z + hl - 0.05]], { hidden: true, ledge: true }));
     addRailPath([[50.4, y + 0.4, z - 3.5], [50.4, y + 0.4, z + 3.5]], {}); }
-  // a picnic table on the sidewalk of the upper street: the table top and the benches all grind
-  { const x = -52.6, z = -31, yaw = Math.PI / 2, y = heightAt(-52.6, -31), wood = new THREE.MeshStandardMaterial({ color: 0x7a6650, roughness: 0.9, flatShading: true });
+  // picnic tables on the sidewalks (the first by the bus stop): the table top and the benches all grind
+  const rvPicnic = (x, z, yaw) => { const y = heightAt(x, z), wood = new THREE.MeshStandardMaterial({ color: 0x7a6650, roughness: 0.9, flatShading: true });
     const c = Math.cos(yaw), s = Math.sin(yaw), W = (lx, yy, lz) => [x + lx * c + lz * s, y + yy, z - lx * s + lz * c];
     const boards = [], legs = [];
     for (let i = 0; i < 5; i++) boards.push([1.9, 0.05, 0.14, 0, 0.74, -0.3 + i * 0.15, 0]);
@@ -9339,7 +9349,15 @@ if (typeof junkLitter === 'function') {
     addObs({ cx: x, cz: z, a: yaw, hw: 0.95, hl: 0.38, f: () => y + 0.765 });
     [-1, 1].forEach(sd => { const bc = W(0, 0, sd * 0.6); addObs({ cx: bc[0], cz: bc[2], a: yaw, hw: 0.95, hl: 0.14, f: () => y + 0.465 });
       addRailPath([W(-0.92, 0.785, sd * 0.36), W(0.92, 0.785, sd * 0.36)], { hidden: true, ledge: true });
-      addRailPath([W(-0.92, 0.485, sd * 0.72), W(0.92, 0.485, sd * 0.72)], { hidden: true, ledge: true }); }); }
+      addRailPath([W(-0.92, 0.485, sd * 0.72), W(0.92, 0.485, sd * 0.72)], { hidden: true, ledge: true }); }); };
+  [[-52.6, -31], [-52.8, 38], [-52.8, 104], [52.6, -160]].forEach(([x, z]) => rvPicnic(x, z, Math.PI / 2));   // bus stop; bridge 1's south approach; across from the scrapyard by the halfpipe; the east deck's lane
+  // park benches spread along both sides, backs to the road or the barrier, looking out over the channel; seat edge and backrest grind
+  if (typeof makeBench === 'function') [[-55.6, -100, Math.PI / 2], [-55.6, -215, Math.PI / 2], [54.9, 10, -Math.PI / 2], [54.9, -125, -Math.PI / 2]].forEach(([bx, bz, yaw]) => {
+    const S = heightAt(bx, bz), c = Math.cos(yaw), s = Math.sin(yaw), BL = (lx, y, lz) => [bx + lx * c + lz * s, S + y, bz - lx * s + lz * c];
+    const b = makeBench(); b.position.set(bx, S, bz); b.rotation.y = yaw; b.traverse(o => { if (o.isMesh) o.castShadow = o.receiveShadow = true; }); scene.add(b);
+    addObs({ cx: bx, cz: bz, a: yaw, hw: 0.95, hl: 0.32, f: () => S + 0.46 });
+    addRailPath([BL(-0.88, 0.47, 0.21), BL(0.88, 0.47, 0.21)], { hidden: true }); addRailPath([BL(-0.88, 0.86, -0.34), BL(0.88, 0.86, -0.34)], { hidden: true });
+  });
   // a line of parking blocks on the west deck past the third bridge, between the tracks and the lip: grind one, hop the gap, grind the next
   for (let i = 0; i < 5; i++) { const x = -23.6, z = -250 - i * 2.6, y = RV.deck, hw = 0.13, hl = 0.9, h = 0.16;
     const b = new THREE.Mesh(rvBoxesGeo([[2 * hw, h, 2 * hl, x, y + h / 2, z]]), RM.wall); b.castShadow = b.receiveShadow = true; scene.add(b);

@@ -246,7 +246,7 @@ body.touch .readout .lbl { font-size: 11px; }
   <div class="splash-in">
     <h1>Concrete <span class="hz">Lines</span></h1>
     <p class="splash-by">Made by Jon Beam<br>with the use of Claude Code</p>
-    <p class="splash-date">Updated October 26, 2026 · Play-test 0.009</p>
+    <p class="splash-date">Updated October 26, 2026 · Play-test 0.010</p>
     <p class="splash-go">Click to play</p>
   </div>
 </div>
@@ -4514,7 +4514,9 @@ function makeHomelessGuy() {
  * Decals: transparent CanvasTextures uploaded with premultiplied alpha (draw them with graffitiDecalMaterial, below).
  * Everything stays inside the canvas with a margin, and the outer few percent fade out, so nothing is ever cut by an edge.
  *   makeGraffitiDecal(seed, w, h, opts)    opts.style: 'blockbuster' | 'rollertag' | 'throwup' | 'piece' | 'tags' | 'character' |
- *                                          'strip' (long low row for barriers) | 'buff' (rolled-over patches) | 'heart';
+ *                                          'strip' (long low row for barriers) | 'buff' (rolled-over patches) | 'heart' |
+ *                                          'stencil' (opts.kind astronaut/board/bear/walker) | 'saying' (opts.lines) | 'claude' | 'dox' |
+ *                                          'wall' (opts.items: older work under buffs under newer work, in age order);
  *                                          opts.wear: 0 fresh .. 1 very worn (sun-bleached, chalky, eroded down to the concrete)
  *   makeTagsOnlyTexture(seed, size, opts)  a 'tags' cluster, size x size/2
  *   graffitiDecalMaterial(tex, opts)       Lambert, premultiplied blending, fog that stays correct on see-through texels
@@ -4674,7 +4676,17 @@ function _grafLib() {
     '+': [[[0.5, 0.16], [0.5, 0.88]], [[0.12, 0.54], [0.88, 0.54]]],
   };
   G.R = [G.P[0], [[0.42, 0.54], [1, 1]]];
-  const WM = { I: 0.35, M: 1.25, W: 1.3, J: 0.85, L: 0.8, E: 0.85, F: 0.8, T: 0.95, S: 0.9, '+': 0.85 };
+  // a few lowercase hands (x-height from 0.4) for hand lettering
+  Object.assign(G, {
+    o: [arc(0.5, 0.7, 0.42, 0.3, 12, -PI / 2, PI * 1.5)],
+    n: [[[0.1, 0.42], [0.1, 1]], [[0.1, 0.66]].concat(arc(0.5, 0.68, 0.4, 0.26, 6, PI, TAU), [[0.9, 1]])],
+    l: [[[0.42, 0], [0.42, 0.92], [0.62, 1]]],
+    a: [arc(0.45, 0.71, 0.38, 0.29, 12, -PI * 0.1, PI * 1.9), [[0.84, 0.42], [0.84, 0.95], [0.95, 1]]],
+    u: [[[0.1, 0.42], [0.1, 0.74]].concat(arc(0.5, 0.74, 0.4, 0.26, 6, PI, 0)), [[0.9, 0.42], [0.9, 1]]],
+    d: [arc(0.42, 0.71, 0.36, 0.29, 12, -PI * 0.1, PI * 1.9), [[0.82, 0], [0.82, 0.95], [0.92, 1]]],
+    e: [[[0.12, 0.7], [0.88, 0.7]].concat(arc(0.5, 0.7, 0.38, 0.3, 10, 0, -PI * 1.75))],
+  });
+  const WM = { I: 0.35, M: 1.25, W: 1.3, J: 0.85, L: 0.8, E: 0.85, F: 0.8, T: 0.95, S: 0.9, '+': 0.85, o: 0.8, n: 0.78, l: 0.34, a: 0.82, u: 0.78, d: 0.82, e: 0.78 };
   const BK = {  // straight blocky strokes: roller blockbusters, sharp pieces
     A: [[[0, 1], [0, 0.2], [0.2, 0], [1, 0], [1, 1]], [[0, 0.56], [1, 0.56]]],
     B: [[[0, 1], [0, 0], [0.8, 0], [0.94, 0.12], [0.94, 0.38], [0.8, 0.5], [0, 0.5]], [[0.8, 0.5], [1, 0.62], [1, 0.88], [0.86, 1], [0, 1]]],
@@ -5079,6 +5091,12 @@ function _grafLib() {
     for (const f of details) { g.save(); f(g); g.restore(); }
     g.restore();
   }
+  // a tapering tube round a centreline (tentacles, arms): a closed outline, w0 wide at the start, w1 at the end
+  function tube(pts, w0, w1) {
+    const c = chaikin(pts, 2), n = c.length, A = [], B = [];
+    for (let i = 0; i < n; i++) { const a = c[Math.max(0, i - 1)], b = c[Math.min(n - 1, i + 1)]; let dx = b[0] - a[0], dy = b[1] - a[1]; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l; const w = lerp(w0, w1, i / (n - 1)) / 2; A.push([c[i][0] - dy * w, c[i][1] + dx * w]); B.push([c[i][0] + dy * w, c[i][1] - dx * w]); }
+    return A.concat(B.reverse());
+  }
   const DOODLES = {
     smiley(T, rng, P, L) {
       const sad = chance(rng, 0.25), xs = chance(rng, 0.3);
@@ -5234,6 +5252,77 @@ function _grafLib() {
       T.part(PL([[-0.28, -0.62], [0.75, -0.82], [0.75, -0.6], [-0.28, -0.4]]), P.fill);
       T.detail(g => { shine(g, -0.55, 0.48, 0.1); shine(g, 0.4, 0.31, 0.1); });
     },
+    octopus(T, rng, P, L) {
+      for (let k = 0; k < 6; k++) { const x0 = -0.42 + k * 0.17, sd = x0 < 0 ? -1 : 1, c = [[x0, 0.0], [x0 + sd * rr(rng, 0.05, 0.18), 0.4], [x0 + sd * rr(rng, 0.18, 0.4), 0.68], [x0 + sd * rr(rng, 0.2, 0.55) + rr(rng, -0.12, 0.12), 0.92]]; T.part(SM(tube(c, 0.22, 0.07)), P.dark); }
+      T.part(SM([[-0.62, -0.1], [-0.6, -0.6], [-0.3, -0.95], [0.3, -0.95], [0.6, -0.6], [0.62, -0.1], [0.4, 0.18], [-0.4, 0.18]]), P.fill, [0, -0.4, 0.7]);
+      const look = [rr(rng, -0.5, 0.5), rr(rng, -0.2, 0.4)];
+      T.detail(g => { eye(g, -0.24, -0.34, 0.17, 0.21, look, L); eye(g, 0.24, -0.34, 0.17, 0.21, look, L); Ln(g, arc(0, -0.1, 0.15, 0.08, 6, 0.2, PI - 0.2), 0.045, L);
+        [[-0.42, -0.66], [0.38, -0.74], [0.5, -0.42], [-0.5, -0.36]].forEach(([x, y]) => S_(g, E(x, y, 0.05, 0.05), 0.03, rgba(P.light))); shine(g, -0.36, -0.72, 0.12); });
+    },
+    monster(T, rng, P, L) {   // one big eye, eating a letter
+      T.part(PL([[-0.5, -0.55], [-0.74, -1.0], [-0.26, -0.68]]), P.light); T.part(PL([[0.5, -0.55], [0.74, -1.0], [0.26, -0.68]]), P.light);
+      const pts = []; for (let k = 0; k < 11; k++) { const a = k / 11 * TAU, r = rr(rng, 0.8, 0.92); pts.push([Math.cos(a) * r, Math.sin(a) * r * 0.86 + 0.05]); }
+      T.part(SM(pts), P.fill, [0, 0, 0.85]);
+      T.detail(g => {
+        eye(g, 0, -0.36, 0.27, 0.27, [rr(rng, -0.5, 0.5), rr(rng, -0.1, 0.4)], L);
+        const mouth = g2 => { g2.moveTo(-0.6, 0.12); g2.quadraticCurveTo(0, 0.98, 0.6, 0.12); g2.closePath(); };
+        F(g, mouth, '#3a1520'); S_(g, mouth, 0.05, L);
+        g.save(); g.translate(0.16, 0.34); g.rotate(-0.35); F(g, RR(-0.2, -0.3, 0.2, 0.2, 0.04), '#f5d04a'); S_(g, RR(-0.2, -0.3, 0.2, 0.2, 0.04), 0.04, L); Ln(g, [[-0.11, 0.12], [0, -0.2], [0.11, 0.12]], 0.05, L); Ln(g, [[-0.06, 0.01], [0.06, 0.01]], 0.04, L); g.restore();
+        for (let k = 0; k < 6; k++) { const x = -0.5 + k * 0.2; F(g, PL([[x - 0.07, 0.13], [x + 0.07, 0.13], [x, 0.3]]), '#ffffff'); S_(g, PL([[x - 0.07, 0.13], [x + 0.07, 0.13], [x, 0.3]]), 0.02, L); }
+        shine(g, -0.52, -0.42, 0.13);
+      });
+    },
+    robot(T, rng, P, L) {
+      T.part(RR(-0.82, -0.18, -0.62, 0.26, 0.06), P.dark); T.part(RR(0.62, -0.18, 0.82, 0.26, 0.06), P.dark);
+      T.part(RR(-0.66, -0.62, 0.66, 0.66, 0.16), P.fill, [0, 0, 0.75]);
+      T.detail(g => {
+        Ln(g, [[0, -0.62], [0.05, -0.88]], 0.05, L); F(g, E(0.06, -0.93, 0.09, 0.09), '#ff4b4b'); S_(g, E(0.06, -0.93, 0.09, 0.09), 0.035, L);
+        [-0.28, 0.28].forEach(x => { F(g, RR(x - 0.17, -0.34, x + 0.17, -0.02, 0.05), '#1d2b3a'); S_(g, RR(x - 0.17, -0.34, x + 0.17, -0.02, 0.05), 0.04, L); F(g, E(x + 0.04, -0.18, 0.07, 0.07), '#9ff3ff'); });
+        F(g, RR(-0.4, 0.18, 0.4, 0.44, 0.05), '#f3eedf'); S_(g, RR(-0.4, 0.18, 0.4, 0.44, 0.05), 0.04, L); for (let k = 1; k < 5; k++) Ln(g, [[-0.4 + k * 0.16, 0.18], [-0.4 + k * 0.16, 0.44]], 0.03, L);
+        [[-0.56, -0.52], [0.56, -0.52], [-0.56, 0.56], [0.56, 0.56]].forEach(([x, y]) => F(g, E(x, y, 0.035, 0.035), L));
+        shine(g, -0.48, -0.42, 0.11);
+      });
+    },
+    cactus(T, rng, P, L) {   // a sad cactus with a band-aid
+      const gr = '#5f9e4a';
+      T.part(RR(-0.62, -0.38, -0.38, 0.12, 0.12), gr); T.part(RR(-0.62, -0.02, -0.2, 0.18, 0.1), gr);
+      T.part(RR(0.38, -0.58, 0.62, -0.08, 0.12), gr); T.part(RR(0.2, -0.24, 0.62, -0.04, 0.1), gr);
+      T.part(RR(-0.3, -0.86, 0.3, 0.7, 0.28), gr, [0, -0.1, 0.6]);
+      T.part(RR(-0.44, 0.6, 0.44, 0.96, 0.06), '#c0643a');
+      T.detail(g => {
+        for (let k = 0; k < 3; k++) Ln(g, [[-0.15 + k * 0.15, -0.7], [-0.15 + k * 0.15, 0.58]], 0.025, 'rgba(30,60,25,0.6)');
+        eye(g, -0.12, -0.32, 0.08, 0.1, [0, 0.4], L, 0.5); eye(g, 0.12, -0.32, 0.08, 0.1, [0, 0.4], L, 0.5);
+        Ln(g, arc(0, -0.02, 0.1, 0.06, 6, PI + 0.3, TAU - 0.3), 0.035, L);
+        g.save(); g.translate(0.12, 0.25); g.rotate(0.6); F(g, RR(-0.16, -0.05, 0.16, 0.05, 0.04), '#e9c9a4'); S_(g, RR(-0.16, -0.05, 0.16, 0.05, 0.04), 0.025, L); F(g, g2 => g2.rect(-0.05, -0.04, 0.1, 0.08), '#f3e2cc'); g.restore();
+        Ln(g, [[-0.42, 0.7], [0.42, 0.7]], 0.04, 'rgba(0,0,0,0.25)');
+      });
+    },
+    spraycan(T, rng, P, L) {   // a spray can with wings
+      const wing = sd => SM([[sd * 0.28, -0.2], [sd * 0.75, -0.75], [sd * 1.02, -0.6], [sd * 0.95, -0.3], [sd * 1.0, -0.1], [sd * 0.85, 0.05], [sd * 0.9, 0.2], [sd * 0.6, 0.2], [sd * 0.3, 0.1]]);
+      T.part(wing(-1), '#f4f2ec'); T.part(wing(1), '#f4f2ec');
+      T.part(RR(-0.3, -0.5, 0.3, 0.9, 0.08), '#c3c6c9', [0, 0.2, 0.6]);
+      T.part(RR(-0.2, -0.78, 0.2, -0.5, 0.1), P.fill);
+      T.detail(g => {
+        F(g, RR(-0.3, 0.0, 0.3, 0.45, 0.02), P.fill); S_(g, g2 => { g2.moveTo(-0.3, 0.0); g2.lineTo(0.3, 0.0); g2.moveTo(-0.3, 0.45); g2.lineTo(0.3, 0.45); }, 0.035, L);
+        F(g, RR(-0.05, -0.92, 0.05, -0.78, 0.02), L);
+        [[-0.6, -0.3], [-0.7, -0.05], [0.6, -0.3], [0.7, -0.05]].forEach(([x, y]) => Ln(g, [[x, y], [x + Math.sign(x) * 0.18, y + 0.05]], 0.03, 'rgba(0,0,0,0.35)'));
+        Ln(g, [[-0.2, -0.4], [-0.2, 0.8]], 0.06, 'rgba(255,255,255,0.7)');
+        for (let k = 0; k < 4; k++) F(g, E(0.1 + k * 0.07, -1.0 - k * 0.04, 0.03, 0.03), rgba(P.fill, 0.8));
+      });
+    },
+    capskull(T, rng, P, L) {   // a grinning skull in a cap worn backwards
+      DOODLES.skull(T, rng, P, L);
+      T.part(g => { g.moveTo(-0.76, -0.4); g.bezierCurveTo(-0.72, -1.05, 0.72, -1.05, 0.76, -0.4); g.quadraticCurveTo(0, -0.52, -0.76, -0.4); g.closePath(); }, '#d23a2a', [0, -0.7, 0.7]);
+      T.part(RR(-1.04, -0.52, -0.6, -0.4, 0.05), '#a82a20');
+      T.detail(g => { Ln(g, [[-0.3, -0.5], [0.3, -0.5]], 0.03, 'rgba(0,0,0,0.3)'); F(g, E(0, -0.92, 0.05, 0.03), '#a82a20'); Ln(g, arc(0, 0.43, 0.38, 0.12, 8, 0.15, PI - 0.15), 0.04, L); });
+    },
+    starface(T, rng, P, L) {   // the starburst, with a face
+      const rays = starRays(rng, 12);
+      T.part(g => starPath(g, 0, 0, 1, rays, 0.44), P.fill, [0, 0, 0.9]);
+      T.detail(g => { eye(g, -0.17, -0.1, 0.11, 0.14, [0.25, 0.1], L); eye(g, 0.17, -0.1, 0.11, 0.14, [0.25, 0.1], L); Ln(g, arc(0, 0.06, 0.18, 0.13, 8, 0.25, PI - 0.25), 0.05, L);
+        F(g, E(-0.3, 0.1, 0.07, 0.045), 'rgba(255,150,140,0.7)'); F(g, E(0.3, 0.1, 0.07, 0.045), 'rgba(255,150,140,0.7)'); shine(g, -0.22, -0.32, 0.08); });
+    },
+    star(T, rng, P, L) { const rays = starRays(rng, 12); T.part(g => starPath(g, 0, 0, 1, rays, 0.3), P.fill, [0, 0, 0.9]); },
     heart(T, rng, P, L) {
       T.part(HEART(0, 0.05, 0.9), pick(rng, ['#e8202e', '#ff4f8b', '#ff7ab6']), [0, -0.1, 0.9]);
       T.detail(g => { shine(g, -0.45, -0.38, 0.17); });
@@ -5316,7 +5405,7 @@ function _grafLib() {
   // bubble / angular throw-up: fat outline, quick scribbled fill, shines, maybe a second outline, plus the writer's tag
   function throwup(cv, rng, o) {
     const W = cv.width, H = cv.height, g = ctx(cv), wear = o.wear;
-    const word = o.word || pick(rng, TU_WORDS), round = chance(rng, 0.75), set = round ? G : BK;
+    const word = o.word || pick(rng, TU_WORDS), round = o.round != null ? o.round : chance(rng, 0.75), set = round ? G : BK;
     const sw = rr(rng, 0.36, 0.46), ow = rr(rng, 0.045, 0.07), outer = chance(rng, 0.35) ? rr(rng, 0.035, 0.06) : 0;
     const st = round ? { cap: 'round', join: 'round', smooth: true } : { cap: 'round', join: 'round' };
     const lay = layout(rng, word, set, { wk: rr(rng, 0.6, 0.78), wmap: round ? WM : BKW, gap: sw * rr(rng, 0.15, 0.5) - 0.04, slant: [-0.03, 0.16], rotJ: 0.3, bounce: 0.2, scaleJ: 0.22, jit: round ? 0.03 : 0.015 });
@@ -5357,17 +5446,17 @@ function _grafLib() {
   // colourful wildstyle: fades, outlined 3D, highlights, a cloud outline, spray mist, sparkles, maybe a character
   function piece(cv, rng, o) {
     const W = cv.width, H = cv.height, g = ctx(cv), wear = o.wear, pal = typeof o.pal === 'number' ? PIECE_PALS[o.pal % PIECE_PALS.length] : o.pal || pick(rng, PIECE_PALS);
-    const sharp = chance(rng, 0.55), set = sharp ? BK : G, word = o.word || pick(rng, WORDS);
-    const sw = rr(rng, 0.2, 0.27), ow = rr(rng, 0.035, 0.05), outer = rr(rng, 0.05, 0.08), dx = rr(rng, 0.06, 0.11) * (chance(rng, 0.5) ? 1 : -1), dy = rr(rng, 0.06, 0.1);
+    const sharp = o.sharp != null ? o.sharp : chance(rng, 0.55), set = sharp ? BK : G, word = o.word || pick(rng, WORDS);
+    const sw = o.sw || rr(rng, 0.2, 0.27), ow = rr(rng, 0.035, 0.05), outer = rr(rng, 0.05, 0.08), dx = rr(rng, 0.06, 0.11) * (chance(rng, 0.5) ? 1 : -1), dy = rr(rng, 0.06, 0.1);
     const st = sharp ? { cap: 'butt', join: 'miter', miter: 5 } : { cap: 'round', join: 'round', smooth: true };
     let lay = layout(rng, word, set, { wk: rr(rng, 0.58, 0.74), wmap: sharp ? BKW : WM, gap: sw * rr(rng, 0.35, 0.8), slant: [0.0, 0.18], rotJ: 0.36, bounce: 0.22, scaleJ: 0.2, jit: sharp ? 0.03 : 0.04 });
-    lay = wildify(rng, lay, sw, sharp ? 0.6 : 0.4);
+    lay = wildify(rng, lay, sw, o.wild != null ? o.wild : sharp ? 0.6 : 0.4); if (o.wild2) lay = wildify(rng, lay, sw, o.wild2);
     const withChar = o.character != null ? o.character : chance(rng, 0.4), cw = withChar ? Math.min(W * 0.28, H * 0.85) : 0, cLeft = chance(rng, 0.5);
     const e = sw / 2 + ow + outer + 0.04;
     const box = { x: W * 0.04 + (withChar && cLeft ? cw : 0), y: H * 0.07, w: W * 0.92 - cw, h: H * 0.84 };
     const f = fitBox(lay, [e + Math.max(0, -dx), e, e + Math.max(0, dx), e + dy], box), Ls = place(lay, f), S = f.S, Wp = sw * S, Op = ow * S, Xp = outer * S;
     wobbleLetters(rng, Ls, S * 0.008, S * 0.04);
-    if (chance(rng, 0.4)) oldTags(g, rng, W, H, ri(rng, 1, 3), clamp(wear + 0.35, 0.7, 0.95), [0.15, 0.28]);
+    if (o.old !== false && chance(rng, 0.4)) oldTags(g, rng, W, H, ri(rng, 1, 3), clamp(wear + 0.35, 0.7, 0.95), [0.15, 0.28]);
     const d3 = mixc(pal.d, pal.f[2], 0.3), d3b = mixc(pal.d, BLK, 0.25);
     layer(g, W, H, wear, sub(rng), lg => {
       if (chance(rng, 0.6)) { const ac = rgbOf(pal.a); for (let k = 0; k < 110; k++) { const L = pick(rng, Ls), p = pick(rng, L.paths), q = p[Math.floor(rng() * p.length)], r = S * rr(rng, 0.1, 0.28), x = q[0] + rr(rng, -1, 1) * S * 0.42, y = q[1] + rr(rng, -1, 1) * S * 0.42; const gr = lg.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, rgba(ac, 0.2)); gr.addColorStop(1, rgba(ac, 0)); lg.fillStyle = gr; lg.fillRect(x - r, y - r, 2 * r, 2 * r); } }
@@ -5391,7 +5480,7 @@ function _grafLib() {
         speckle(lg, rng, L.paths, Wp + 2 * (Op + Xp), rgba(pal.o), 0.08);
       });
       for (let k = 0, n = ri(rng, 1, 2); k < n; k++) { const L = pick(rng, Ls); sparkle(lg, rng, rr(rng, L.x0, L.x1), rr(rng, L.y0, L.y0 + (L.y1 - L.y0) * 0.4), S * rr(rng, 0.08, 0.15), BLK); }
-      if (withChar) { const r = Math.min(cw * 0.42, H * 0.36), cx = cLeft ? W * 0.04 + cw * 0.5 : W * 0.96 - cw * 0.5; doodle(lg, rng, pick(rng, ['cat', 'dog', 'bird', 'fish', 'skull', 'boombox', 'eyeball', 'blobby', 'smiley']), cx, H * 0.5, r, { outer: pal.o }); }
+      if (withChar) { const r = Math.min(cw * 0.42, H * 0.36), cx = cLeft ? W * 0.04 + cw * 0.5 : W * 0.96 - cw * 0.5; doodle(lg, rng, o.charKind || pick(rng, ['cat', 'dog', 'bird', 'fish', 'skull', 'boombox', 'eyeball', 'blobby', 'smiley']), cx, H * 0.5, r, { outer: pal.o }); }
     }, 2);
   }
 
@@ -5434,7 +5523,7 @@ function _grafLib() {
     const r = Math.min(W, H) * (wide ? 0.42 : tagOn ? 0.33 : 0.38), cx = W / 2, cy = tagOn ? H * 0.42 : H / 2;
     if (chance(rng, 0.4)) oldTags(g, rng, W, H, 1, clamp(o.wear + 0.3, 0.65, 0.95), [0.2, 0.26]);
     layer(g, W, H, o.wear, sub(rng), lg => {
-      doodle(lg, rng, kind, cx, cy, r, { outer: chance(rng, 0.35) ? WHT : null, rot: wide ? 0 : rr(rng, -0.2, 0.2) });
+      doodle(lg, rng, kind, cx, cy, r, { outer: chance(rng, 0.35) ? WHT : null, rot: wide ? 0 : rr(rng, -0.2, 0.2), pal: o.toon });
       const by = cy + r * (BOTTOM[kind] || 0.7) * 0.92;
       if (!wide && chance(rng, 0.35)) for (let k = 0, n = ri(rng, 1, 3); k < n; k++) drip(lg, cx + rr(rng, -0.35, 0.35) * r, by, Math.max(1.5, r * 0.035), Math.min(H * 0.95 - by, r * rr(rng, 0.12, 0.35)), rgba(BLK));
       if (tagOn) { const T = tagGeom(rng, pick(rng, WORDS)), hh = H * 0.15, sc0 = hh / (T.y1 - T.y0 + 0.4), sc = Math.min(sc0, (W * 0.85) / (T.x1 - T.x0 + 0.4)), tw = (T.x1 - T.x0 + 0.4) * sc; drawTag(lg, rng, T, clamp(W / 2 - tw / 2 + rr(rng, -0.15, 0.15) * W, W * 0.05, W * 0.95 - tw), H * 0.93 - (T.y1 - T.y0 + 0.4) * sc, sc, pick(rng, [BLK, BLK, '#d42a2a', '#2a57d4']), { w: 0.1, pad: 0.2 }); }
@@ -5468,7 +5557,7 @@ function _grafLib() {
 
   // a sprayed heart with an arrow through it and two names inside
   function heartStyle(cv, rng, o) {
-    const W = cv.width, H = cv.height, g = ctx(cv), names = o.names || ['JON +', 'CLAUDE'];
+    const W = cv.width, H = cv.height, g = ctx(cv), names = o.names || ['Jon', '+', 'Claude'];
     const k = Math.min(W, H) * 0.39 / 16, cx = W / 2, cy = H * 0.47;
     const hp = []; for (let i = 0; i <= 120; i++) { const t = i / 120 * TAU + 0.05, x = 16 * Math.pow(Math.sin(t), 3), y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)); hp.push([cx + x * k, cy + (y + 2.5) * k]); }
     const col = o.color || '#e3122d';
@@ -5482,13 +5571,156 @@ function _grafLib() {
       pen(lg, rng, [hp], k * 1.25, col, { pressure: 0.18, soft: k * 0.3 });
       pen(lg, rng, [hp.slice(8, 70).map(([x, y]) => [x + k * 0.35, y + k * 0.3])], k * 0.5, col, { pressure: 0.3, soft: k * 0.2, blob: false });
       for (let j = 0; j < 4; j++) { const q = hp[Math.round(rr(rng, 38, 82))]; drip(lg, q[0], q[1] + k * 0.4, k * rr(rng, 0.35, 0.5), Math.min(H * 0.95 - q[1], k * rr(rng, 1.5, 4.5)), rgba(col)); }
-      const lines = names.map(s => tagGeom(rng, s, { wk: 0.62, gap: 0.14, slant: [0.08, 0.14], rotJ: 0.08, bounce: 0.06, scaleJ: 0.06, jit: 0.025, plain: true, bigFirst: 0, smooth: 2 }));
-      const hs = [5.0 * k, 4.4 * k], ys = [cy - 3.2 * k, cy + 3.6 * k];
-      lines.forEach((T, i) => { const sc = Math.min(hs[i] / (T.y1 - T.y0), 20 * k / (T.x1 - T.x0)), tw = (T.x1 - T.x0) * sc; drawTag(lg, rng, T, cx - tw / 2, ys[i] - (T.y1 - T.y0) * sc / 2, sc, BLK, { w: 0.13, soft: 0.6, pressure: 0.12, taper: 0.75 }); });
+      // stacked inside the heart: Jon over + over Claude (centre y, letter height, widest it can go, in heart units)
+      const rows = [[0.7, 4.6, 12], [4.85, 2.5, 3.2], [8.9, 3.7, 15]];
+      names.forEach((nm, i) => { if (nm === '+') { const y = cy + rows[1][0] * k, a = k * 1.15; pen(lg, rng, [[[cx - a, y], [cx + a, y]], [[cx, y - a], [cx, y + a]]], k * 0.55, BLK, { pressure: 0.05, taper: 0.9, blob: false, soft: 0.5 }); return; }
+        const T = tagGeom(rng, nm, { wk: 0.6, gap: 0.1, slant: [0.08, 0.14], rotJ: 0.06, bounce: 0.05, scaleJ: 0.05, jit: 0.02, plain: true, bigFirst: 0, smooth: 2 }), [ry, rh, rw] = rows[Math.min(i, 2)];
+        const sc = Math.min(rh * k / (T.y1 - T.y0), rw * k / (T.x1 - T.x0)), tw = (T.x1 - T.x0) * sc, th = (T.y1 - T.y0) * sc;
+        drawTag(lg, rng, T, cx - tw / 2, cy + ry * k - th / 2, sc, BLK, { w: nm === '+' ? 0.22 : 0.17, soft: 0.6, pressure: 0.1, taper: 0.8, blob: nm !== '+' }); });
     }, 2);
   }
 
-  const STYLES = { blockbuster, rollertag, throwup, piece, tags: tagsStyle, character: characterStyle, strip, buff: buffStyle, heart: heartStyle };
+  // ---------- pass 3: stencils, sayings, the CLAUDE throw-up, the DOX wall, layered walls ----------
+  // a stencil: flat cut-out shapes sprayed through a card, crisp edges, a soft halo of overspray and a faint second hit
+  const STENCILS = {
+    astronaut: { solid: [E(0, -0.52, 0.4, 0.4), RR(-0.36, -0.12, 0.36, 0.46, 0.12), RR(-0.56, -0.16, -0.4, 0.32, 0.05), RR(0.38, -0.1, 0.62, 0.06, 0.06), RR(0.5, -0.5, 0.64, -0.06, 0.06),
+      RR(-0.3, 0.5, -0.06, 0.95, 0.06), RR(0.06, 0.5, 0.3, 0.95, 0.06)], holes: [E(0.06, -0.52, 0.27, 0.17), RR(-0.18, 0.04, 0.18, 0.24, 0.03), E(-0.14, -0.6, 0.05, 0.03)] },
+    board: { solid: [RR(-0.92, 0.02, 0.92, 0.17, 0.08), E(-0.55, 0.3, 0.1, 0.1), E(0.55, 0.3, 0.1, 0.1), RR(-0.7, 0.15, -0.4, 0.21, 0.02), RR(0.4, 0.15, 0.7, 0.21, 0.02),
+      SM([[-0.15, 0.0], [-0.45, -0.55], [-0.95, -0.85], [-0.82, -0.58], [-1.0, -0.48], [-0.78, -0.33], [-0.92, -0.22], [-0.6, -0.08], [-0.4, 0.0]]),
+      SM([[0.15, 0.0], [0.45, -0.55], [0.95, -0.85], [0.82, -0.58], [1.0, -0.48], [0.78, -0.33], [0.92, -0.22], [0.6, -0.08], [0.4, 0.0]])],
+      holes: [E(-0.55, 0.3, 0.035, 0.035), E(0.55, 0.3, 0.035, 0.035)] },
+    bear: { solid: [E(0, 0.08, 0.64, 0.56), E(-0.5, -0.42, 0.21, 0.21), E(0.5, -0.42, 0.21, 0.21)],
+      holes: [E(-0.5, -0.42, 0.09, 0.09), E(0.5, -0.42, 0.09, 0.09), E(-0.23, -0.04, 0.07, 0.09), E(0.23, -0.04, 0.07, 0.09), E(0, 0.24, 0.12, 0.08), RR(-0.14, 0.38, 0.14, 0.43, 0.02)] },
+    walker: { solid: [E(0.02, -0.8, 0.13, 0.14), PL([[-0.26, -0.6], [0.24, -0.62], [0.3, 0.06], [-0.3, 0.06]]), PL([[-0.24, 0.04], [-0.02, 0.04], [-0.18, 0.95], [-0.4, 0.95]]),
+      PL([[0.02, 0.04], [0.26, 0.04], [0.42, 0.9], [0.22, 0.95]]), PL([[0.2, -0.55], [0.34, -0.52], [0.42, -0.04], [0.3, -0.03]]), RR(0.4, -0.42, 0.52, 0.32, 0.05)],
+      holes: [RR(-0.12, -0.36, 0.12, -0.3, 0.02)] },
+  };
+  function stencilStyle(cv, rng, o) {
+    const W = cv.width, H = cv.height, g = ctx(cv), S = STENCILS[o.kind] || STENCILS.bear, col = o.color || BLK, s = Math.min(W, H) * 0.4, cx = W / 2, cy = H / 2;
+    if (chance(rng, 0.35)) oldTags(g, rng, W, H, 1, clamp(o.wear + 0.3, 0.6, 0.95), [0.18, 0.26]);
+    layer(g, W, H, o.wear, sub(rng), lg => {
+      const shape = (k, a, dx, dy, blur) => { lg.save(); lg.globalAlpha = a; if (blur) lg.filter = 'blur(' + blur + 'px)'; lg.translate(cx + dx, cy + dy); lg.rotate(o.rot || 0); lg.scale(s * k, s * k); lg.fillStyle = rgba(col); S.solid.forEach(p => { lg.beginPath(); p(lg); lg.fill(); }); lg.restore(); };
+      shape(1.06, 0.18, 0, 0, Math.max(2, s * 0.05)); shape(1, 0.35, s * 0.02, s * 0.015, 0); shape(1, 1, 0, 0, 0);
+      lg.save(); lg.globalCompositeOperation = 'destination-out'; lg.translate(cx, cy); lg.rotate(o.rot || 0); lg.scale(s, s); S.holes.forEach(p => { lg.beginPath(); p(lg); lg.fill(); }); lg.restore();
+    }, 2, { gone: 0.05 + 0.3 * o.wear });
+  }
+  // a hand-lettered line or two (a saying), brush-steady capitals
+  function sayingStyle(cv, rng, o) {
+    const W = cv.width, H = cv.height, g = ctx(cv), lines = o.lines || ['REAL EYES', 'REALIZE', 'REAL LIES'], col = o.color || BLK, n = lines.length, lh = H * 0.84 / n;
+    if (chance(rng, 0.5)) oldTags(g, rng, W, H, ri(rng, 1, 2), clamp(o.wear + 0.35, 0.65, 0.95), [0.2, 0.3]);
+    layer(g, W, H, o.wear, sub(rng), lg => lines.forEach((s, i) => {
+      const T = tagGeom(rng, s, { wk: 0.56, gap: 0.13, slant: [0.03, 0.09], rotJ: 0.05, bounce: 0.05, scaleJ: 0.05, jit: 0.018, plain: true, bigFirst: 0, smooth: 1 });
+      const sc = Math.min(lh * 0.74 / (T.y1 - T.y0), W * 0.88 / (T.x1 - T.x0)), tw = (T.x1 - T.x0) * sc, th = (T.y1 - T.y0) * sc;
+      drawTag(lg, rng, T, (W - tw) / 2 + rr(rng, -0.02, 0.02) * W, H * 0.08 + i * lh + (lh - th) / 2, sc, col, { w: o.lw || 0.12, soft: 0.6, pressure: 0.08, taper: 0.85, drips: o.drips != null ? o.drips : 0.2, dripLen: 3.5, maxY: H * 0.95 });
+    }), 2);
+  }
+  // the starburst (rounded rays round a centre): ray list [angle, length, width] so a part can trace the same shape on every pass
+  function starRays(rng, n) { const R = [], a0 = rng() * TAU; for (let k = 0; k < n; k++) R.push([a0 + k / n * TAU + rr(rng, -0.09, 0.09), rr(rng, 0.76, 1.0), rr(rng, 0.17, 0.23)]); return R; }
+  function starPath(g, x, y, r, rays, core) {
+    for (const [a, len, wd] of rays) {
+      const c = Math.cos(a), s = Math.sin(a), hw = wd * r / 2, tx = x + c * len * r, ty = y + s * len * r, bx = x + c * 0.12 * r, by = y + s * 0.12 * r;
+      g.moveTo(tx + Math.cos(a - PI / 2) * hw, ty + Math.sin(a - PI / 2) * hw); g.arc(tx, ty, hw, a - PI / 2, a + PI / 2); g.arc(bx, by, hw * 1.1, a + PI / 2, a + PI * 1.5); g.closePath();
+    }
+    if (core) { g.moveTo(x + core * r, y); g.arc(x, y, core * r, 0, TAU); }
+  }
+  function starburst(g, rng, x, y, r, col) { const rays = starRays(rng, 11); g.beginPath(); starPath(g, x, y, r, rays, 0.24); g.fillStyle = col; g.fill(); }
+  // CLAUDE: a fat bubble throw-up in terracotta with a dark outline, a cream second outline, starbursts sprayed through the fill,
+  // and the starburst itself as the character, grinning, off the front of the word
+  function claudeStyle(cv, rng, o) {
+    const W = cv.width, H = cv.height, g = ctx(cv), TC = o.fill || '#d97757', DK = '#2a1610', CR = '#f6ead8', HI = '#f6b393';
+    const sw = 0.46, ow = 0.065, outer = 0.055, st = { cap: 'round', join: 'round', smooth: true };
+    const lay = layout(rng, o.word || 'CLAUDE', G, { wk: 0.64, wmap: WM, gap: sw * 0.55 - 0.02, slant: [0.04, 0.1], rotJ: 0.2, bounce: 0.15, scaleJ: 0.12, jit: 0.022 });
+    const cw = H * 0.66, e = sw / 2 + ow + outer + 0.05;
+    const f = fitBox(lay, [e, e, e + 0.06, e + 0.14], { x: W * 0.02 + cw, y: H * 0.09, w: W * 0.96 - cw, h: H * 0.8 }), Ls = place(lay, f), S = f.S, Wp = sw * S, Op = ow * S, Xp = outer * S;
+    wobbleLetters(rng, Ls, S * 0.01, S * 0.04);
+    if (chance(rng, 0.6)) oldTags(g, rng, W, H, ri(rng, 2, 3), 0.85, [0.16, 0.26]);
+    layer(g, W, H, o.wear, sub(rng), lg => {
+      Ls.forEach(L => { lg.save(); lg.globalAlpha = 0.22; body(lg, L, Wp, Op + Xp + S * 0.035, rgba(CR), st); lg.restore(); });
+      const n3 = 9; for (let i = 0; i <= n3; i++) { lg.save(); lg.translate(S * 0.06 * i / n3, S * 0.08 * i / n3); Ls.forEach(L => body(lg, L, Wp, Op + Xp, rgba(CR), st)); lg.restore(); }
+      for (let i = n3; i >= 1; i--) { lg.save(); lg.translate(S * 0.06 * i / n3, S * 0.08 * i / n3); Ls.forEach(L => body(lg, L, Wp, Op, rgba(mixc(DK, '#6b3322', 1 - i / n3)), st)); lg.restore(); }
+      Ls.forEach(L => {
+        lg.save(); lg.globalAlpha = 0.2; body(lg, L, Wp, Op + S * 0.03, rgba(DK), st); lg.restore();
+        body(lg, L, Wp, Op, rgba(DK), st);
+        masked(lg, W, H, L, Wp, st, tg => {
+          const x0 = L.x0 - Wp, y0 = L.y0 - Wp, w = L.x1 - L.x0 + 2 * Wp, h = L.y1 - L.y0 + 2 * Wp, gr = tg.createLinearGradient(0, y0, 0, y0 + h);
+          gr.addColorStop(0, rgba(shade(TC, 0.2))); gr.addColorStop(0.55, TC); gr.addColorStop(1, rgba(shade(TC, -0.2))); tg.fillStyle = gr; tg.fillRect(x0, y0, w, h);
+          for (let k = 0; k < 4; k++) starburst(tg, rng, rr(rng, x0 + Wp * 0.3, x0 + w - Wp * 0.3), rr(rng, y0 + Wp * 0.3, y0 + h - Wp * 0.3), Wp * rr(rng, 0.14, 0.24), rgba(HI, 0.75));
+          tg.save(); tg.translate(-Wp * 0.2, -Wp * 0.22); tg.strokeStyle = 'rgba(255,244,232,0.92)'; tg.lineWidth = Wp * 0.11; tg.lineCap = 'round'; trace(tg, [partial(L.paths[0], rr(rng, 0.2, 0.4))], true); tg.stroke(); tg.restore();
+        });
+        speckle(lg, rng, L.paths, Wp + 2 * Op, rgba(DK), 0.1);
+        lg.fillStyle = 'rgba(255,248,238,0.95)'; lg.beginPath(); lg.arc(L.x0 + (L.x1 - L.x0) * 0.3, L.y0 + Wp * 0.12, Wp * 0.075, 0, TAU); lg.fill();
+      });
+      Ls.forEach((L, i) => { if (i === 1 || i === 4) { const y = L.y1 + Wp * 0.45; drip(lg, rr(rng, L.x0 + Wp * 0.2, L.x1 - Wp * 0.2), y, Math.max(1.5, Op * 0.55), Math.min(H * 0.95 - y, S * rr(rng, 0.14, 0.26)), rgba(TC)); } });
+      doodle(lg, rng, 'starface', W * 0.02 + cw * 0.5, H * 0.47, cw * 0.44, { pal: { fill: TC, dark: '#a8502f', light: HI }, outer: CR, rot: -0.15, line: DK });
+      sparkle(lg, rng, f.x1 - S * 0.1, f.y0 + S * 0.2, S * 0.13, DK); sparkle(lg, rng, W * 0.02 + cw * 0.95, H * 0.14, S * 0.09, DK);
+    }, 2);
+  }
+  // DOX: the big wall. A sunset fade with clouds, stars, bubbles and a skyline of palms behind full wildstyle letters,
+  // a character either side, floating arrows and bits, and the signature and shout-outs hand-lettered under it all
+  function doxStyle(cv, rng, o) {
+    const W = cv.width, H = cv.height, g = ctx(cv), DK = '#140f24';
+    const px0 = W * 0.025, py0 = H * 0.04, px1 = W * 0.975, py1 = H * 0.84, pts = [];
+    const edge = (ax, ay, bx, by, n) => { for (let k = 0; k < n; k++) { const t = k / n; pts.push([lerp(ax, bx, t) + rr(rng, -1, 1) * H * 0.012, lerp(ay, by, t) + rr(rng, -1, 1) * H * 0.012]); } };
+    edge(px0, py0, px1, py0, 26); edge(px1, py0, px1, py1, 9); edge(px1, py1, px0, py1, 26); edge(px0, py1, px0, py0, 9);
+    const panel = SM(pts);
+    layer(g, W, H, o.wear, sub(rng), lg => {
+      lg.save(); lg.filter = 'blur(' + Math.round(H * 0.012) + 'px)'; lg.globalAlpha = 0.6; lg.beginPath(); panel(lg); lg.fillStyle = '#5a2a78'; lg.fill(); lg.restore();
+      lg.save(); lg.beginPath(); panel(lg); lg.clip();
+      const gr = lg.createLinearGradient(0, py0, 0, py1); [[0, '#231d5c'], [0.32, '#5b2d86'], [0.55, '#b2387a'], [0.74, '#f0703c'], [0.9, '#ffc65a'], [1, '#ffe08a']].forEach(([t, c]) => gr.addColorStop(t, c));
+      lg.fillStyle = gr; lg.fillRect(0, 0, W, H);
+      for (let k = 0; k < 70; k++) { const x = rr(rng, px0, px1), y = rr(rng, py0, py0 + (py1 - py0) * 0.45), r = rr(rng, 0.6, 2.2); lg.fillStyle = 'rgba(255,250,235,' + rr(rng, 0.4, 0.95).toFixed(2) + ')'; lg.beginPath(); lg.arc(x, y, r, 0, TAU); lg.fill(); }
+      for (let k = 0; k < 7; k++) sparkle(lg, rng, rr(rng, px0 + 20, px1 - 20), rr(rng, py0 + 15, py0 + (py1 - py0) * 0.4), H * rr(rng, 0.02, 0.04), '#1a1030');
+      // clouds: puffs with a dark line, shaded underneath
+      const cloud = (cx, cy, s) => { const P = []; for (let k = 0; k < 7; k++) P.push([cx + (k - 3) * s * 0.42 + rr(rng, -0.1, 0.1) * s, cy - Math.sin(k / 6 * PI) * s * 0.35 + rr(rng, -0.08, 0.08) * s, s * rr(rng, 0.3, 0.46)]);
+        lg.fillStyle = rgba(DK, 0.95); P.forEach(([x, y, r]) => { lg.beginPath(); lg.arc(x, y, r + s * 0.05, 0, TAU); lg.fill(); }); lg.beginPath(); lg.rect(cx - s * 1.6, cy, s * 3.2, s * 0.36); lg.fill();
+        P.forEach(([x, y, r]) => { const gg = lg.createRadialGradient(x - r * 0.3, y - r * 0.4, r * 0.1, x, y, r); gg.addColorStop(0, '#ffffff'); gg.addColorStop(1, '#d9c8f2'); lg.fillStyle = gg; lg.beginPath(); lg.arc(x, y, r, 0, TAU); lg.fill(); });
+        lg.fillStyle = '#c9b2ea'; lg.fillRect(cx - s * 1.55, cy, s * 3.1, s * 0.31); };
+      cloud(W * 0.2, H * 0.3, H * 0.13); cloud(W * 0.8, H * 0.24, H * 0.11); cloud(W * 0.56, H * 0.62, H * 0.1);
+      // bubbles
+      for (let k = 0; k < 22; k++) { const x = rr(rng, px0, px1), y = rr(rng, py0 + (py1 - py0) * 0.2, py1 - H * 0.1), r = H * rr(rng, 0.008, 0.03); lg.strokeStyle = 'rgba(255,255,255,0.8)'; lg.lineWidth = Math.max(1, r * 0.18); lg.beginPath(); lg.arc(x, y, r, 0, TAU); lg.stroke(); lg.fillStyle = 'rgba(255,255,255,0.85)'; lg.beginPath(); lg.arc(x - r * 0.35, y - r * 0.35, r * 0.22, 0, TAU); lg.fill(); }
+      // skyline: low blocks and fan palms against the sun
+      const base = py1 - H * 0.02; lg.fillStyle = '#2a1640';
+      for (let x = px0; x < px1;) { const w = rr(rng, 0.02, 0.07) * W, h = (chance(rng, 0.15) ? rr(rng, 0.14, 0.24) : rr(rng, 0.03, 0.1)) * H; lg.fillStyle = chance(rng, 0.5) ? '#2a1640' : '#3a1d52'; lg.fillRect(x, base - h, w, h + H * 0.03); if (h > 0.12 * H) lg.fillRect(x + w * 0.45, base - h - H * 0.04, Math.max(1, w * 0.06), H * 0.04); lg.fillStyle = 'rgba(255,214,120,0.75)'; for (let k = 0, n = Math.floor(h / (H * 0.025)); k < n; k++) if (chance(rng, 0.3)) lg.fillRect(x + rr(rng, 0.15, 0.75) * w, base - h + k * H * 0.025 + 3, 2, 3); x += w + rr(rng, 0, 0.008) * W; }
+      lg.fillStyle = '#2a1640';
+      for (let k = 0; k < 6; k++) { const x = rr(rng, px0 + W * 0.05, px1 - W * 0.05), top = base - H * rr(rng, 0.22, 0.36), lean = rr(rng, -0.04, 0.04) * H;
+        lg.strokeStyle = '#2a1640'; lg.lineCap = 'round'; lg.lineWidth = H * 0.008; lg.beginPath(); lg.moveTo(x, base); lg.quadraticCurveTo(x + lean * 0.3, (base + top) / 2, x + lean, top); lg.stroke();
+        for (let j = 0; j < 9; j++) { const a = -PI / 2 + (j - 4) * 0.36, L = H * rr(rng, 0.04, 0.07); lg.lineWidth = H * 0.006; lg.beginPath(); lg.moveTo(x + lean, top); lg.quadraticCurveTo(x + lean + Math.cos(a) * L * 0.6, top + Math.sin(a) * L * 0.6 - H * 0.01, x + lean + Math.cos(a) * L, top + Math.sin(a) * L + L * 0.5); lg.stroke(); } }
+      lg.restore();
+      for (let k = 0; k < 14; k++) { const x = rr(rng, px0 + 10, px1 - 10), y = py1 - H * 0.012; drip(lg, x, y, rr(rng, 1.5, 3), rr(rng, 0.02, 0.09) * H, pick(rng, ['#ffd166', '#ffe08a', '#f0703c'])); }
+    }, 1, { edge: 6 });
+    // the letters, painted as their own wildstyle piece and laid over the background
+    const lw = Math.round(W * 0.72), lh = Math.round(H * 0.98), lc = canvas(lw, lh);
+    piece(lc, rng, { word: o.word || 'DOX', wear: o.wear, sharp: false, sw: 0.3, wild: 1, wild2: 0.9, character: false, old: false, pal: { f: ['#e9ff8a', '#5fe08a', '#16a3a0'], d: '#0c1f36', o: '#ffffff', a: '#ff8fd0' } });
+    g.drawImage(lc, (W - lw) / 2, -H * 0.04);
+    layer(g, W, H, o.wear, sub(rng), lg => {
+      // floating arrows and bits round the letters
+      for (let k = 0; k < 10; k++) { const a = rr(rng, 0, TAU), d = rr(rng, 0.3, 0.36) * W, x = W / 2 + Math.cos(a) * d, y = H * 0.42 + Math.sin(a) * d * 0.5, s = H * rr(rng, 0.018, 0.035), r = rr(rng, 0, TAU);
+        if (Math.abs(x - W / 2) > W * 0.36) continue;
+        const p = [[0, -1.2], [0.8, 0.3], [0.25, 0.25], [0.3, 1.1], [-0.3, 1.1], [-0.25, 0.25], [-0.8, 0.3]].map(([u, v]) => [x + (u * Math.cos(r) - v * Math.sin(r)) * s, y + (u * Math.sin(r) + v * Math.cos(r)) * s]);
+        lg.beginPath(); polyPath(lg, p); lg.lineWidth = s * 0.35; lg.strokeStyle = '#ffffff'; lg.lineJoin = 'round'; lg.stroke(); lg.fillStyle = pick(rng, ['#5fe08a', '#16a3a0', '#ff8fd0', '#e9ff8a']); lg.fill(); lg.lineWidth = s * 0.12; lg.strokeStyle = BLK; lg.stroke(); }
+      doodle(lg, rng, 'capskull', W * 0.095, H * 0.5, H * 0.2, { pal: TOON[0], outer: WHT, rot: 0.12 });
+      doodle(lg, rng, 'octopus', W * 0.905, H * 0.5, H * 0.21, { pal: { fill: '#ff8a7a', dark: '#c94a5a', light: '#ffd6cf' }, outer: WHT, rot: -0.1 });
+      // signature and shout-outs, hand-lettered under the wall
+      const T = tagGeom(rng, o.word || 'DOX', { wk: 0.5, slant: [0.3, 0.4], bigFirst: 1, noHalo: true }), hh = H * 0.1, sc = hh / (T.y1 - T.y0 + 0.4);
+      drawTag(lg, rng, T, W * 0.08, H * 0.86, sc, BLK, { w: 0.1, pad: 0.2 });
+      const P = tagGeom(rng, o.shout || 'BIG UPS KILNS SOLVO TAPIR', { wk: 0.5, gap: 0.12, slant: [0.06, 0.1], rotJ: 0.04, bounce: 0.04, scaleJ: 0.04, jit: 0.015, plain: true, bigFirst: 0, smooth: 1 }), ps = Math.min(H * 0.05 / (P.y1 - P.y0), W * 0.5 / (P.x1 - P.x0));
+      drawTag(lg, rng, P, W * 0.42, H * 0.895, ps, '#1d1d24', { w: 0.11, soft: 0.5, pressure: 0.06 });
+    }, 2);
+  }
+  // a wall painted over for years: o.items in age order, each [style, x, y, w, h (fractions of the canvas), wear, opts];
+  // style 'buffp' is a rolled-on buff patch over whatever's under it. Old work goes on first, faded; the fresh stuff lands on top.
+  function wallStyle(cv, rng, o) {
+    const W = cv.width, H = cv.height, g = ctx(cv);
+    (o.items || []).forEach((it, i) => {
+      const [st, fx, fy, fw, fh, wear, op] = it, x = Math.round(fx * W), y = Math.round(fy * H), w = Math.round(fw * W), h = Math.round(fh * H);
+      if (st === 'buffp') { layer(g, W, H, 0.06, sub(rng), lg => buffPatch(lg, rng, x, y, w, h, (op && op.col) || pick(rng, BUFFS))); return; }
+      const c = paintDecal((o.seedBase || 'wall') + ':' + i, w, h, Object.assign({ style: st, wear }, op || {}));
+      g.save(); g.globalAlpha = (op && op.alpha) || 1; g.drawImage(c, x, y); g.restore();
+    });
+  }
+
+  const STYLES = { blockbuster, rollertag, throwup, piece, tags: tagsStyle, character: characterStyle, strip, buff: buffStyle, heart: heartStyle,
+    stencil: stencilStyle, saying: sayingStyle, claude: claudeStyle, dox: doxStyle, wall: wallStyle };
   function paintDecal(seed, w, h, opts = {}) {
     tables();
     const style = STYLES[opts.style] ? opts.style : 'throwup', cv = canvas(w, h), rng = makeRng(hashSeed(seed) ^ hashSeed(style));
@@ -5615,12 +5847,24 @@ function _grafLib() {
     return t;
   }
   function pump(ms) { const t0 = performance.now(); while (JOBS.length && performance.now() - t0 < ms) JOBS.shift()(); return JOBS.length; }
-  _grafLib._lib = { paintDecal, structure, diy, toTex, lazyTex, pump, weather, tables, DOODLES, CHAR_KINDS };
+  // an atlas: one sheet, each cell its own paintDecal, painted a cell per job so idle time can spread the work
+  function lazyAtlas(W, H, cells, o = {}) {
+    const t = toTex(canvas(1, 1), o); t.onUpdate = null; let A = null;
+    cells.forEach((c, i) => JOBS.push(() => {
+      if (!A) A = canvas(W, H);
+      ctx(A).drawImage(paintDecal(c.seed, c.w, c.h, c.opts), c.x, c.y);
+      if (i === cells.length - 1) { t.image = A; t.needsUpdate = true; t.onUpdate = release; }
+    }));
+    return t;
+  }
+  _grafLib._lib = { paintDecal, structure, diy, toTex, lazyTex, lazyAtlas, pump, weather, tables, DOODLES, CHAR_KINDS };
   return _grafLib._lib;
 }
 
 // opts.lazy: return at once with a stand-in and paint later (grafPump / grafFlush)
 function makeGraffitiDecal(seed, w = 1024, h = 512, opts = {}) { const L = _grafLib(), p = () => L.paintDecal(seed, w, h, opts), o = { premult: true, aniso: opts.aniso }; return opts.lazy ? L.lazyTex(p, o) : L.toTex(p(), o); }
+// a packed sheet of decals: cells [{ x, y, w, h, seed, opts }] (opts as for makeGraffitiDecal), always lazy
+function makeGraffitiAtlas(W, H, cells, opts = {}) { return _grafLib().lazyAtlas(W, H, cells, { premult: true, aniso: opts.aniso }); }
 function makeTagsOnlyTexture(seed, size = 1024, opts = {}) { return makeGraffitiDecal(seed, size, size / 2, Object.assign({ style: 'tags' }, opts)); }
 function makeGraffitiTexture(seed, size = 1024, opts = {}) { const L = _grafLib(), p = () => L.diy(seed, size, opts), o = { repeat: true, aniso: opts.aniso, fill: '#aaa395' }; return opts.lazy ? L.lazyTex(p, o) : L.toTex(p(), o); }
 function makeStructureTexture(seed, w = 1024, h = 2048, opts = {}) { const L = _grafLib(), p = () => L.structure(seed, w, h, opts), o = { repeat: true, clampT: true, aniso: opts.aniso, fill: '#aba292' }; return opts.lazy ? L.lazyTex(p, o) : L.toTex(p(), o); }
@@ -6230,7 +6474,8 @@ function rvColumn(x, z, r, y0, y1, mat) {
   return m;
 }
 // ---- graffiti decals ----
-// A shared pool of painted textures (49 of them, ~120 MB of GPU memory with mipmaps; the canvases are let go once uploaded),
+// A shared pool of painted textures (49 of them, ~120 MB of GPU memory with mipmaps; the canvases are let go once uploaded), plus
+// five atlas sheets (GATLAS, ~50 MB more) holding ~60 smaller pieces, characters, stencils and the big walls,
 // each decal is a patch of quads laid on (or curved round) a surface;
 // all the patches that use one texture are batched into a single mesh, built by rvDecalsFlush() once the map is placed.
 // key: [style, width, height, wear 0 fresh .. 1 very worn, extra options]
@@ -6250,20 +6495,71 @@ const GSPEC = {
   bf1: ['buff', 1024, 512, 0.3], bf2: ['buff', 1024, 512, 0.5],
   heart: ['heart', 512, 512, 0.05],
 };
+// atlases: many smaller pieces packed onto one sheet (one texture, one batched mesh each); a decal key 'ga1#3' is cell 3 of atlas 'ga1'.
+// cells: [w, h, style, wear, opts, x?, y?], laid out left to right in rows unless placed. All the names are made up.
+const GATLAS = {};
+function gAtlas(key, W, H, cells) {
+  let x = 0, y = 0, rowH = 0; const out = [];
+  cells.forEach(([cw, ch, style, wear, opts, px, py], i) => {
+    if (px == null) { if (x + cw > W) { x = 0; y += rowH; rowH = 0; } px = x; py = y; x += cw; rowH = Math.max(rowH, ch); }
+    out.push({ x: px, y: py, w: cw, h: ch, seed: 'river:' + key + ':' + i, opts: Object.assign({ style, wear }, opts || {}), uv: [px / W, 1 - (py + ch) / H, (px + cw) / W, 1 - py / H] });
+  });
+  GATLAS[key] = { W, H, cells: out };
+}
+{
+  const TU = (word, fill, line, wear) => [512, 256, 'throwup', wear, { word, fill, line }], TG = wear => [512, 256, 'tags', wear], CH = (kind, wear, toon) => [256, 256, 'character', wear, { kind, toon }];
+  const ST = (kind, wear, color, rot) => [256, 256, 'stencil', wear, { kind, color, rot }];
+  // ga1: eight throw-ups and eight tag clusters (eye height, all along the walls)
+  gAtlas('ga1', 2048, 1024, [TU('OKRA', '#c3c6c9', '#161616', 0.3), TU('ZEBU', '#f2f0ea', '#c11d38', 0.45), TU('LUMPS', '#161616', '#f5d04a', 0.25), TU('PINEY', '#f2a3c7', '#161616', 0.55),
+    TU('BRISA', '#f2f0ea', '#161616', 0.65), TU('WAXEN', '#7fd6c2', '#123d2a', 0.2), TU('SKEO', '#8fc4f2', '#1d2b6b', 0.75), TU('CHUSKO', '#f08a3c', '#161616', 0.4),
+    TG(0.2), TG(0.4), TG(0.55), TG(0.7), TG(0.3), TG(0.85), TG(0.5), TG(0.15)]);
+  // ga2: characters, animals, objects and stencils (beside pieces, on columns and piers)
+  const slate = { fill: '#8a949e', dark: '#4f5862', light: '#dfe6ec' }, koi = { fill: '#f08a3c', dark: '#b4501a', light: '#fff1e0' };
+  gAtlas('ga2', 2048, 1024, [CH('octopus', 0.2), CH('monster', 0.35, { fill: '#7fc45a', dark: '#6b4fb8', light: '#b39ce8' }), CH('robot', 0.4, { fill: '#8fc4f2', dark: '#3e6fb8', light: '#e2f1ff' }), CH('cactus', 0.3),
+    CH('spraycan', 0.25), CH('capskull', 0.3), CH('skull', 0.6), CH('cat', 0.5), CH('bird', 0.45, slate), CH('fish', 0.35, koi), CH('eyeball', 0.55), CH('smiley', 0.7, { fill: '#e8cf5a', dark: '#b89a2a', light: '#fff4c0' }),
+    CH('cassette', 0.4), CH('boombox', 0.5), CH('dog', 0.3), CH('blobby', 0.6), CH('headphones', 0.45), CH('lowrider', 0.35), CH('flames', 0.5), CH('octopus', 0.65, { fill: '#b39ce8', dark: '#6b4fb8', light: '#ece4ff' }),
+    CH('monster', 0.55, { fill: '#f08a3c', dark: '#2f8f86', light: '#7fd6c2' }), CH('robot', 0.7, { fill: '#d0d3d6', dark: '#7c8288', light: '#ffffff' }),
+    ST('astronaut', 0.3), ST('astronaut', 0.55, '#f2f0ea', 0.15), ST('board', 0.35), ST('board', 0.6, '#f2f0ea', -0.1), ST('bear', 0.25), ST('bear', 0.5, '#f2f0ea'), ST('bear', 0.7, '#161616', 0.2),
+    ST('walker', 0.35), ST('walker', 0.6, '#f2f0ea'), CH('cat', 0.25, { fill: '#9aa3ad', dark: '#5b636b', light: '#e6ebef' })]);
+  // ga3: the DOX wall, the CLAUDE throw-up, and two layered walls (bridge 2's east pier, bridge 3's west pier)
+  const L1 = [['blockbuster', 0.0, 0.05, 0.75, 0.6, 0.9, { word: 'KILNS' }], ['buffp', 0.18, 0.12, 0.3, 0.55, 0], ['buffp', 0.55, 0.0, 0.4, 0.42, 0], ['tags', 0.5, 0.35, 0.5, 0.45, 0.8],
+    ['piece', 0.06, 0.3, 0.55, 0.62, 0.45, { word: 'VANTO', pal: 3, character: false }], ['buffp', 0.66, 0.5, 0.2, 0.3, 0], ['throwup', 0.6, 0.42, 0.36, 0.42, 0.15, { word: 'OKRA', fill: '#c3c6c9', line: '#161616', tagOn: false }],
+    ['character', 0.5, 0.05, 0.2, 0.4, 0.2, { kind: 'eyeball' }], ['tags', 0.02, 0.0, 0.32, 0.3, 0.3], ['stencil', 0.86, 0.06, 0.12, 0.24, 0.2, { kind: 'astronaut' }]];
+  const L2 = [['rollertag', 0.0, 0.0, 0.8, 0.45, 0.85], ['piece', 0.3, 0.12, 0.62, 0.6, 0.85, { word: 'SKEO', pal: 1, character: false }], ['buffp', 0.08, 0.3, 0.42, 0.5, 0], ['buffp', 0.46, 0.08, 0.2, 0.36, 0],
+    ['throwup', 0.05, 0.38, 0.38, 0.46, 0.25, { word: 'ZEBU', fill: '#f2f0ea', line: '#c11d38', tagOn: false }], ['tags', 0.45, 0.48, 0.45, 0.44, 0.35], ['character', 0.78, 0.1, 0.2, 0.42, 0.15, { kind: 'monster', toon: { fill: '#7fc45a', dark: '#6b4fb8', light: '#b39ce8' } }],
+    ['throwup', 0.62, 0.5, 0.34, 0.42, 0.1, { word: 'LUMPS', fill: '#161616', line: '#f5d04a', tagOn: false }], ['stencil', 0.36, 0.06, 0.12, 0.24, 0.15, { kind: 'bear' }]];
+  gAtlas('ga3', 2048, 1024, [[1024, 512, 'dox', 0.04], [1024, 512, 'claude', 0.05], [1024, 512, 'wall', 0.5, { items: L1, seedBase: 'L1' }], [1024, 512, 'wall', 0.5, { items: L2, seedBase: 'L2' }]]);
+  // ga4: a layered stretch of the sound wall, two pieces, the halfpipe's back wall and two throw-ups for its transitions
+  const L3 = [['blockbuster', 0.0, 0.0, 0.62, 0.55, 0.88, { word: 'RUNOFF' }], ['blockbuster', 0.45, 0.04, 0.55, 0.5, 0.8, { word: 'OMBRE' }], ['buffp', 0.08, 0.1, 0.36, 0.7, 0], ['buffp', 0.58, 0.02, 0.26, 0.5, 0], ['buffp', 0.36, 0.5, 0.3, 0.45, 0],
+    ['tags', 0.0, 0.45, 0.35, 0.5, 0.6], ['piece', 0.3, 0.18, 0.42, 0.75, 0.3, { word: 'TAPIR', pal: 4, character: false }], ['throwup', 0.05, 0.3, 0.27, 0.42, 0.2, { word: 'PINEY', fill: '#f2a3c7', line: '#161616', tagOn: false }],
+    ['throwup', 0.72, 0.38, 0.27, 0.42, 0.12, { word: 'VUNK', fill: '#f2f0ea', line: '#161616', tagOn: false }], ['character', 0.73, 0.02, 0.13, 0.36, 0.3, { kind: 'cassette' }], ['tags', 0.6, 0.6, 0.38, 0.38, 0.2], ['stencil', 0.88, 0.05, 0.1, 0.27, 0.25, { kind: 'walker' }]];
+  const L4 = [['tags', 0.0, 0.0, 0.5, 1.0, 0.75], ['buffp', 0.3, 0.05, 0.3, 0.9, 0], ['tags', 0.5, 0.0, 0.5, 1.0, 0.6], ['throwup', 0.05, 0.05, 0.3, 0.9, 0.15, { word: 'WAXEN', fill: '#7fd6c2', line: '#123d2a', tagOn: false }],
+    ['character', 0.4, 0.02, 0.12, 0.96, 0.2, { kind: 'robot', toon: { fill: '#f5c542', dark: '#c98a1c', light: '#fff2b8' } }], ['throwup', 0.6, 0.05, 0.32, 0.9, 0.25, { word: 'CHUSKO', fill: '#f08a3c', line: '#161616', tagOn: false }]];
+  gAtlas('ga4', 2048, 1024, [[1024, 384, 'wall', 0.5, { items: L3, seedBase: 'L3' }, 0, 0], [1024, 512, 'piece', 0.12, { word: 'MOTHWAX', pal: 5, character: true, charKind: 'cat', sw: 0.3 }, 1024, 0],
+    [1024, 512, 'piece', 0.08, { word: 'TREBLE', pal: 7, character: true, charKind: 'octopus', sw: 0.3 }, 0, 512], [1024, 256, 'wall', 0.4, { items: L4, seedBase: 'L4' }, 1024, 512],
+    [512, 256, 'throwup', 0.15, { word: 'VANTO', fill: '#c9e86a', line: '#161616', tagOn: false }, 1024, 768], [512, 256, 'throwup', 0.3, { word: 'SOLVO', fill: '#c3c6c9', line: '#1d2b6b', tagOn: false }, 1536, 768]]);
+  // ga5: the sayings, and the throw-ups and tags on the parked beaters and the halfpipe's ends
+  gAtlas('ga5', 1024, 1024, [[1024, 256, 'saying', 0.2, { lines: ['REAL EYES', 'REALIZE', 'REAL LIES'] }], [512, 256, 'saying', 0.35, { lines: ['LOOK', 'UP'], color: '#f2f0ea', lw: 0.16 }],
+    TU('KILNS', '#f2f0ea', '#161616', 0.3), TU('OMBRE', '#e2463c', '#f2f0ea', 0.45), TU('TAPIR', '#b39ce8', '#161616', 0.25), TG(0.35), TG(0.5)]);
+}
 const GT = {}, GB = {};
 function gTex(key) {
   if (GT[key]) return GT[key];
+  if (GATLAS[key]) { const A = GATLAS[key]; return (GT[key] = makeGraffitiAtlas(A.W, A.H, A.cells)); }
   const s = GSPEC[key]; return (GT[key] = makeGraffitiDecal('river:' + key, s[1], s[2], Object.assign({ style: s[0], wear: s[3], lazy: true }, s[4] || {})));
 }
 // a patch: fn(u, v) -> world point for u (left to right as read) and v (bottom to top) in 0..1, pushed off the surface by off
+const GPLACED = [];   // [key, x, y, z] of every decal placed, so a wall can keep the same piece from turning up twice in sight
 function gPatch(key, nu, nv, fn, off) {
   if (typeof makeGraffitiDecal !== 'function') return;
+  { const c = fn(0.5, 0.5); GPLACED.push([key, c[0], c[1], c[2]]); }
+  const hi = key.indexOf('#'), uvr = hi > 0 ? GATLAS[key.slice(0, hi)].cells[+key.slice(hi + 1)].uv : null; if (hi > 0) key = key.slice(0, hi);   // an atlas cell
   const B = GB[key] || (GB[key] = { pos: [], uv: [], nrm: [], idx: [] }), base = B.pos.length / 3, e = 1e-3, a = new V3(), b = new V3(), n = new V3();
   for (let j = 0; j <= nv; j++) for (let i = 0; i <= nu; i++) {
     const u = i / nu, v = j / nv, p = fn(u, v);
     a.set(...fn(Math.min(1, u + e), v)).sub(new V3(...fn(Math.max(0, u - e), v))); b.set(...fn(u, Math.min(1, v + e))).sub(new V3(...fn(u, Math.max(0, v - e))));
     n.crossVectors(a, b).normalize();
-    B.pos.push(p[0] + n.x * off, p[1] + n.y * off, p[2] + n.z * off); B.nrm.push(n.x, n.y, n.z); B.uv.push(u, v);
+    B.pos.push(p[0] + n.x * off, p[1] + n.y * off, p[2] + n.z * off); B.nrm.push(n.x, n.y, n.z); B.uv.push(uvr ? lerp(uvr[0], uvr[2], u) : u, uvr ? lerp(uvr[1], uvr[3], v) : v);
   }
   for (let j = 0; j < nv; j++) for (let i = 0; i < nu; i++) { const q = base + j * (nu + 1) + i, r = q + nu + 1; B.idx.push(q, q + 1, r, q + 1, r + 1, r); }
 }
@@ -6786,7 +7082,7 @@ const RV_BACKDROP = { mesh: null };
   // ---- placement ----
   const corrFree = (a, b, pad = 5) => !RV.bridges.some(B => b > B.z - B.w / 2 - pad && a < B.z + B.w / 2 + pad);
   // graffiti already painted on the river-facing wall at x -80 (rvDecal at x -79.98): [z0, z1, top y]; the wall there is kept plain and tall enough
-  const WALLART = [[-133, -117, 16], [8, 22, 19.25], [81, 89, 14.5], [-48, -42, 12.7]];
+  const WALLART = [[-133, -117, 16], [8, 22, 19.25], [81, 89, 14.5], [-44, -28, 16.4]];
   const KIND = () => { const r = R(); return r < 0.4 ? 'flat' : r < 0.6 ? 'saw' : r < 0.8 ? 'bow' : 'brick'; };
   // a row of plots fronting x = xFront and running back (out = +1: the front faces +x, the plot runs to -x), from z zA to zB;
   // gapP: the chance of a truck yard between plots; reserve: extra z spans kept clear; art: keep the wall art spans plain
@@ -7124,7 +7420,14 @@ const TRACK = { x: -38, gauge: 1.435, bed: 0.28 };
   // parked beaters along the far curb: solid, with grindable roof, hood, trunk and bed edges; ride or grind one and its alarm goes off
   const COLS = [0x8a8270, 0x5a2e2a, 0x2f4a5f, 0xbdb6a6, 0x3b3b3b, 0x6b5a2e], KINDS = ['sedan', 'wagon', 'pickup', 'sedan', 'pickup', 'wagon'];
   const WEAR = ['bricks', 'flat', 'caps', 'flat', 'bricks', 'caps'];   // every one picked over: up on blocks, gone flat, hubcaps on the road
-  [[-69.6, -12], [-69.6, -58], [-69.6, -87], [-69.6, -172], [-69.6, 40], [-69.6, 88]].forEach(([x, z], k) => rvParkCar(KINDS[k], COLS[k], x, RV.upper, z, k % 2 ? Math.PI : 0, 11 + k * 17, WEAR[k]));
+  const PARKED = [[-69.6, -12], [-69.6, -58], [-69.6, -87], [-69.6, -172], [-69.6, 40], [-69.6, 88]];
+  PARKED.forEach(([x, z], k) => rvParkCar(KINDS[k], COLS[k], x, RV.upper, z, k % 2 ? Math.PI : 0, 11 + k * 17, WEAR[k]));
+  // four of them got painted where they sat: a throw-up across the street-side doors (two on both sides), a tag on the pickup's bed
+  if (typeof makeGraffitiDecal === 'function') [[1, 'ga5#2', true], [2, 'ga1#7', false], [3, 'ga5#3', true], [5, 'ga5#4', false]].forEach(([k, key, both]) => {
+    const [x, z] = PARKED[k], kind = KINDS[k], W = kind === 'pickup' ? 1.9 : 1.82, cz = k % 2 ? -1 : 1, lz = kind === 'pickup' ? 0.28 : 0.03, w = kind === 'pickup' ? 1.45 : 1.45;
+    [1, -1].forEach(sd => { if (sd > 0 || both) rvDecal(key, x + sd * (W / 2 + 0.02), RV.upper + (kind === 'pickup' ? 0.62 : 0.59), z + lz * cz, w, 0.6, sd * Math.PI / 2); });
+    if (kind === 'pickup') rvDecal('ga5#6', x + W / 2 + 0.02, RV.upper + 0.86, z - 1.85 * cz, 0.7, 0.35, Math.PI / 2);
+  });
 }
 // a parked car: solid to ride on, grind edges, and an alarm (riverTick) when you're up on it
 function rvParkCar(kind, color, x, y0, z, yaw, seed, wear) {
@@ -7230,7 +7533,7 @@ function rvWedge(x0, x1, z0, z1, yBase, hFn, topMat = RM.pourTop, sideMat = RM.r
 {
   const cx = -64.4, z0 = 99, z1 = 111, R = 2.4, FL = 1.5, TR = R * 0.97, DK = 1.1, HW = FL + TR + DK, H = qProf(TR, R), y0 = RV.upper;
   const prof = x => { const d = Math.abs(x - cx); return d < FL ? 0 : d < FL + TR ? qProf(d - FL, R) : d <= HW ? H : 0; };
-  // ply skin: sheet seams, screw heads, cracks, rust bleeding down from the coping, old wax, and tags everywhere
+  // ply skin: sheet seams, screw heads, cracks, rust bleeding down from the coping, old wax
   const c = document.createElement('canvas'); c.width = c.height = 1024; const g = c.getContext('2d');
   g.fillStyle = '#9c8058'; g.fillRect(0, 0, 1024, 1024);
   const im = g.getImageData(0, 0, 1024, 1024), dd = im.data; for (let i = 0; i < dd.length; i += 4) { const n = (Math.random() - 0.5) * 22; dd[i] += n; dd[i + 1] += n; dd[i + 2] += n * 0.8; } g.putImageData(im, 0, 0);
@@ -7241,16 +7544,7 @@ function rvWedge(x0, x1, z0, z1, yBase, hFn, topMat = RM.pourTop, sideMat = RM.r
   for (let k = 0; k < 16; k++) { g.strokeStyle = 'rgba(20,14,8,0.75)'; g.lineWidth = 1.5 + Math.random() * 1.5; g.beginPath(); let x = Math.random() * 1024, y = Math.random() * 1024; g.moveTo(x, y); for (let s2 = 0; s2 < 6; s2++) { x += (Math.random() - 0.5) * 60; y += 10 + Math.random() * 30; g.lineTo(x, y); } g.stroke(); }   // splits and cracks
   for (let k = 0; k < 30; k++) { const x = Math.random() * 1024, w = 4 + Math.random() * 14, h = 40 + Math.random() * 220, gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, 'rgba(130,60,20,0.55)'); gr.addColorStop(1, 'rgba(130,60,20,0)'); g.fillStyle = gr; g.fillRect(x, 0, w, h); }   // rust bleeding from the coping
   g.fillStyle = 'rgba(15,12,10,0.4)'; for (let k = 0; k < 60; k++) g.fillRect(Math.random() * 1024, 600 + Math.random() * 400, 10 + Math.random() * 90, 2 + Math.random() * 3);   // wheel and wax marks low down
-  const spray = ['#111', '#f2f2f2', '#d8342a', '#2f62d0', '#e8c21a', '#3aa34a', '#e46ab0', '#8a3fd0'];
-  for (let k = 0; k < 9; k++) {   // throw-ups: fat rounded letters, filled and outlined, with drips
-    const x = 60 + Math.random() * 820, y = 120 + Math.random() * 760, w = 140 + Math.random() * 140, h = 70 + Math.random() * 50, f = spray[(k * 3 + 2) % spray.length], o = spray[(k * 5) % 2];
-    for (let l = 0; l < 4; l++) { const lx = x + l * w / 4; g.fillStyle = f; g.strokeStyle = o; g.lineWidth = 6; g.beginPath(); g.ellipse(lx + w / 8, y + h / 2 + (Math.random() - 0.5) * 12, w / 7, h / 2, (Math.random() - 0.5) * 0.4, 0, Math.PI * 2); g.fill(); g.stroke(); }
-    g.fillStyle = f; for (let dI = 0; dI < 5; dI++) g.fillRect(x + Math.random() * w, y + h * 0.9, 3, 10 + Math.random() * 40);
-  }
-  for (let k = 0; k < 26; k++) {   // tags: quick scribbled signatures
-    g.strokeStyle = spray[k % spray.length]; g.lineWidth = 3 + Math.random() * 4; g.lineCap = 'round'; g.beginPath(); let x = Math.random() * 900, y = 60 + Math.random() * 920; g.moveTo(x, y);
-    for (let s2 = 0; s2 < 7; s2++) { const nx = x + 14 + Math.random() * 26, ny = y + (Math.random() - 0.5) * 50; g.quadraticCurveTo((x + nx) / 2, y - 30 - Math.random() * 30, nx, ny); x = nx; y = ny; } g.stroke();
-  }
+  // (the paint on it is real decals now, below: the ply is just ply)
   const ply = new THREE.CanvasTexture(c); ply.wrapS = ply.wrapT = THREE.RepeatWrapping; ply.repeat.set(0.25, 0.25); ply.anisotropy = 8;
   const topM = new THREE.MeshStandardMaterial({ map: ply, roughness: 0.82, side: THREE.DoubleSide });
   const sideT = ply.clone(); sideT.needsUpdate = true; sideT.repeat.set(0.3, 0.3);
@@ -7263,11 +7557,14 @@ function rvWedge(x0, x1, z0, z1, yBase, hFn, topMat = RM.pourTop, sideMat = RM.r
   rvLeanBoard(cx - HW - 3.3, 104.5, cx - HW, 104.5, y0, y0 + H, 1.3);
   rvLeanBoard(cx + HW + 3.0, 107, cx + HW, 107, y0 + 0.15, y0 + H, 1.2);
   rvLeanBoard(cx - HW + DK / 2, z0 - 3.4, cx - HW + DK / 2, z0, y0, y0 + H, 0.95);
-  // tags on the sides and the backs (decals)
+  // the paint: throw-ups and a character up the transitions, tags and a stencil on the ends, a layered back wall
   if (typeof makeGraffitiDecal === 'function') {
-    rvDecal('tu4', cx - 3.5, y0 + 0.75, z1 + 0.02, 1.9, 0.95, 0); rvDecal('tg2', cx + 3.5, y0 + 0.8, z1 + 0.02, 1.8, 0.9, 0);
-    rvDecal('tu7', cx + 3.5, y0 + 0.75, z0 - 0.02, 1.9, 0.95, Math.PI); rvDecal('ch4', cx - 3.6, y0 + 0.85, z0 - 0.02, 1.1, 1.1, Math.PI);
-    rvDecal('pc2', cx - HW - 0.02, y0 + 0.95, 108.5, 3.6, 1.8, -Math.PI / 2); rvDecal('tg8', cx + HW + 0.02, y0 + 0.95, 102.5, 3.2, 1.6, Math.PI / 2);
+    const tProf = (sd, len) => { const P = []; let x = cx + sd * (FL + 0.12), py = y0 + prof(x), sl = 0; P.push([x, py]); while (sl < len) { const nx = x + sd * 0.02, ny = y0 + prof(nx); sl += Math.hypot(nx - x, ny - py); x = nx; py = ny; P.push([x, py]); } return P.filter((p, i) => i % 6 === 0 || i === P.length - 1); };
+    rvProfDecal('ga4#4', tProf(1, 2.9), 99.4, 105.6, 1, 0.03); rvProfDecal('ga2#4', tProf(1, 2.7), 106.0, 108.7, 1, 0.03);
+    rvProfDecal('ga4#5', tProf(-1, 2.9), 104.4, 110.6, -1, 0.03); rvProfDecal('ga2#20', tProf(-1, 2.5), 100.6, 103.1, -1, 0.03);
+    rvDecal('ga5#5', cx - 4.38, y0 + 1.2, z1 + 0.02, 1.0, 0.5, 0); rvDecal('ga2#16', cx + 4.38, y0 + 1.0, z1 + 0.02, 0.9, 0.9, 0);
+    rvDecal('ga5#6', cx + 4.38, y0 + 1.2, z0 - 0.02, 1.0, 0.5, Math.PI); rvDecal('ga2#25', cx - 4.38, y0 + 1.0, z0 - 0.02, 0.9, 0.9, Math.PI);
+    rvDecal('ga4#3', cx - HW - 0.02, y0 + 0.92, 106, 7, 1.75, -Math.PI / 2); rvDecal('tg8', cx + HW + 0.02, y0 + 0.95, 102.5, 3.2, 1.6, Math.PI / 2);
   }
 }
 
@@ -7698,12 +7995,17 @@ if (typeof makeGraffitiDecal === 'function') {
   const pool = list => { let bag = [], last = null; return () => {   // no repeats till the bag's empty, and never the same one twice running
     if (!bag.length) { bag = list.slice(); for (let i = bag.length - 1; i > 0; i--) { const j = Math.floor(gr() * (i + 1)), t = bag[i]; bag[i] = bag[j]; bag[j] = t; } if (bag.length > 1 && bag[bag.length - 1] === last) { const t = bag[0]; bag[0] = bag[bag.length - 1]; bag[bag.length - 1] = t; } }
     return (last = bag.pop()); }; };
-  const TAGS = pool(['tg1', 'tg2', 'tg3', 'tg4', 'tg5', 'tg6', 'tg7', 'tg8', 'tg9', 'tg10']), TUS = pool(['tu1', 'tu2', 'tu3', 'tu4', 'tu5', 'tu6', 'tu7', 'tu8']), STRIPS = pool(['st1', 'st2', 'st3', 'st4', 'st5', 'st6', 'st7', 'st8', 'st9']);
-  const CHARS = pool(['ch1', 'ch2', 'ch5', 'ch6', 'ch7']), BUFFS = pool(['bf1', 'bf2']), BIGS = pool(['bb6', 'bb7']), ROLLS = pool(['rt1', 'rt2']);
+  const cells = (a, ids) => ids.map(i => a + '#' + i);
+  const TAGS = pool(['tg1', 'tg2', 'tg3', 'tg4', 'tg5', 'tg6', 'tg7', 'tg8', 'tg9', 'tg10'].concat(cells('ga1', [8, 9, 10, 11, 12, 13, 14, 15]))), TUS = pool(['tu1', 'tu2', 'tu3', 'tu4', 'tu5', 'tu6', 'tu7', 'tu8'].concat(cells('ga1', [0, 1, 2, 3, 4, 5, 6, 7]))), STRIPS = pool(['st1', 'st2', 'st3', 'st4', 'st5', 'st6', 'st7', 'st8', 'st9']);
+  const STENC = pool(cells('ga2', [22, 23, 24, 26, 27, 28, 29, 30]));   // (ga2 4, 16, 20 and 25 are the halfpipe's own)
+  const CHARS = pool(['ch1', 'ch2', 'ch5', 'ch6', 'ch7'].concat(cells('ga2', [0, 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 18, 19, 21, 31]))), BUFFS = pool(['bf1', 'bf2']), BIGS = pool(['bb6', 'bb7']), ROLLS = pool(['rt1', 'rt2']);
   // walk a run of wall from z0 to z1 dropping pieces with gaps between, skipping blocked spans
-  const walk = (z0, z1, gap, blocked, choose, place) => {
+  // (and re-drawing a piece that's already been put up within 60 m; xs: about where across the map the wall is)
+  const near = (k, x, z) => GPLACED.some(q => q[0] === k && Math.hypot(x == null ? 0 : x - q[1], z - q[3]) < 60);
+  const walk = (z0, z1, gap, blocked, choose, place, xs) => {
     for (let z = z0 + grr(0, gap[1]); ;) {
-      const [key, w, h] = choose(), zc = z + w / 2; if (zc + w / 2 > z1) break;
+      let c = choose(); for (let t = 0; t < 10 && near(c[0], xs, z + c[1] / 2); t++) c = choose();
+      const [key, w, h] = c, zc = z + w / 2; if (zc + w / 2 > z1) break;
       if (!blocked.some(([a, b]) => zc + w / 2 > a && zc - w / 2 < b)) place(key, zc, w, h);
       z += w + grr(gap[0], gap[1]);
     }
@@ -7719,11 +8021,13 @@ if (typeof makeGraffitiDecal === 'function') {
   // and throw-ups, tags and the odd character all along both banks, up by the lip (reached from the path) or down by the toe
   [1, -1].forEach(sd => {
     const blocked = BIG.filter(b => b[1] === sd).map(b => [b[2] - 1.5, b[3] + 1.5]).concat(sd > 0
-      ? [[40, 64], [86, 97.5], [-35, -11], [-81, -55], [-181, -125], [-208, -184], [-240, -210]]    // the vert wall and its bridge, the U-ditch, culvert, bridges, access ramp
-      : [[33, 46], [-38, 16], [63, 114], [-135, -117], [-81, -55], [-208, -180], [-238, -220]]);    // the curb rail, access ramps, storm drain, bridges, the buff
+      ? [[40, 64], [86, 97.5], [-35, -11], [-81, -55], [-181, -125], [-208, -184], [-240, -210], [-56, -39]]    // the vert wall and its bridge, the U-ditch, culvert, bridges, access ramp, MOTHWAX
+      : [[33, 46], [41, 63], [-38, 16], [63, 114], [-135, -117], [-81, -55], [-208, -180], [-238, -220], [-265, -249]]);    // the curb rail, bridge 1, access ramps, storm drain, bridges, the buff, TREBLE
     walk(-296, 119, [3, 12], blocked, () => { const r = gr(); return r < 0.5 ? [TAGS(), grr(3.4, 4.6), 2] : r < 0.85 ? [TUS(), grr(4.2, 5.6), 2] : [CHARS(), grr(1.8, 2.3), 1]; },
-      (k, zc, w, asp) => rvBankDecal(k, sd, zc - w / 2, zc + w / 2, gr() < 0.62 ? grr(3.9, 4.3) : grr(1.1, 1.5), asp));
+      (k, zc, w, asp) => rvBankDecal(k, sd, zc - w / 2, zc + w / 2, gr() < 0.62 ? grr(3.9, 4.3) : grr(1.1, 1.5), asp), RV.xc + sd * (RV.floor + RV.bank / 2));
   });
+  // two proper pieces low on the banks, each with its character: MOTHWAX (east, past bridge 2) and TREBLE with its octopus (west, down south)
+  rvBankDecal('ga4#1', 1, -55, -40, 3.3, 1.7); rvBankDecal('ga4#2', -1, -264, -250, 3.2, 1.7);
   // heaven spots: worn, high on the bridge faces over the channel
   rvDecal('bb5', 4, RV.top - 0.9, B0.z - B0.w / 2 - 0.02, 6.4, 1.6, Math.PI);   // (not one that's on a bank in view of it)
   rvDecal('tu3', 17, RV.top - 0.9, B0.z + B0.w / 2 + 0.02, 3.2, 1.6, 0);
@@ -7737,18 +8041,19 @@ if (typeof makeGraffitiDecal === 'function') {
   rvDecal('tg6', pw(B0, 1, false), 2.75, B0.z, 4, 2, -PI2);
   rvDecal('tg3', pw(B0, -1, true), 1.45, B0.z + 1.2, 3.6, 1.8, -PI2);
   rvDecal('tu4', pw(B0, 1, true), 1.6, B0.z - 0.5, 4.4, 2.2, PI2);
-  rvDecal('pc1', pw(B1, -1, false), 2.05, B1.z - 3.5, 7.2, 3.6, PI2);   // the showpieces either side of the bowl
-  rvDecal('heart', pw(B1, -1, false), 1.85, B1.z + 6.4, 1.6, 1.6, PI2);   // JON + CLAUDE
+  rvDecal('pc1', pw(B1, -1, false), 3.6, B1.z - 3.5, 7.2, 3.6, PI2);   // the showpieces either side of the bowl (up clear of its deck, top 1.51)
+  rvDecal('heart', pw(B1, -1, false), 2.8, B1.z + 6.4, 1.7, 1.7, PI2);   // Jon + Claude, clear of the deck too
   rvDecal('pc2', pw(B1, 1, false), 1.95, B1.z - 2, 6.4, 3.2, -PI2);
   rvDecal('tg8', pw(B1, 1, false), 1.4, B1.z + 6.5, 3.6, 1.8, -PI2);
   rvDecal('tu3', pw(B1, -1, true), 4.35, B1.z - 6, 4.4, 2.2, -PI2);   // above the arch loop's pier quarter
   rvDecal('tg2', pw(B1, -1, true), 3.9, B1.z + 4, 3.6, 1.8, -PI2);
-  rvDecal('tu7', pw(B1, 1, true), 1.6, B1.z + 4, 4.4, 2.2, PI2);
-  rvDecal('tg5', pw(B1, 1, true), 1.3, B1.z - 4, 3.6, 1.8, PI2);
+  rvDecal('ga3#2', pw(B1, 1, true), 2.6, B1.z, 10, 5, PI2);   // the east pier's outer base: years of paint, old under buff under new
   rvDecal('pc3', pw(B2, -1, false), 1.8, B2.z - 1, 6, 3, PI2);
   rvDecal('tg10', pw(B2, -1, false), 1.3, B2.z + 6, 3.2, 1.6, PI2);
   rvDecal('tu2', pw(B2, 1, false), 2.5, B2.z, 4, 2, -PI2);              // above the quarter
-  rvDecal('tg7', pw(B2, -1, true), 1.4, B2.z + 4, 3.6, 1.8, -PI2);
+  rvDecal('ga3#3', pw(B2, -1, true), 2.6, B2.z, 10, 5, -PI2);   // bridge 3's west pier, outer base: layered the same way
+  rvDecal('ga3#1', pw(B2, 1, false), 6.4, B2.z, 11, 5.5, -PI2);   // CLAUDE, big up the east pier's inner face over the quarter, seen down the channel
+  rvDecal('ga5#1', pw(B2, 1, true), 3.3, B2.z + 1.5, 2.4, 1.2, PI2);   // LOOK UP
   rvDecal('tg1', pw(B2, 1, true), 1.5, B2.z - 3, 3.6, 1.8, PI2);
   rvDecal('ch5', pw(B2, 1, true), 1.6, B2.z + 6, 1.7, 1.7, PI2);
   // columns: about half of them carry something wrapped round at reach height; a boombox by the camp
@@ -7757,18 +8062,20 @@ if (typeof makeGraffitiDecal === 'function') {
   RV.bridges.forEach(B => [[-27, RV.deck], [48, RV.deck], [-62, RV.upper], [73, RV.deck]].forEach(([x, y0]) => [-1, 1].forEach(e => {
     const z = B.z + e * B.w / 4; if ((B === B2 && x === 48 && e < 0) || gr() < 0.4) return;
     const r = gr(), ang = x === 73 ? -PI2 : gr() < 0.5 ? PI2 : -PI2;
-    if (r < 0.5) col(TAGS(), x, z, y0 + grr(0.3, 0.6), 2.0, 1.0, ang); else if (r < 0.8) col(TUS(), x, z, y0 + grr(0.3, 0.6), 2.2, 1.1, ang); else col(CHARS(), x, z, y0 + grr(0.4, 0.8), 1.3, 1.3, ang);
+    if (r < 0.42) col(TAGS(), x, z, y0 + grr(0.3, 0.6), 2.0, 1.0, ang); else if (r < 0.68) col(TUS(), x, z, y0 + grr(0.3, 0.6), 2.2, 1.1, ang); else if (r < 0.85) col(CHARS(), x, z, y0 + grr(0.4, 0.8), 1.3, 1.3, ang); else col(STENC(), x, z, y0 + grr(1.0, 1.4), 0.9, 0.9, ang);
   })));
   // jersey barriers along the east path: throw-ups, tags and doodles on the face (its sloped foot and its upright)
   const jb = [[JB.x - 0.31 + 0.01, RV.deck + 0.03], [JB.x - 0.16, RV.deck + 0.28], [JB.x - 0.085, RV.deck + 0.79]];
-  walk(-296, 118, [1.5, 7], [[27.5, 36.5], [-117, -107], [-263, -253]], () => [STRIPS(), 3.3, 0], (k, zc, w) => rvProfDecal(k, jb, zc - w / 2, zc + w / 2, 1, 0.012));
+  walk(-296, 118, [1.5, 7], [[27.5, 36.5], [-117, -107], [-263, -253]], () => [STRIPS(), 3.3, 0], (k, zc, w) => rvProfDecal(k, jb, zc - w / 2, zc + w / 2, 1, 0.012), JB.x);
   // the freeway sound wall: big and visible from across the lanes, plenty of county buff
-  walk(-330, 165, [2, 8], [], () => { const r = gr(), w = r < 0.15 || r > 0.88 ? grr(11, 13) : r < 0.66 ? grr(4.6, 5.8) : grr(6, 8); return r < 0.15 ? [BIGS(), w, w / 4] : r < 0.42 ? [TUS(), w, w / 2] : r < 0.66 ? [TAGS(), w, w / 2] : r < 0.88 ? [BUFFS(), w, w / 2] : [ROLLS(), w, w / 4]; },
-    (k, zc, w, h) => rvDecal(k, 86.98, Math.min(RV.deck + 0.5 + h / 2 + grr(0.2, 0.8), RV.deck + 4.4 - h / 2), zc, w, h, -PI2));
+  rvDecal('ga4#0', 86.98, RV.deck + 0.45 + 1.95, 129, 10.4, 3.9, -PI2);   // a stretch painted over and over: rollers, buff, a piece, throw-ups
+  walk(-330, 165, [2, 8], [[121, 137]], () => { const r = gr(), w = r < 0.15 || r > 0.88 ? grr(11, 13) : r < 0.66 ? grr(4.6, 5.8) : grr(6, 8); return r < 0.15 ? [BIGS(), w, w / 4] : r < 0.42 ? [TUS(), w, w / 2] : r < 0.66 ? [TAGS(), w, w / 2] : r < 0.88 ? [BUFFS(), w, w / 2] : [ROLLS(), w, w / 4]; },
+    (k, zc, w, h) => rvDecal(k, 86.98, Math.min(RV.deck + 0.5 + h / 2 + grr(0.2, 0.8), RV.deck + 4.4 - h / 2), zc, w, h, -PI2), 86.98);
   // the retaining wall by the tracks (faces +x): tags, throw-ups, characters, buffs; the stair sets left clear, the lowrider by the north end
   rvDecal('ch3', RV.wallX + 0.02, RV.deck + 1.6, 84, 2.6, 2.6, PI2);
-  walk(-296, 117, [1.5, 6], [[-27, -13], [-155, -141], [82, 86]], () => { const r = gr(), w = r < 0.45 ? grr(3.2, 4.4) : r < 0.72 ? grr(3.8, 4.8) : r < 0.85 ? grr(1.4, 2.0) : grr(4.5, 7); return r < 0.45 ? [TAGS(), w, w / 2] : r < 0.72 ? [TUS(), w, w / 2] : r < 0.85 ? [CHARS(), w, w] : [BUFFS(), w, w / 2]; },
-    (k, zc, w, h) => rvDecal(k, RV.wallX + 0.02, Math.min(RV.deck + 0.35 + h / 2 + grr(0, 0.7), RV.upper - 0.15 - h / 2), zc, w, h, PI2));
+  rvDecal('ga5#0', RV.wallX + 0.02, RV.deck + 1.7, -99, 6, 1.5, PI2);   // REAL EYES REALIZE REAL LIES
+  walk(-296, 117, [1.5, 6], [[-27, -13], [-155, -141], [82, 86], [-103, -95]], () => { const r = gr(), w = r < 0.45 ? grr(3.2, 4.4) : r < 0.72 ? grr(3.8, 4.8) : r < 0.85 ? grr(1.4, 2.0) : grr(4.5, 7); return r < 0.45 ? [TAGS(), w, w / 2] : r < 0.72 ? [TUS(), w, w / 2] : r < 0.85 ? [r < 0.8 ? CHARS() : STENC(), w, w] : [BUFFS(), w, w / 2]; },
+    (k, zc, w, h) => rvDecal(k, RV.wallX + 0.02, Math.min(RV.deck + 0.35 + h / 2 + grr(0, 0.7), RV.upper - 0.15 - h / 2), zc, w, h, PI2), RV.wallX);
   // the fence tranny (curves up toward -x; read from the street, so right is -z)
   { const prof = []; for (let k = 0; k <= 12; k++) { const t = lerp(0.12, 2.0, k / 12); prof.push([-72 - t, RV.upper + qProf(t, 2.2)]); }
     [-106, -97, -88, -48, -40, 15.5, 27.5].forEach((z, i) => rvProfDecal(i % 2 ? TUS() : TAGS(), prof, z - 2.5, z + 2.5, -1, 0.025)); }   // only where the tranny is (it breaks for the bridge)
@@ -7782,7 +8089,8 @@ if (typeof makeGraffitiDecal === 'function') {
   // the jersey barrier dumped in the channel
   rvProfDecal('st6', [[RV.xc - 9 - 0.3, 0.03], [RV.xc - 9 - 0.16, 0.28], [RV.xc - 9 - 0.085, 0.79]], -158 - 1.6, -158 + 1.6, 1, 0.012);
   // warehouse walls across the upper street
-  rvDecal('bb7', -79.98, 14, -125, 16, 4, PI2); rvDecal('rt1', -79.98, 17.5, 15, 14, 3.5, PI2); rvDecal('bf1', -79.98, 12.5, 85, 8, 4, PI2); rvDecal('tu7', -79.98, 11.2, -45, 6, 3, PI2);
+  rvDecal('bb7', -79.98, 14, -125, 16, 4, PI2); rvDecal('rt1', -79.98, 17.5, 15, 14, 3.5, PI2); rvDecal('bf1', -79.98, 12.5, 85, 8, 4, PI2);
+  rvDecal('ga3#0', -79.98, 12.8, -36, 14.4, 7.2, PI2);   // DOX: the whole wall, facing the channel across the upper street
   rvDecalsFlush();
 }
 // the river's graffiti textures are painted lazily: a little at a time in idle moments after load, the rest at once if the

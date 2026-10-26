@@ -246,7 +246,7 @@ body.touch .readout .lbl { font-size: 11px; }
   <div class="splash-in">
     <h1>Concrete <span class="hz">Lines</span></h1>
     <p class="splash-by">Made by Jon Beam<br>with the use of Claude Code</p>
-    <p class="splash-date">Updated October 26, 2026 · Play-test 0.010</p>
+    <p class="splash-date">Updated October 26, 2026 · Play-test 0.011</p>
     <p class="splash-go">Click to play</p>
   </div>
 </div>
@@ -7248,14 +7248,175 @@ const RV_BACKDROP = { mesh: null };
     const st = new THREE.CanvasTexture(sc), sp = new THREE.Mesh(new THREE.PlaneGeometry(PW, Y1 - Y0), new THREE.MeshBasicMaterial({ map: st, transparent: true, depthWrite: false, fog: false }));
     const a = -0.82;   // radians from north toward the west: north-west, a touch north
     sp.position.set(Math.sin(a) * 772, (Y0 + Y1) / 2, Math.cos(a) * 772); sp.lookAt(0, (Y0 + Y1) / 2, 0); sp.renderOrder = -1; m.add(sp); }
-  // palms behind the freeway (pass 4 redoes them; for now the same simple ones, placed from the seeded stream)
-  const trunkM = new THREE.MeshStandardMaterial({ color: 0x6b5a45, roughness: 1 }), frondM = new THREE.MeshStandardMaterial({ color: 0x3d5a2a, roughness: 1, side: THREE.DoubleSide });
-  const palm = (x, z, y0, h) => {
-    const t = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.32, h, 7), trunkM); t.position.set(x, y0 + h / 2, z); scene.add(t);
-    for (let f = 0; f < 9; f++) { const fr = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 3.6), frondM); const a = f / 9 * TAU; fr.position.set(x + Math.sin(a) * 1.4, y0 + h - 0.5, z + Math.cos(a) * 1.4); fr.rotation.set(-1.0, a, 0, 'YXZ'); scene.add(fr); }
-  };
-  const RP = rvSeeded(4401);   // the palms' own stream, so changing the city doesn't move them
-  for (let k = 0; k < 30; k++) { const z = lerp(-620, 500, k / 29) + RP() * 15; if (RV.bridges.some(B => Math.abs(z - B.z) < B.w / 2 + 3)) continue; palm(92 + RP() * 6, z, 0, 14 + RP() * 9); }
+  // ---- palms: Mexican fan palms (Washingtonia robusta) ----
+  // Each tree: a tapered, gently leaning trunk with ring bark and a wider leaf-base boot under the crown, a shaggy skirt of dead fronds
+  // on most, and a crown of 14-20 fan fronds (creased, drooping strips on one alpha atlas) with two or three dead ones hanging.
+  // Everything is merged into two meshes: the trunks, and the fronds + skirts + far billboard palms + dry weeds (two draws in all).
+  // Placement is seeded (the palms' own stream): never on a skate line or in the channel, clear of the big walls, so no collision.
+  {
+    const RP = rvSeeded(4401), pr = (a, b) => a + (b - a) * RP();
+    // bark: ring grooves every 0.125 m with leaf-scar diamonds between, near-white so the vertex colour carries the tone (a tile is 1.5 m)
+    const bc = document.createElement('canvas'); bc.width = 64; bc.height = 256; const bg = bc.getContext('2d');
+    bg.fillStyle = '#e4dfd6'; bg.fillRect(0, 0, 64, 256);
+    { const im = bg.getImageData(0, 0, 64, 256), d = im.data; for (let i = 0; i < d.length; i += 4) { const n = (RP() - 0.5) * 24; d[i] += n; d[i + 1] += n; d[i + 2] += n; } bg.putImageData(im, 0, 0); }
+    for (let k = 0; k < 12; k++) { const y = k * 256 / 12;
+      bg.fillStyle = 'rgba(96,82,66,0.2)'; for (let x = (k % 2) * 8; x <= 72; x += 16) { bg.beginPath(); bg.moveTo(x, y + 4); bg.lineTo(x + 7, y + 11); bg.lineTo(x, y + 19); bg.lineTo(x - 7, y + 11); bg.closePath(); bg.fill(); }
+      bg.fillStyle = 'rgba(64,52,42,0.6)'; bg.fillRect(0, y, 64, 2.4); bg.fillStyle = 'rgba(255,250,240,0.22)'; bg.fillRect(0, y + 2.4, 64, 1.6); }
+    bg.strokeStyle = 'rgba(70,60,50,0.22)'; bg.lineWidth = 1;
+    for (let k = 0; k < 9; k++) { let x = RP() * 64, y = RP() * 256; bg.beginPath(); bg.moveTo(x, y); for (let s = 0; s < 5; s++) { x += (RP() - 0.5) * 4; y += 8 + RP() * 10; bg.lineTo(x, y); } bg.stroke(); }
+    const barkT = new THREE.CanvasTexture(bc); barkT.wrapS = barkT.wrapT = THREE.RepeatWrapping;
+    // the alpha atlas (512): green and yellowing fan fronds, a dead hanging frond, the skirt, a whole far palm, a dry weed clump
+    const AS = 512, ac = document.createElement('canvas'); ac.width = ac.height = AS; const ag = ac.getContext('2d');
+    const CELL = { green: [0, 0, 256, 256], yellow: [256, 0, 256, 256], dead: [0, 256, 128, 256], skirt: [128, 256, 128, 256], far: [256, 256, 128, 256], weed: [384, 384, 128, 128] };
+    const cuv = c => [(c[0] + 1) / AS, (c[0] + c[2] - 1) / AS, 1 - (c[1] + c[3] - 1) / AS, 1 - (c[1] + 1) / AS];   // u0, u1, v0 (bottom), v1 (top)
+    const FW = 2.8, FL = 2.6, DW = 1.6;   // a fan frond's strip: width, length (petiole + fan); a dead frond's width
+    // a fan frond in cell c (W x L metres): the petiole, a palmate blade joined to about half its radius, then split segments to the tips
+    const drawFan = (c, W, L, P, spread, rad, cBase, cTip, cLine, rag) => {
+      const [cx, cy, cw, ch] = c, X = l => cx + (0.5 + l / W) * cw, Y = s => cy + (1 - s / L) * ch, pt = (a, r) => [X(Math.sin(a) * r), Y(P + Math.cos(a) * r)];
+      ag.save(); ag.beginPath(); ag.rect(cx, cy, cw, ch); ag.clip();
+      ag.strokeStyle = cLine; ag.lineWidth = Math.max(2, 0.07 / W * cw); ag.beginPath(); ag.moveTo(X(0), Y(0)); ag.lineTo(X(0), Y(P + 0.15)); ag.stroke();   // petiole
+      const N = 24, seg = []; for (let i = 0; i <= N; i++) { const a = -spread + 2 * spread * i / N; seg.push([a, rad * (0.8 + 0.2 * Math.cos(a)) * (1 - rag * RP())]); }
+      const gr = ag.createRadialGradient(X(0), Y(P), 0, X(0), Y(P), rad / L * ch); gr.addColorStop(0, cBase); gr.addColorStop(1, cTip); ag.fillStyle = gr;
+      ag.beginPath(); ag.moveTo(...pt(0, 0)); seg.forEach(([a, r]) => ag.lineTo(...pt(a, r * 0.55))); ag.closePath(); ag.fill();   // the joined blade
+      seg.forEach(([a, r]) => {   // the split segments: tapered lances out to the tips, the outer part bending away a little
+        const w = spread / N, bend = (RP() - 0.5) * 0.2 + Math.sign(a) * 0.1;
+        ag.beginPath(); ag.moveTo(...pt(a - w, r * 0.5)); ag.quadraticCurveTo(...pt(a - w * 0.5, r * 0.82), ...pt(a + bend, r)); ag.quadraticCurveTo(...pt(a + w * 0.5, r * 0.82), ...pt(a + w, r * 0.5)); ag.closePath(); ag.fill();
+      });
+      ag.strokeStyle = cLine; ag.lineWidth = 1; ag.globalAlpha = 0.3; seg.forEach(([a, r]) => { ag.beginPath(); ag.moveTo(...pt(a, 0.08)); ag.lineTo(...pt(a, r * 0.78)); ag.stroke(); });   // pleats
+      ag.globalAlpha = 1; ag.restore();
+    };
+    drawFan(CELL.green, FW, FL, 0.9, 1.35, 1.6, '#55663e', '#7d8b55', '#46532f', 0.12);
+    drawFan(CELL.yellow, FW, FL, 0.9, 1.3, 1.55, '#7d7a46', '#a39a5a', '#615a36', 0.2);
+    drawFan(CELL.dead, DW, FL, 0.7, 0.4, 1.8, '#6e5c44', '#8c7656', '#4f4232', 0.3);
+    { // the skirt: hanging dead fronds, dense at the top, ragged at the bottom
+      const [cx, cy, cw, ch] = CELL.skirt, cols = ['#8c7656', '#6e5c44', '#7a6548', '#5e4e3a', '#9a8462'];
+      ag.fillStyle = '#5a4a38'; ag.fillRect(cx, cy, cw, ch * 0.3);
+      for (let k = 0; k < 150; k++) { const x = cx + RP() * cw, w = 3 + RP() * 6, len = ch * (0.4 + RP() * 0.58); ag.fillStyle = cols[k % 5];
+        ag.beginPath(); ag.moveTo(x - w / 2, cy); ag.lineTo(x + w / 2, cy); ag.lineTo(x + (RP() - 0.5) * 6, cy + len); ag.closePath(); ag.fill(); }
+      ag.strokeStyle = 'rgba(160,140,105,0.5)'; ag.lineWidth = 1; for (let k = 0; k < 40; k++) { const x = cx + RP() * cw; ag.beginPath(); ag.moveTo(x, cy + RP() * ch * 0.3); ag.lineTo(x + (RP() - 0.5) * 4, cy + ch * (0.3 + RP() * 0.5)); ag.stroke(); }
+    }
+    { // a whole palm for the far ring (quad 0.42 H wide): a thin leaning trunk, a small skirt, a crown of fronds
+      const [cx, cy, cw, ch] = CELL.far, mx = cx + cw / 2, ty = cy + ch * 0.2, lean = cw * 0.06;
+      ag.strokeStyle = '#8a7e70'; ag.lineWidth = 6; ag.beginPath(); ag.moveTo(mx, cy + ch); ag.quadraticCurveTo(mx, cy + ch * 0.5, mx + lean, ty); ag.stroke();
+      ag.fillStyle = '#7a6a52'; ag.beginPath(); ag.moveTo(mx + lean - 7, ty); ag.lineTo(mx + lean + 7, ty); ag.lineTo(mx + lean + 10, ty + ch * 0.1); ag.lineTo(mx + lean - 10, ty + ch * 0.1); ag.closePath(); ag.fill();
+      for (let k = 0; k < 16; k++) { const a = -Math.PI * 0.5 + (k / 15 - 0.5) * Math.PI * 1.45 + (RP() - 0.5) * 0.15, r = cw * (0.32 + RP() * 0.12), ex = mx + lean + Math.cos(a) * r, ey = ty + Math.sin(a) * r * 0.7 + Math.abs(Math.cos(a)) * r * 0.35;
+        ag.strokeStyle = '#646b4c'; ag.lineWidth = 2; ag.beginPath(); ag.moveTo(mx + lean, ty); ag.quadraticCurveTo(mx + lean + Math.cos(a) * r * 0.6, ty + Math.sin(a) * r * 0.6, ex, ey); ag.stroke();
+        ag.fillStyle = k % 5 ? '#6f7556' : '#857f58'; ag.beginPath(); ag.moveTo(ex - Math.cos(a) * r * 0.12, ey - Math.sin(a) * r * 0.12); ag.arc(ex - Math.cos(a) * r * 0.12, ey - Math.sin(a) * r * 0.12, r * 0.3, a - 0.75, a + 0.75); ag.closePath(); ag.fill(); }   // a fan at each tip
+    }
+    { // dry weeds: stalks and blades fanning up from one spot
+      const [cx, cy, cw, ch] = CELL.weed, cols = ['#9a8a5a', '#7e7f55', '#b5a46e', '#6f6a45', '#8c8458'];
+      for (let k = 0; k < 46; k++) { const bx = cx + cw * (0.35 + RP() * 0.3), a = (RP() - 0.5) * 1.6, h = ch * (0.35 + RP() * 0.6), ex = bx + Math.sin(a) * h, ey = cy + ch - Math.cos(a) * h;
+        ag.strokeStyle = cols[k % 5]; ag.lineWidth = 1 + RP() * 1.6; ag.beginPath(); ag.moveTo(bx, cy + ch); ag.quadraticCurveTo(bx + Math.sin(a) * h * 0.3, cy + ch - h * 0.6, ex, ey); ag.stroke();
+        if (k % 6 === 0) { ag.fillStyle = '#c2b282'; ag.beginPath(); ag.ellipse(ex, ey, 2.5, 5, a, 0, TAU); ag.fill(); } }
+    }
+    const atlasT = new THREE.CanvasTexture(ac); atlasT.anisotropy = 4;
+    // geometry accumulators: T the trunks, F everything on the atlas
+    const T = { p: [], n: [], u: [], c: [], i: [] }, F = { p: [], n: [], u: [], c: [], i: [] };
+    const vtx = (G, x, y, z, nx, ny, nz, u, v, c) => { const l = Math.hypot(nx, ny, nz) || 1; G.p.push(x, y, z); G.n.push(nx / l, ny / l, nz / l); G.u.push(u, v); G.c.push(c.r, c.g, c.b); return G.p.length / 3 - 1; };
+    const quad = (G, a, b, c, d) => G.i.push(a, b, c, a, c, d);
+    const cTr0 = new THREE.Color(0x8a7a68), cTr1 = new THREE.Color(0x9c9488), cBoot = new THREE.Color(0x7c6650), cFoot = new THREE.Color(0x5e5246), tc = new THREE.Color();
+    // a trunk from (x, y0, z), H tall, leaning `lean` metres at the top toward (lx, lz) on a gentle curve; boot: the leaf-base length under the crown
+    const trunk = (x, y0, z, H, lean, lx, lz, boot) => {
+      const RS = 6, tb = 1 - boot / H, ts = [0, 0.07, 0.3, 0.55, tb - 0.02, tb + 0.06, 1], b = T.p.length / 3;
+      ts.forEach(t => {
+        const off = lean * (0.6 * t * t + 0.4 * t), cx = x + lx * off, cz = z + lz * off, y = y0 + t * H, r = lerp(0.28, 0.18, t) + 0.11 * Math.pow(1 - t, 7) + (t > tb ? 0.07 : 0);
+        tc.copy(cTr0).lerp(cTr1, Math.min(1, t * 1.4)); if (y - y0 < 1.2) tc.lerp(cFoot, 0.6 * (1 - (y - y0) / 1.2)); if (t > tb) tc.copy(cBoot);
+        for (let j = 0; j <= RS; j++) { const a = j / RS * TAU, s = Math.sin(a), c = Math.cos(a); vtx(T, cx + s * r, y, cz + c * r, s, 0.12, c, j / RS, (y - y0) / 1.5, tc); }
+      });
+      for (let k = 0; k < ts.length - 1; k++) for (let j = 0; j < RS; j++) { const a = b + k * (RS + 1) + j; quad(T, a, a + 1, a + RS + 2, a + RS + 1); }
+      const top = lean; return new V3(x + lx * top, y0 + H, z + lz * top);
+    };
+    // one frond strip from (bx, by, bz) heading `yaw`, rising at `elev`, its tip dropping `droop` x its length; 3 segments, creased along the rib
+    const _t = new V3(), _s = new V3(), _n = new V3();
+    const frond = (bx, by, bz, yaw, elev, droop, L, W, cell, tint) => {
+      const [u0, u1, v0, v1] = cuv(cell), hx = Math.sin(yaw), hz = Math.cos(yaw), b = F.p.length / 3, S = [0, 0.34, 0.62, 1], HW = [0.05, 0.3, 0.5, 0.5], col = new THREE.Color();
+      _s.set(hz, 0, -hx);
+      S.forEach((s, k) => {
+        const d = s * L, ce = Math.cos(elev), px = bx + hx * ce * d, py = by + Math.sin(elev) * d - droop * d * d / L, pz = bz + hz * ce * d;
+        _t.set(hx * ce, Math.sin(elev) - 2 * droop * d / L, hz * ce).normalize(); _n.crossVectors(_t, _s).normalize();
+        const hw = HW[k] * W, lift = 0.16 * hw; col.copy(tint).multiplyScalar(0.7 + 0.3 * s);
+        [-1, 0, 1].forEach(e => { const o = e ? -0.1 * hw : lift;   // the rib up, the edges down a touch
+          vtx(F, px + _s.x * e * hw + _n.x * o, py + _n.y * o, pz + _s.z * e * hw + _n.z * o, _n.x + _s.x * e * 0.4, _n.y + 0.5, _n.z + _s.z * e * 0.4, lerp(u0, u1, 0.5 + e * hw / W), lerp(v0, v1, s), col); });
+      });
+      for (let k = 0; k < 3; k++) { const a = b + k * 3; quad(F, a, a + 1, a + 4, a + 3); quad(F, a + 1, a + 2, a + 5, a + 4); }
+    };
+    // the crown on top point P: nF fronds in three tiers (upper near vertical, middle level, lower drooping), plus a few hanging dead ones
+    const cG = new THREE.Color(0xffffff), cD = new THREE.Color(0xe8e0d4);
+    const crown = (P, nF, sc) => {
+      const yaw0 = RP() * TAU;
+      for (let f = 0; f < nF; f++) {
+        const tier = f < nF * 0.25 ? 0 : f < nF * 0.65 ? 1 : 2, yaw = yaw0 + f * 2.39996 + (RP() - 0.5) * 0.4;
+        const elev = tier === 0 ? pr(0.85, 1.2) : tier === 1 ? pr(0.15, 0.5) : pr(-0.35, 0.05), droop = tier === 0 ? pr(0.08, 0.22) : tier === 1 ? pr(0.28, 0.48) : pr(0.45, 0.7);
+        const yel = tier === 2 && RP() < 0.3, k = sc * pr(0.88, 1.08), tint = cG.clone().multiplyScalar(pr(0.86, 1.06) * (tier === 2 ? 0.9 : 1));
+        frond(P.x + Math.sin(yaw) * 0.12, P.y + (tier === 0 ? 0.1 : tier === 1 ? 0 : -0.15), P.z + Math.cos(yaw) * 0.12, yaw, elev, droop, FL * k, FW * k, yel ? CELL.yellow : CELL.green, tint);
+      }
+      const nd = 2 + (RP() < 0.5 ? 1 : 0);
+      for (let f = 0; f < nd; f++) { const yaw = RP() * TAU; frond(P.x + Math.sin(yaw) * 0.25, P.y - 0.25, P.z + Math.cos(yaw) * 0.25, yaw, pr(-1.45, -1.2), 0, FL * sc * 0.9, DW * sc, CELL.dead, cD.clone().multiplyScalar(pr(0.85, 1))); }
+    };
+    // the skirt: a ragged cone of dead fronds hanging under the crown (7 faces, bulging a little at mid height)
+    const skirt = (cx, ytop, cz, hs, r0, r1) => {
+      const [u0, u1, v0, v1] = cuv(CELL.skirt), um = (u0 + u1) / 2, N = 7, rows = [[0, r0], [0.45, (r0 + r1) / 2 + 0.12], [1, r1]], a0 = RP() * TAU, col = new THREE.Color();
+      for (let j = 0; j < N; j++) {
+        const b = F.p.length / 3, ua = j % 2 ? um : u0, ub = j % 2 ? u1 : um;
+        rows.forEach(([f, r]) => { col.setScalar(0.72 + 0.28 * f); [0, 1].forEach(e => { const a = a0 + (j + e) / N * TAU; vtx(F, cx + Math.sin(a) * r, ytop - f * hs, cz + Math.cos(a) * r, Math.sin(a), 0.35, Math.cos(a), e ? ub : ua, lerp(v1, v0, f), col); }); });
+        quad(F, b, b + 1, b + 3, b + 2); quad(F, b + 2, b + 3, b + 5, b + 4);
+      }
+    };
+    // a crossed pair of upright quads (far palms, weeds); normals up so they light evenly
+    const cross = (cell, x, y0, z, w, h, col) => {
+      const [u0, u1, v0, v1] = cuv(cell), a = RP() * Math.PI;
+      for (let k = 0; k < 2; k++) { const g = a + k * Math.PI / 2, dx = Math.cos(g) * w / 2, dz = -Math.sin(g) * w / 2, b = F.p.length / 3;
+        vtx(F, x - dx, y0, z - dz, 0, 1, 0, u0, v0, col); vtx(F, x + dx, y0, z + dz, 0, 1, 0, u1, v0, col); vtx(F, x + dx, y0 + h, z + dz, 0, 1, 0, u1, v1, col); vtx(F, x - dx, y0 + h, z - dz, 0, 1, 0, u0, v1, col); quad(F, b, b + 1, b + 2, b + 3); }
+    };
+    // ---- where they stand ----
+    // kind: 'A' young 8-10 m (full skirt), 'B' 13-15 m (trimmed boot, small skirt), 'C' 17-20 m (clean trunk, small crown);
+    // '?' mixes them 2:2:1, 'T' only the tall two (where a short one would sit at a rider's height or behind the sound wall)
+    const SITES = [], plant = (x, y0, z, kind = '?') => SITES.push([x, y0, z, kind]);
+    const cluster = (x, z, n, y0, dx, dz, kind) => { for (let k = 0; k < n; k++) plant(x + pr(-dx, dx), y0, z + (n > 1 ? lerp(-dz, dz, k / (n - 1)) : 0) + pr(-1.2, 1.2), kind); };
+    // west: the strip between the upper-street fence (x -75.2) and the warehouse fronts (x -80), off the wall art, by the bridge landings
+    cluster(-77.6, 33.5, 2, WY, 1.1, 3);      // south of bridge 1, past the art at z 8-22
+    cluster(-77.6, -92, 3, WY, 1.1, 6);       // south of bridge 2 (the DOX wall, z -44..-28, stays clear)
+    cluster(-77.6, -176, 3, WY, 1.1, 4.5);    // north of bridge 3
+    cluster(-77.6, -219, 2, WY, 1.1, 3);      // south of bridge 3
+    // the west cross street: lots between the second row and its sidewalk, a pair across from the brick landmark, one by a bridge foot
+    cluster(-187.5, -140, 3, WY, 1.5, 7);
+    cluster(-187.5, -20, 2, WY, 1.2, 4);
+    plant(-187, WY, 66.5);
+    plant(-135.5, WY, -104.5, 'C');           // one lone tall one in the yard by the water tower
+    // east: outside the fence on the freeway shoulder (tall ones only), two by the camp and one by each of bridges 1 and 2
+    plant(58, RV.deck, -214.5, 'T'); plant(57.9, RV.deck, -221, 'T'); plant(58, RV.deck, 35.5, 'T'); plant(58, RV.deck, -49.5, 'T');
+    // and a loose line behind the sound wall along the frontage road, with gaps, never by a bridge
+    [74, 118, 18, -6, -36, -94, -112, -160, -175, -232, -268].forEach(z => plant(89.8 + RP() * 4.6, 0, z + pr(-3, 3), 'T'));
+    const PLANTED = [];   // [x, y0, z, kind, height] of each tree (for checking placement)
+    SITES.forEach(([x, y0, z, kind]) => {
+      if (kind === '?') { const r = RP(); kind = r < 0.4 ? 'A' : r < 0.8 ? 'B' : 'C'; } else if (kind === 'T') kind = RP() < 0.6 ? 'B' : 'C';
+      const A = kind === 'A', B = kind === 'B', H = A ? pr(8, 10) : B ? pr(13, 15) : pr(17, 20), la = RP() * TAU, lean = A ? pr(0.2, 0.6) : B ? pr(0.3, 1.0) : pr(0.5, 1.3);
+      const boot = A ? 1.2 : B ? 2.2 : 2.4, P = trunk(x, y0, z, H, lean, Math.sin(la), Math.cos(la), boot);
+      PLANTED.push([+x.toFixed(1), y0, +z.toFixed(1), kind, +H.toFixed(1)]);
+      const hasSkirt = A || (B ? RP() < 0.6 : RP() < 0.25);
+      if (hasSkirt) { const hs = A ? pr(2.2, 3) : B ? pr(1.2, 1.8) : pr(0.8, 1.2); skirt(P.x, P.y - 0.15, P.z, hs, 0.42, A ? pr(1.05, 1.3) : pr(0.8, 1)); }
+      crown(P, A ? 16 + Math.floor(RP() * 5) : B ? 15 + Math.floor(RP() * 4) : 14 + Math.floor(RP() * 3), A ? 1 : B ? 0.95 : 0.85);
+    });
+    // far palms in the mid ring, in twos and threes poking over the low blocks (the fog washes them)
+    const cFar = new THREE.Color(0xd8d4c8);
+    for (let g = 0, tries = 0; g < 7 && tries < 80; tries++) {
+      const a = RP() * TAU, r = pr(330, 680), gx = 10 + Math.sin(a) * r, gz = -90 + Math.cos(a) * r;
+      if (gx > -330 && gx < 430) continue; g++;
+      const n = 2 + (RP() < 0.5 ? 1 : 0);
+      for (let k = 0; k < n; k++) { const x = gx + pr(-12, 12), z = gz + pr(-12, 12), h = pr(13, 21); cross(CELL.far, x, x < 0 ? WY : 0, z, h * 0.42, h, cFar); }
+    }
+    // dry weed clumps along the fence lines (outside them), off the wall art
+    const WART = [[-133, -117], [8, 22], [81, 89], [-44, -28]], cW = new THREE.Color(0xffffff);
+    for (let k = 0; k < 22; k++) { const s = pr(0.7, 1.3); cross(CELL.weed, pr(57.4, 58.8), RV.deck, pr(RV.PZS, RV.PZN), s * 1.2, s, cW.clone().multiplyScalar(pr(0.85, 1.05))); }
+    for (let k = 0, n = 0; k < 40 && n < 18; k++) { const z = pr(RV.PZS, RV.PZN); if (WART.some(([a, b]) => z > a - 2 && z < b + 2)) continue; n++; const s = pr(0.6, 1.2); cross(CELL.weed, pr(-75.7, -79.4), WY, z, s * 1.2, s, cW.clone().multiplyScalar(pr(0.85, 1.05))); }
+    const mk = G => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(G.p, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(G.n, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(G.u, 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(G.c, 3)); g.setIndex(G.i); g.computeBoundingSphere(); return g; };
+    const trunks = new THREE.Mesh(mk(T), new THREE.MeshLambertMaterial({ map: barkT, vertexColors: true })); trunks.castShadow = trunks.receiveShadow = true; scene.add(trunks);
+    const frondM = new THREE.MeshLambertMaterial({ map: atlasT, vertexColors: true, alphaTest: 0.5, side: THREE.DoubleSide });
+    // leaves seen from below: take most of the lit side's light (thin fronds glow through) instead of going black
+    frondM.onBeforeCompile = sh => { sh.fragmentShader = sh.fragmentShader.replace('( gl_FrontFacing ) ? vLightFront : vLightBack', '( gl_FrontFacing ) ? vLightFront : mix( vLightBack, vLightFront, 0.6 )'); };
+    const crowns = new THREE.Mesh(mk(F), frondM); scene.add(crowns);
+    RV.palms = { trunks, crowns, trees: PLANTED };
+  }
 }
 // the fence on the upper street, with razor wire, and a DIY tranny poured along its base (the far west edge)
 {

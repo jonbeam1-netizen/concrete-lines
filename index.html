@@ -10038,9 +10038,15 @@ const qStance = new THREE.Quaternion(), qChar = new THREE.Quaternion(), qBoard =
 
 function surfaceUp(out) {
   const h = P.heading, fx = Math.sin(h), fz = Math.cos(h), rx = Math.cos(h), rz = -Math.sin(h), x = P.pos.x, z = P.pos.z;
-  const hf = heightAt(x + fx * 0.3, z + fz * 0.3), hb = heightAt(x - fx * 0.3, z - fz * 0.3);
-  const hl = heightAt(x + rx * 0.12, z + rz * 0.12), hr = heightAt(x - rx * 0.12, z - rz * 0.12);
-  if (Math.abs(hf - hb) > 0.5 || Math.abs(hl - hr) > 0.3) { const [gx, gz] = grad(x, z); return out.set(-gx, 1, -gz).normalize(); }
+  // a sheer face right beside him (a wall, a ledge's side, a car) is not ground he's standing on: a real slope can't rise faster than about
+  // 76 degrees, so a bigger jump than that counts as flat. otherwise standing against a wall tilts his whole body over sideways onto the floor
+  const h0 = heightAt(x, z), smp = (px, pz, d) => { const sh = heightAt(px, pz); return Math.abs(sh - h0) > 4.2 * d + 0.05 ? h0 : sh; };
+  const hf = smp(x + fx * 0.3, z + fz * 0.3, 0.3), hb = smp(x - fx * 0.3, z - fz * 0.3, 0.3);
+  const hl = smp(x + rx * 0.12, z + rz * 0.12, 0.12), hr = smp(x - rx * 0.12, z - rz * 0.12, 0.12);
+  if (Math.abs(hf - hb) > 0.5 || Math.abs(hl - hr) > 0.3) {
+    const e = 0.06, gx = clamp((smp(x + e, z, e) - smp(x - e, z, e)) / (2 * e), -6, 6), gz = clamp((smp(x, z + e, e) - smp(x, z - e, e)) / (2 * e), -6, 6);
+    return out.set(-gx, 1, -gz).normalize();
+  }
   tF.set(fx * 0.6, hf - hb, fz * 0.6); tR.set(rx * 0.24, hl - hr, rz * 0.24);
   out.crossVectors(tF, tR).normalize(); if (out.y < 0) out.negate();
   return out;

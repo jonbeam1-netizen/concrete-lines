@@ -246,7 +246,7 @@ body.touch .readout .lbl { font-size: 11px; }
   <div class="splash-in">
     <h1>Concrete <span class="hz">Lines</span></h1>
     <p class="splash-by">Made by Jon Beam<br>with the use of Claude Code</p>
-    <p class="splash-date">Updated October 25, 2026 · Play-test 0.001</p>
+    <p class="splash-date">Updated October 25, 2026 · Play-test 0.002</p>
     <p class="splash-go">Click to play</p>
   </div>
 </div>
@@ -8013,7 +8013,7 @@ const sfx = {
       const len = ctx.sampleRate * 2, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
       for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
       this.noise = buf;
-      this.master = ctx.createGain(); this.master.gain.value = this.muted ? 0 : this.vol * 0.24; // a limiter on the way out so nothing can ever blast
+      this.master = ctx.createGain(); this.master.gain.value = this.muted ? 0 : this.vol * 0.048; // a limiter on the way out so nothing can ever blast (100% here = the old 20%)
       const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -14; lim.knee.value = 6; lim.ratio.value = 12; lim.attack.value = 0.002; lim.release.value = 0.2;
       this.master.connect(lim); lim.connect(ctx.destination);
       const loop = (type, freq, q) => {
@@ -8176,14 +8176,14 @@ const sfx = {
   },
   setMuted(m) { this.muted = m; this.apply(); },
   setVol(v) { this.vol = v; this.apply(); },
-  apply() { if (this.master) this.master.gain.value = this.muted ? 0 : this.vol * 0.24; }
+  apply() { if (this.master) this.master.gain.value = this.muted ? 0 : this.vol * 0.048; }
 };
 
 // ---------- Input ----------
 // Every action has a key the player can rebind; K mirrors the bindings for the game code
 const ACTIONS = [
   ['push', 'Push', 'KeyW'], ['brake', 'Brake / powerslide', 'KeyS'], ['left', 'Carve / spin left', 'KeyA'], ['right', 'Carve / spin right', 'KeyD'],
-  ['jump', 'Ollie (hold for higher)', 'Space'], ['trick', 'Right-side trick (also left click)', 'KeyE'], ['trick2', 'Left-side trick (also right click)', 'KeyQ'], ['grind', 'Manual / grind catch', 'KeyR'],
+  ['jump', 'Ollie (hold for higher)', 'Space'], ['trick', 'Right-side trick (also left click)', 'KeyE'], ['trick2', 'Left-side trick (also right click)', 'KeyQ'], ['grind', 'Manual / rail hop / grind catch', 'KeyR'],
   ['reset', 'Respawn', 'KeyB'], ['spawn', 'Next drop-in spot', 'KeyN'], ['cam', 'Camera', 'KeyC'], ['pause', 'Pause', 'KeyP'], ['mute', 'Mute', 'KeyM'],
 ];
 const DEFAULT_BIND = Object.fromEntries(ACTIONS.map(a => [a[0], a[2]]));
@@ -8296,7 +8296,7 @@ const CONTROLS = () => {
       [[k('trick')], 'Right-side flips: kickflip, FS shove-it, impossible, anti-bigspin, inward heelflip and more. Also left click.'],
       [[k('trick2')], 'Left-side flips: heelflip, BS shove-it, hardflip, 360 shove-it, tre flip and more. Also right click.'],
       [['Air'], 'The game picks a flip from that side that fits your hang time. Tap again for a double, hold to keep it spinning.'],
-      [[k('grind')], 'Manual / grind catch: on the ground, starts a manual or nose manual; press it again to revert and keep manualing. In the air, press it to arm a catch: land on a rail, ledge or coping to grind it, land on the ground to manual. W rolls out and pushes; S drops out and brakes or powerslides.'],
+      [[k('grind')], 'Manual / rail hop / grind catch: on the ground with a rail straight ahead, hops onto it and grinds; otherwise starts a manual or nose manual; press it again to revert and keep manualing. In the air, press it to arm a catch: land on a rail, ledge or coping to grind it, land on the ground to manual. W rolls out and pushes; S drops out and brakes or powerslides.'],
       [['Grinds'], 'Hold a direction as you land on a rail: nothing = a random grind, W = Nosegrind, S = 5-0, A = Boardslide, D = Lipslide, W+A = Crooked, W+D = Noseslide, S+A = Smith, S+D = Tailslide. FS or BS comes from the side you approach. Press R on the rail to flip into a Darkslide, R again to flip back into a random grind, and so on.'],
       [['Landing'], 'Tap just before you land: manual on flat, revert on a ramp. Keeps the combo going.'],
       [['Ground'], 'Pops a flip straight off the ground.'],
@@ -9013,7 +9013,7 @@ function wallNormal(x, z, tx, tz) {
   return [wx, wz];
 }
 // head-on wall hit speed that takes you out: only near top speed in Arcade, lower in Real mode
-const WALL_BAIL_S = () => REAL ? 7 : 9.5;
+const WALL_BAIL_S = () => REAL ? 7 : 10.2;
 // Glance off a wall: keep the speed along it, lose the part that went into it
 function glance(wx, wz) {
   const L = Math.hypot(wx, wz) || 1; wx /= L; wz /= L;
@@ -9023,7 +9023,7 @@ function glance(wx, wz) {
   // nearly head-on (within ~25 degrees): fast, and it takes you out; slow, and you just stop against it with a little knock back
   if (into > 0.9) {
     if (Math.abs(P.s) > WALL_BAIL_S() && P.state === 'ground') { bail('Ran into a wall'); return; }
-    P.s = -dirS * Math.min(0.8, Math.abs(P.s) * 0.15); P.anim.impact = Math.max(P.anim.impact, 0.3); if (Math.abs(P.s) > 0.3) sfx.bump(); return;
+    const hitS = Math.abs(P.s); P.s = -dirS * Math.min(0.5, hitS * 0.08); P.anim.impact = Math.max(P.anim.impact, 0.12 + 0.18 * Math.min(1, hitS / 10)); if (hitS > 2) sfx.bump(); return;   // same bump threshold as before (knock-back used to pass 0.3 at 2 m/s)
   }
   let tx = vx - wx * into, tz = vz - wz * into, tl = Math.hypot(tx, tz);
   if (tl < 0.2) { const side = (P.steer || 1); tx = -wz * side; tz = wx * side; tl = 0.2; }
@@ -9490,15 +9490,15 @@ function stepAir(dt, st) {
   }
   if (A.special) { if (held(K.flip) || held(K.grab)) A.special.t += dt; else finalizeSpecial(); }
 
-  // only the wallride -> rail hop (wallToGrind) is steered onto its rail; R in the air never pulls you toward one (tryGrind catches it if you come down on it)
-  if (A.wantRail && A.wallHop) {
+  // only the wallride -> rail hop (wallToGrind) and the ground R hop (groundLock) are steered onto their rail; R in the air never pulls you toward one (tryGrind catches it if you come down on it)
+  if (A.wantRail && (A.wallHop || A.groundLock)) {
     let r = A.wantRail, u = ((P.pos.x - r.a.x) * r.dx + (P.pos.z - r.a.z) * r.dz) / r.lenH2;
     if (u > 1 && r.next) { r = A.wantRail = r.next; u = ((P.pos.x - r.a.x) * r.dx + (P.pos.z - r.a.z) * r.dz) / r.lenH2; }
     else if (u < 0 && r.prev) { r = A.wantRail = r.prev; u = ((P.pos.x - r.a.x) * r.dx + (P.pos.z - r.a.z) * r.dz) / r.lenH2; }
     const uc = clamp(u, 0, 1);
     const ex = r.a.x + r.dx * uc - P.pos.x, ez = r.a.z + r.dz * uc - P.pos.z, el = Math.hypot(ex, ez);
     const ry = r.a.y + (r.b.y - r.a.y) * uc;
-    if (A.aimed) { if (el < 3) { P.vel.x += ex * 14 * dt; P.vel.z += ez * 14 * dt; } }
+    if (A.aimed) { if (el < 3) { const g = A.groundLock ? 8 : 14; P.vel.x += ex * g * dt; P.vel.z += ez * g * dt; } }
     else if (el < 3) {   // slide sideways onto the rail's line; no tugging forward or back along it
       const al = ex * r.dh.x + ez * r.dh.y, lx = ex - r.dh.x * al, lz = ez - r.dh.y * al;
       P.vel.x += lx * 10 * dt; P.vel.z += lz * 10 * dt;
@@ -9670,7 +9670,7 @@ function grindAssist() {
 }
 // the way reverts spin: fixed by your stance (not flipped by riding switch), so revert after revert keeps turning the same way round
 const revDir = () => stance === 'regular' ? -1 : 1;
-const REVERT_DUR = 0.65;
+const REVERT_DUR = 0.65, MAN_REVERT_DUR = 0.45;   // landing revert / manual revert (the manual one is snappier)
 // a revert's half turn is still playing: a new revert press is ignored (wall glances and powerslides don't block)
 const revertBusy = () => !!(P.recover && P.recover.revert && game.clock - P.recover.at < P.recover.dur);
 function revert() {
@@ -9716,6 +9716,34 @@ function wallToGrind() {
   P.vel.x = dx / dl * hv + Math.sin(P.heading) * sp * 0.6; P.vel.z = dz / dl * hv + Math.cos(P.heading) * sp * 0.6;
   P.air.wantGrind = true; P.air.wantRail = t.r; P.air.lockOn = true; P.air.aimed = true; P.air.wallHop = true;
   sfx.pop(); P.anim.ollieT = 0; P.anim.takeoff = 'ollie';
+}
+// R on the ground with a rail straight ahead in your path: pop and arc onto it. Rails you're riding past or have passed never count.
+function groundRailTarget() {
+  if (P.grindCD > 0 || Math.abs(P.s) <= 2) return null;
+  const t = findRail(3.5, true, 1.6, 0.8);
+  if (!t) return null;
+  const d = Math.sign(P.s) || 1, fx = Math.sin(P.heading) * d, fz = Math.cos(P.heading) * d;
+  const ahead = (t.cx - P.pos.x) * fx + (t.cz - P.pos.z) * fz;
+  if (ahead <= 0.2 || ahead > 3.5) return null;
+  if (Math.abs(fx * t.r.dh.x + fz * t.r.dh.y) < 0.7) return null;
+  // alongside or past: the rail (or the run of segments it belongs to) comes within 0.9 m of you and carries on behind you
+  for (let r = t.r, n = 0; r && n < 8; r = r.prev, n++) {
+    const u = clamp(((P.pos.x - r.a.x) * r.dx + (P.pos.z - r.a.z) * r.dz) / r.lenH2, 0, 1);
+    const near = Math.hypot(r.a.x + r.dx * u - P.pos.x, r.a.z + r.dz * u - P.pos.z);
+    const behind = Math.min((r.a.x - P.pos.x) * fx + (r.a.z - P.pos.z) * fz, (r.b.x - P.pos.x) * fx + (r.b.z - P.pos.z) * fz);
+    if (near < 0.9 && behind < -0.1) return null;
+  }
+  return t;
+}
+function groundLock(t) {
+  const sp = Math.max(Math.abs(P.s), Math.hypot(P.vel.x, P.vel.z));
+  const time = clamp(t.dh / sp, 0.28, 0.75);
+  const vy = Math.max(3.2, (t.ry + 0.12 - P.pos.y + 0.5 * AIR_G * time * time) / time);
+  P.manual = null; P.pending = 0; P.push.phase = -1; P.charge = 0;
+  ollie(vy);
+  const dx = t.cx - P.pos.x, dz = t.cz - P.pos.z, dl = Math.hypot(dx, dz) || 1, hv = Math.max(sp, dl / time);
+  P.vel.x = dx / dl * hv; P.vel.z = dz / dl * hv;
+  P.air.wantGrind = true; P.air.wantRail = t.r; P.air.lockOn = true; P.air.aimed = true; P.air.groundLock = true;
 }
 function groundInput() {
   const side = trickTap();
@@ -9899,10 +9927,11 @@ function manualRevert() {
   if (revertBusy()) return;   // still mid-revert: ignore the press (no credit, no stance change, no restart)
   P.switchSt = !P.switchSt;   // (no whole-body snap: your line doesn't change, only the board and stance turn)
   addTrick('Revert', 100); P.manual.t = 0;
-  // always the same way round, so reverting again keeps him turning in a circle instead of spinning back; the whole half-turn at a readable pace
-  const dir = revDir();
-  P.recover = { t: 0, off: -dir * Math.PI, dur: REVERT_DUR, revert: true, at: game.clock }; pose.yaw = pose.charYaw = P.recover.off;
+  // spins the way you're steering (A = left, D = right); with no steer held, always the same way round so reverting again keeps him circling
+  const st = P.steer || 0, off = st > 0.2 ? -Math.PI : st < -0.2 ? Math.PI : -revDir() * Math.PI;
+  P.recover = { t: 0, off, dur: MAN_REVERT_DUR, revert: true, at: game.clock }; pose.yaw = pose.charYaw = off;
   P.manual.nose = !P.manual.nose;   // it pivots on the wheels that are down, so that end leads afterwards (manual <-> nose manual)
+  pose.pitch = -pose.pitch;   // same picture at the half-turn start: the board keeps its tilt through the spin instead of easing through flat
 }
 function physics(dt) {
   // once you're in the tunnel you stay in it until you leave by an end, whatever height you reach inside
@@ -9933,9 +9962,11 @@ function physics(dt) {
   }
   else if (P.state === 'ground' && tapped(K.grind)) {
     P.rArmT = game.clock;
-    // R on the ground: manual (R again reverts in it). Never pops you toward a rail.
+    // R on the ground: a rail straight ahead in your path -> hop onto it; otherwise manual (R again reverts in it).
     // used up on the manual: popping out of it doesn't count as R pressed for the air (only a fresh R press does)
-    if (P.manual) { manualRevert(); P.rArmT = -9; }
+    const gt = groundRailTarget();
+    if (gt) { groundLock(gt); P.rArmT = -9; }
+    else if (P.manual) { manualRevert(); P.rArmT = -9; }
     else if (Math.abs(P.s) > 1.5) { const nose = (combo.counts['Nose Manual'] || 0) + Math.random() * 0.9 < (combo.counts['Manual'] || 0) + Math.random() * 0.9; startManual(nose); P.rArmT = -9; }
   }
   else if (P.state === 'air') {

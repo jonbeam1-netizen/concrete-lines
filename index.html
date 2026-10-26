@@ -246,7 +246,7 @@ body.touch .readout .lbl { font-size: 11px; }
   <div class="splash-in">
     <h1>Concrete <span class="hz">Lines</span></h1>
     <p class="splash-by">Made by Jon Beam<br>with the use of Claude Code</p>
-    <p class="splash-date">Updated October 26, 2026 · Play-test 0.012</p>
+    <p class="splash-date">Updated October 26, 2026 · Play-test 0.013</p>
     <p class="splash-go">Click to play</p>
   </div>
 </div>
@@ -6170,8 +6170,195 @@ const RV_BOUNCE = [];   // mattresses lying flat: landing on one bounces you bac
 const RV_KNOCK = [];   // every loose body (carts, tyres, cones), ticked together
 const RV_CARTS = [], RV_TIRES = [], RV_CONES = [], RV_BAGS = [], RV_PALLETS = [], RV_DUMPSTERS = [], RV_TEETERS = [];   // stable per-kind arrays: prop.idx is its index here
 // hooks for pass B (impact sounds, co-op sync). kind: 'cart' | 'tire' | 'cone' | 'bag' | 'pallet' | 'dumpster' | 'dumpsterFire' | 'teeter' | 'trash'
-function propEvent(kind, prop, speed) { /* no-op for now: called on every notable prop impact */ }
-function propApplyRemote(kind, idx, state) { /* no-op for now: apply a remote peer's state to RV_<KIND>S[idx] */ }
+// ---- prop impact sounds: small synth hits, quiet (under the skating), and guarded so a glitching body can never spam ----
+// guards: an impact-speed floor per kind, one sound per prop per PSND.gap seconds, at most PSND.cap prop sounds a second in all,
+// nothing beyond PSND.far metres from the rider, and the level falls off with distance and rises with the hit's speed
+const PSND = { cap: 6, gap: 0.35, far: 40, win: [], n: 0 };
+const PSND_MIN = { cart: 1.5, tire: 1.5, dumpster: 1.5, trash: 1.5, bag: 0.8, pallet: 0.8, teeter: 0.6, dumpsterFire: -1 };   // cones: no sound of their own (they keep the old bump)
+function psN(type, f, q, dur, vol, dl) {   // a filtered noise hit
+  const ctx = sfx.ctx, t = ctx.currentTime + (dl || 0), s = ctx.createBufferSource(), fl = ctx.createBiquadFilter(), g = ctx.createGain();
+  s.buffer = sfx.noise; fl.type = type; fl.frequency.value = f; fl.Q.value = q;
+  g.gain.setValueAtTime(0.0001, ctx.currentTime); g.gain.setValueAtTime(Math.max(0.0012, vol), t); g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+  s.connect(fl); fl.connect(g); g.connect(sfx.master); s.start(t, Math.random()); s.stop(t + dur + 0.05);
+}
+const psT = (f, dur, vol, type, end, dl) => sfx.tone(f, dur, Math.max(0.0012, vol), type, end, dl || 0);
+function propSound(kind, p, sp) {
+  const min = PSND_MIN[kind]; if (min === undefined || !p) return false;
+  if (!(sp >= min)) return false;   // too soft (and NaN-safe)
+  const o = p.p || p; if (!o || !isFinite(o.x)) return false;
+  const d = Math.hypot(o.x - P.pos.x, o.y - P.pos.y, o.z - P.pos.z); if (!(d < PSND.far)) return false;
+  const now = performance.now() / 1000;
+  if (now - (p._sndT || -9) < PSND.gap) return false;
+  PSND.win = PSND.win.filter(t => now - t < 1); if (PSND.win.length >= PSND.cap) return false;
+  p._sndT = now; PSND.win.push(now); PSND.n++;
+  if (!sfx.ctx || !sfx.master || !sfx.noise || sfx.muted) return true;
+  const g = Math.pow(1 - d / PSND.far, 1.6) * Math.min(1, 0.3 + 0.7 * Math.max(0, sp - Math.max(0, min)) / 6), r = () => 0.94 + Math.random() * 0.12;
+  try {
+    if ((kind === 'cart' || kind === 'tire') && p.sup && typeof inSludge === 'function' && inSludge(o.x, o.y + rvLow(p) - 0.05)) {   // into the sludge: a wet slap
+      psN('lowpass', 650 * r(), 0.7, 0.22, 0.22 * g); psN('bandpass', 900 * r(), 2, 0.12, 0.12 * g, 0.03); return true;
+    }
+    if (kind === 'cart') {   // a wire basket rattling, a low knock under it
+      psN('bandpass', 2400 * r(), 3, 0.16, 0.18 * g); psN('bandpass', 3300 * r(), 4, 0.09, 0.1 * g, 0.05); psN('lowpass', 240, 0.7, 0.1, 0.16 * g);
+      [1150, 1730, 2410].forEach((f, i) => psT(f * r(), 0.08, 0.022 * g, 'triangle', 0.97, i * 0.012));
+    } else if (kind === 'tire') {   // a rubbery thump
+      psT(95 * r(), 0.16, 0.08 * g, 'sine', 0.58); psN('lowpass', 180, 0.7, 0.1, 0.16 * g);
+    } else if (kind === 'trash') {   // a can or cup skittering: a tiny tick
+      psN('bandpass', 3500 * r(), 5, 0.05, 0.08 * g); psT(2600 * r(), 0.05, 0.012 * g, 'triangle', 0.9);
+    } else if (kind === 'bag') {   // a plastic sack splitting
+      psN('bandpass', 1200 * r(), 0.8, 0.22, 0.18 * g); psN('lowpass', 400, 0.7, 0.15, 0.14 * g, 0.02);
+    } else if (kind === 'pallet') {   // dry wood cracking, then boards knocking about
+      psN('bandpass', 1800 * r(), 1.5, 0.05, 0.25 * g); psN('bandpass', 900 * r(), 1.2, 0.12, 0.16 * g, 0.04);
+      [[330, 0.05], [240, 0.11], [410, 0.17]].forEach(([f, dl]) => psT(f * r(), 0.07, 0.035 * g, 'triangle', 0.85, dl));
+    } else if (kind === 'dumpster') {   // a hollow steel bin: a low clang that rings a little
+      [180, 263, 410].forEach((f, i) => psT(f * r(), 0.5 - i * 0.1, 0.03 * g, 'triangle', 0.98)); psN('lowpass', 400, 0.7, 0.15, 0.18 * g); psN('bandpass', 1500, 2, 0.06, 0.07 * g);
+    } else if (kind === 'teeter') {   // the bar's end knocking down: a light metal tink
+      psT(2100 * r(), 0.25, 0.03 * g, 'triangle', 0.99); psT(3170 * r(), 0.18, 0.018 * g, 'triangle', 0.99); psN('bandpass', 4000, 3, 0.03, 0.05 * g);
+    } else if (kind === 'dumpsterFire') {   // the bin going up: a soft whoomp
+      psN('lowpass', 500, 0.7, 0.6, 0.22 * g); psT(60, 0.4, 0.06 * g, 'sine', 0.7);
+    }
+  } catch (e) {}
+  return true;
+}
+function propEvent(kind, prop, speed) {   // every notable prop impact: its sound, and the one-shot breakages go to the other riders
+  try { propSound(kind, prop, speed); } catch (e) {}
+  try { if (!PN.applying && prop && (kind === 'bag' || kind === 'pallet' || kind === 'dumpsterFire')) pnOneShot(PN_K[kind], prop.idx); } catch (e) {}
+}
+// ---- co-op prop sync (selected props): carts, tyres, the teeter, trash-bag bursts, pallet smashes, dumpster fires ----
+// over the existing 'crash' topic (every event carries to: 0 so older clients drop it before their wipe-out check). The host owns the moving
+// bodies: it sends their state ~10 times a second while they're awake. Riders who knock one locally tell the host ('prophit'); the bursts,
+// smashes and fires are one-shot and idempotent, so whoever causes one reports it. No host, or the host gone: everyone just runs local physics.
+const PN = { applying: false, tx: 0, hb: 0, rr: 0, seq: 0, rxSeq: -1, rxAt: 0, bytes: 0, pk: 0, osT: [] };
+const PN_K = { bag: 'b', pallet: 'p', dumpsterFire: 'f' }, PN_EV = { pb: 1, pt: 1, prop: 1, prophit: 1, ps: 1 }, PN_REC = 29;
+const pnList = c => c === 0 ? RV_CARTS : c === 1 ? RV_TIRES : null;
+function pnLive() {   // the other riders on the river right now
+  const out = []; if (typeof MP === 'undefined' || !MP.room) return out; const now = performance.now();
+  for (const r of MP.remotes.values()) if (r.tgt && now - r.recvAt < 5000 && ((r.pres && r.pres.mp) || 'park') === 'river') out.push(r);
+  return out;
+}
+function pnHost() {   // the PeerJS host; in a Claude room, the rider with the lowest peer id on the river
+  if (!MP.room) return true;
+  if (MP.room.isNet) return !!NET.host;
+  const me = String(MP.mePeer || ''); if (!me) return false;
+  for (const r of pnLive()) if (String(r.peer) < me) return false;
+  return true;
+}
+function pnSend(d) {
+  if (!MP.room || MAPID !== 'river') return;
+  d.to = 0;
+  try { PN.bytes += JSON.stringify(d).length; PN.pk++; const pr = MP.room.emit('crash', d); if (pr && pr.catch) pr.catch(() => {}); } catch (e) {}
+}
+function pnOneShot(k, i) {
+  if (!k || !(i >= 0) || !MP.room || MAPID !== 'river' || !pnLive().length) return;
+  const now = performance.now(); PN.osT = PN.osT.filter(t => now - t < 1000); if (PN.osT.length >= 20) return;   // a pile going up at once is fine, a flood is not
+  PN.osT.push(now); pnSend({ ev: 'prop', k, i, at: Date.now() });
+}
+const pnC = (v, s) => Math.max(-32767, Math.min(32767, Math.round(v * s)));
+function pnPack(bodies) {
+  const dv = new DataView(new ArrayBuffer(bodies.length * PN_REC));
+  bodies.forEach((k, n) => { const o = n * PN_REC, h = k.home;
+    dv.setUint8(o, (k.kind === 'tire' ? 32 : 0) + k.idx);
+    dv.setUint8(o + 1, (k.sleep ? 1 : 0) | (k.roll ? 2 : 0) | (k.upright ? 4 : 0) | (k.tipped ? 8 : 0));
+    dv.setInt16(o + 2, pnC(k.x - h.x, 100)); dv.setInt16(o + 4, pnC(k.y - h.y, 100)); dv.setInt16(o + 6, pnC(k.z - h.z, 100));
+    dv.setInt16(o + 8, pnC(k.q.x, 32767)); dv.setInt16(o + 10, pnC(k.q.y, 32767)); dv.setInt16(o + 12, pnC(k.q.z, 32767)); dv.setInt16(o + 14, pnC(k.q.w, 32767));
+    dv.setInt16(o + 16, pnC(k.vx, 100)); dv.setInt16(o + 18, pnC(k.vy, 100)); dv.setInt16(o + 20, pnC(k.vz, 100));
+    dv.setInt16(o + 22, pnC(k.w.x, 100)); dv.setInt16(o + 24, pnC(k.w.y, 100)); dv.setInt16(o + 26, pnC(k.w.z, 100));
+    dv.setInt8(o + 28, Math.max(-127, Math.min(127, Math.round((k.roll ? k.roll.lean : 0) * 100)))); });
+  return mpB64(dv);
+}
+function pnBodyIn(k, dv, o) {
+  const now = performance.now(); if (now < (k.ownT || 0)) return;   // we just knocked it ourselves: let that play out until the host has heard
+  const h = k.home, fl = dv.getUint8(o + 1), I = a => dv.getInt16(o + a);
+  const st = { x: h.x + I(2) / 100, y: h.y + I(4) / 100, z: h.z + I(6) / 100, q: new THREE.Quaternion(I(8), I(10), I(12), I(14)), vx: I(16) / 100, vy: I(18) / 100, vz: I(20) / 100 };
+  if (st.q.lengthSq() < 0.25 * 32767 * 32767) return; st.q.normalize();
+  k.vx = st.vx; k.vy = st.vy; k.vz = st.vz; k.w.set(I(22) / 100, I(24) / 100, I(26) / 100);
+  k.upright = !!(fl & 4); k.tipped = !!(fl & 8);
+  const lean = dv.getInt8(o + 28) / 100;
+  if (fl & 2) { if (!k.roll) k.roll = { h: Math.atan2(k.vx, k.vz), phi: 0, lean: lean || 0.05 }; else k.roll.lean += (lean - k.roll.lean) * 0.5; } else k.roll = null;
+  if (fl & 1) {   // at rest on the host: put it exactly there
+    k.x = st.x; k.y = st.y; k.z = st.z; k.q.copy(st.q); k.vx = k.vy = k.vz = 0; k.w.set(0, 0, 0); k.roll = null; k.sleep = true; k.rx = null;
+    k.g.position.set(k.x, k.y, k.z); k.g.quaternion.copy(k.q); return;
+  }
+  k.sleep = false; k.hit = true; k.rx = st; k.rxT = now;
+  if (Math.hypot(st.x - k.x, st.y - k.y, st.z - k.z) > 3) { k.x = st.x; k.y = st.y; k.z = st.z; k.q.copy(st.q); }   // way off: jump there
+}
+function pnEase(k, dt) {   // a host-owned body: our local sim keeps it moving between updates, eased toward where the host has it
+  const st = k.rx, age = (performance.now() - k.rxT) / 1000; if (age > 1.5) { k.rx = null; return; }
+  const a = damp(8, dt), t = Math.min(0.3, age);
+  k.x += (st.x + st.vx * t - k.x) * a; k.z += (st.z + st.vz * t - k.z) * a; k.y += (st.y + st.vy * t - k.y) * a;
+  const gy = heightAt(k.x, k.z) - rvLow(k); if (k.y < gy) k.y = gy;
+  if (!k.roll) k.q.slerp(st.q, a);
+  k.g.quaternion.copy(k.q); k.g.position.set(k.x, k.y, k.z);
+}
+function pnHit(k) {   // we knocked a body: tell the host so it can push its copy the same way (only when someone else is the host)
+  if (!MP.room || MAPID !== 'river' || (k.kind !== 'cart' && k.kind !== 'tire') || pnHost() || !pnLive().length) return;
+  k.ownT = performance.now() + 400;
+  pnSend({ ev: 'prophit', k: k.kind === 'tire' ? 1 : 0, i: k.idx, vx: r2(k.vx), vy: r2(k.vy), vz: r2(k.vz), wx: r2(k.w.x), wy: r2(k.w.y), wz: r2(k.w.z), r: k.roll ? 1 : 0 });
+}
+const pnNum = (v, lim) => typeof v === 'number' && isFinite(v) && Math.abs(v) < lim;
+function propApplyRemote(kind, idx, state) {   // a remote rider's prop update applied to RV_<KIND>S[idx]
+  if (MAPID !== 'river' || !Number.isInteger(idx) || idx < 0) return;
+  const d = state || {};
+  PN.applying = true;
+  try {
+    if (kind === 'bag') { const b = RV_BAGS[idx]; if (b && !b.gone) { const sv = _rv.clone(); _rv.set(0, 0, 0); rvBagBurst(b, 3); _rv.copy(sv); } }
+    else if (kind === 'pallet') { const p = RV_PALLETS[idx]; if (p && !p.gone) { const sv = _rv.clone(), s = P.s; _rv.set(0, 0, 0); rvPalletSmash(p, 3); _rv.copy(sv); P.s = s; } }
+    else if (kind === 'dumpsterFire') { const dd = RV_DUMPSTERS[idx]; if (dd && !dd.lit) dumpsterIgnite(dd); }
+    else if (kind === 'teeter') { const t = RV_TEETERS[idx]; if (!t || !pnNum(d.th, 2) || !pnNum(d.om, 100)) return;
+      if (P.state === 'grind' && P.grind && P.grind.r === t.seg) return;   // we're on it ourselves: ours wins
+      if (Math.abs(d.th) >= t.max * 0.97 && Math.abs(t.th) < t.max * 0.97 && Math.abs(d.om) > 0.3) propEvent('teeter', t, 2);   // their end knocking down
+      t.rx = { th: Math.max(-t.max, Math.min(t.max, d.th)), om: d.om }; t.rxT = performance.now(); }
+    else if (kind === 'cart' || kind === 'tire') {   // a hit from a client, on the host
+      const k = (kind === 'cart' ? RV_CARTS : RV_TIRES)[idx]; if (!k || !pnNum(d.vx, 60) || !pnNum(d.vy, 60) || !pnNum(d.vz, 60)) return;
+      k.vx = d.vx; k.vy = d.vy; k.vz = d.vz; if (pnNum(d.wx, 200) && pnNum(d.wy, 200) && pnNum(d.wz, 200)) k.w.set(d.wx, d.wy, d.wz);
+      if (kind === 'cart' && k.w.length() > 3) k.upright = false;
+      if (kind === 'tire' && d.r && !k.roll) k.roll = { h: Math.atan2(k.vx, k.vz), phi: 0, lean: (Math.random() - 0.5) * 0.16 || 0.05 };
+      k.sleep = false; k.hit = true; k.cool = 0.25;
+    }
+  } catch (e) {} finally { PN.applying = false; }
+}
+function propNetIn(d) {   // a prop event off the crash topic
+  if (MAPID !== 'river' || !d) return;
+  if (d.ev === 'prop') { const kind = d.k === 'b' ? 'bag' : d.k === 'p' ? 'pallet' : d.k === 'f' ? 'dumpsterFire' : null; if (kind && Number.isInteger(d.i)) propApplyRemote(kind, d.i, d); }
+  else if (d.ev === 'pt') { if (Number.isInteger(d.i)) propApplyRemote('teeter', d.i, d); }
+  else if (d.ev === 'prophit') { if (pnHost() && (d.k === 0 || d.k === 1) && Number.isInteger(d.i)) propApplyRemote(d.k ? 'tire' : 'cart', d.i, d); }
+  else if (d.ev === 'ps') { if (Number.isInteger(d.d) && !pnHost()) RV_DUMPSTERS.forEach((dd, i) => { if ((d.d >> i) & 1 && !dd.lit) propApplyRemote('dumpsterFire', i, d); }); }
+  else if (d.ev === 'pb') {
+    if (pnHost() || typeof d.b !== 'string' || d.b.length > 2000) return;
+    const now = performance.now();
+    if (Number.isInteger(d.s)) { const ds = (d.s - PN.rxSeq + 65536) % 65536; if (PN.rxSeq >= 0 && now - PN.rxAt < 2000 && (ds === 0 || ds > 32768)) return; PN.rxSeq = d.s; PN.rxAt = now; }   // late or repeated
+    const dv = mpUnB64(d.b); if (!dv || dv.byteLength % PN_REC || dv.byteLength > 8 * PN_REC) return;
+    PN.applying = true;
+    try { for (let o = 0; o < dv.byteLength; o += PN_REC) { const id = dv.getUint8(o), L = pnList(id >> 5), k = L && L[id & 31]; if (k) pnBodyIn(k, dv, o); } } catch (e) {} finally { PN.applying = false; }
+  }
+}
+function pnTick(dt) {   // sends, from propsTick
+  if (!MP.room || MAPID !== 'river' || !pnLive().length) return;
+  const host = pnHost(), now = performance.now();
+  // the teeter: whoever is on it sends its angle; the host sends it settling when nobody else is driving it
+  for (const t of RV_TEETERS) {
+    const on = P.state === 'grind' && P.grind && P.grind.r === t.seg, moving = Math.abs(t.om) > 1e-3 || Math.abs(t.th) > 1e-3;
+    const drive = on || (host && moving && !(t.rx && now - t.rxT < 400));
+    if (drive) { t._tx = (t._tx || 0) + dt; if (t._tx >= 0.1) { t._tx = 0; t._sent = true; pnSend({ ev: 'pt', i: t.idx, th: r3(t.th), om: r2(t.om) }); } }
+    else if (t._sent && !moving) { t._sent = false; pnSend({ ev: 'pt', i: t.idx, th: 0, om: 0 }); }
+  }
+  if (!host) return;
+  // moving bodies, ~10 a second, at most 8 a packet (round robin if more are moving), and one last update as each comes to rest
+  if ((PN.tx += dt) >= 0.1) {
+    PN.tx = 0;
+    const all = RV_KNOCK.filter(k => k.kind !== 'cone'), out = [];
+    for (let n = 0; n < all.length && out.length < 8; n++) {
+      const k = all[(PN.rr + n) % all.length], L = k._tx;
+      if (k.sleep) { if (k._awake) { k._awake = false; out.push(k); } continue; }
+      if (L && Math.abs(k.x - L[0]) + Math.abs(k.y - L[1]) + Math.abs(k.z - L[2]) < 0.005 && Math.abs(k.q.dot(L[3])) > 0.99999) continue;   // not moving
+      k._awake = true; out.push(k);
+    }
+    PN.rr = (PN.rr + Math.max(1, out.length)) % Math.max(1, all.length);
+    out.forEach(k => { if (!k._tx) k._tx = [0, 0, 0, new THREE.Quaternion()]; k._tx[0] = k.x; k._tx[1] = k.y; k._tx[2] = k.z; k._tx[3].copy(k.q); });
+    if (out.length) { PN.seq = (PN.seq + 1) % 65536; pnSend({ ev: 'pb', s: PN.seq, b: pnPack(out) }); }
+  }
+  // now and then: which dumpsters are burning, for anyone who joined late
+  if ((PN.hb += dt) > 4) { PN.hb = 0; let m = 0; RV_DUMPSTERS.forEach((d, i) => { if (d.lit) m |= 1 << i; }); if (m) pnSend({ ev: 'ps', d: m }); }
+}
 const _sb = new THREE.Box3(), _sv = new V3();
 const KAX = [new V3(1, 0, 0), new V3(-1, 0, 0), new V3(0, 1, 0), new V3(0, -1, 0), new V3(0, 0, 1), new V3(0, 0, -1)];
 // a body's contact points in its own frame: the corners of its box (tyres: points round the tread; cones: the base corners and the tip)
@@ -6329,6 +6516,7 @@ function rvKnockHit(k, dx, dz, d, psp) {
   }
   sfx.bump(); shake = Math.max(shake, k.kind === 'cart' ? 0.15 : 0.05);
   propEvent(k.kind, k, rel);
+  pnHit(k);
 }
 // a tyre up on its tread: rolls the way it's going, leans more as it slows and curves toward the lean, then falls flat
 function tireRoll(k, dt, grounded) {
@@ -6357,7 +6545,7 @@ function rvBodyTick(k, dt) {
   if (heightAt(nx2, nz2) > base + 0.3) {   // into a wall: bounce off it
     const ax = heightAt(nx2, k.z) > base + 0.3, az = heightAt(k.x, nz2) > base + 0.3;
     if (ax || !az) k.vx *= -0.5; if (az || !ax) k.vz *= -0.5; k.w.y += (Math.random() - 0.5) * 2;
-    const hs = Math.hypot(k.vx, k.vz); if (hs > 1.5) { sfx.bump(); propEvent(k.kind, k, hs); }
+    const hs = Math.hypot(k.vx, k.vz); if (hs > 1.5) { if (k.kind === 'cone' && Math.hypot(k.x - P.pos.x, k.z - P.pos.z) < 25) sfx.bump(); propEvent(k.kind, k, hs); }
   } else { k.x = nx2; k.z = nz2; }
   // turning: a rolling tyre steers itself, everything else spins freely
   if (k.roll) tireRoll(k, dt, grounded);
@@ -6367,7 +6555,7 @@ function rvBodyTick(k, dt) {
   low = rvLow(k); gy = heightAt(k.x, k.z); grounded = false;
   if (k.y + low <= gy) {
     k.y = gy - low; grounded = true;
-    if (k.vy < 0) { if (k.vy < -1.5) { k.vy = -k.vy * (k.kind === 'tire' ? 0.55 : 0.32); if (k.kind !== 'cone' && k.vy > 0.6) { sfx.bump(); propEvent(k.kind, k, k.vy); } } else k.vy = 0; }
+    if (k.vy < 0) { if (k.vy < -1.5) { const imp = -k.vy; k.vy = imp * (k.kind === 'tire' ? 0.55 : 0.32); if (k.kind !== 'cone' && k.vy > 0.6) propEvent(k.kind, k, imp); } else k.vy = 0; }
   }
   const hs = Math.hypot(k.vx, k.vz);
   if (grounded && !k.roll) {
@@ -6402,7 +6590,7 @@ function knockTick(dt) {
     k.cool = Math.max(0, k.cool - dt);
     const dx = k.x - P.pos.x, dz = k.z - P.pos.z;
     if (game.running && k.cool <= 0 && psp > 1 && Math.abs(dx) < 1 && Math.abs(dz) < 1) { const d = Math.hypot(dx, dz); if (d < k.r + 0.3 && Math.abs(P.pos.y - k.y) < 1.2 && (_kv.x * dx + _kv.z * dz) > 0) rvKnockHit(k, dx, dz, d, psp); }
-    if (!k.sleep) rvBodyTick(k, Math.min(dt, 1 / 30));
+    if (!k.sleep) { rvBodyTick(k, Math.min(dt, 1 / 30)); if (k.rx) pnEase(k, Math.min(dt, 1 / 30)); }
   }
 }
 // the rider's speed over the ground and a point to test props against
@@ -6570,9 +6758,11 @@ function teeterTick(dt) {
     let acc = -14 * t.th - 4 * t.om;   // springs back level
     if (on) { const s = (P.grind.u - 0.5) * 2;   // -1..1 along the bar: your weight tips it down that end
       acc += 26 * s; }
-    if (!on && Math.abs(t.th) < 1e-4 && Math.abs(t.om) < 1e-4) continue;
-    t.om += acc * dt; t.th += t.om * dt;
-    if (Math.abs(t.th) > t.max) { t.th = Math.sign(t.th) * t.max; if (Math.abs(t.om) > 0.6) propEvent('teeter', t, Math.abs(t.om)); t.om = -t.om * 0.2; }   // the end knocks down on the concrete
+    const held = !on && t.rx && performance.now() - t.rxT < 300;   // another rider is tipping it (co-op): follow their angle
+    if (!held && !on && Math.abs(t.th) < 1e-4 && Math.abs(t.om) < 1e-4) continue;
+    if (held) { t.om = t.rx.om; t.th += (t.rx.th - t.th) * Math.min(1, dt * 14); }
+    else { t.om += acc * dt; t.th += t.om * dt;
+    if (Math.abs(t.th) > t.max) { t.th = Math.sign(t.th) * t.max; if (Math.abs(t.om) > 0.6) propEvent('teeter', t, Math.abs(t.om)); t.om = -t.om * 0.2; } }   // the end knocks down on the concrete
     if (on && !t.was) propEvent('teeter', t, 0);
     t.was = on;
     // tip the bar (+th: the +z end goes down) and move the rail with it
@@ -6603,6 +6793,7 @@ function propsTick(dt) {
   litterTick(dt, sp);
   dumpsterTick(dt, sp);
   teeterTick(dt);
+  try { pnTick(dt); } catch (e) {}   // co-op: send the props we own
   // first frame on the river: one puff, so every pooled material has its shader before the first real burst
   if (!PUFFS.warm) { PUFFS.warm = true; rvPuff(camera.position.x, camera.position.y - 0.5, camera.position.z, 0xffffff, 1, 0.01, 0.01, 0.001, 0.05); }
 }
@@ -10071,7 +10262,7 @@ function carAlarm() {   // the horn going off over and over: HONK HONK HONK HONK
   [415, 523].forEach(fr => { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = fr; o.detune.value = (Math.random() - 0.5) * 14; o.connect(f); o.start(t0); o.stop(t0 + 2.2); });
   for (let k = 0; k < 4; k++) {   // four flat blasts with hard gaps
     const a = t0 + k * 0.52;
-    g.gain.setValueAtTime(0, a); g.gain.linearRampToValueAtTime(0.03, a + 0.015); g.gain.setValueAtTime(0.03, a + 0.34); g.gain.linearRampToValueAtTime(0, a + 0.37);
+    g.gain.setValueAtTime(0, a); g.gain.linearRampToValueAtTime(0.045, a + 0.015); g.gain.setValueAtTime(0.045, a + 0.34); g.gain.linearRampToValueAtTime(0, a + 0.37);
   }
   f.connect(pk); pk.connect(g); g.connect(sfx.master);
 }
@@ -10088,7 +10279,7 @@ function copSiren() {   // a short, quiet whoop-whoop
   const ctx = sfx.ctx, t0 = ctx.currentTime + 0.01, o = ctx.createOscillator(), g = ctx.createGain(), f = ctx.createBiquadFilter();
   o.type = 'sawtooth'; f.type = 'lowpass'; f.frequency.value = 2400;
   for (let k = 0; k < 2; k++) { const a = t0 + k * 0.42; o.frequency.setValueAtTime(620, a); o.frequency.exponentialRampToValueAtTime(1250, a + 0.3); o.frequency.exponentialRampToValueAtTime(700, a + 0.42); }
-  g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(0.05, t0 + 0.04); g.gain.setValueAtTime(0.05, t0 + 0.78); g.gain.linearRampToValueAtTime(0, t0 + 0.86);
+  g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(0.075, t0 + 0.04); g.gain.setValueAtTime(0.075, t0 + 0.78); g.gain.linearRampToValueAtTime(0, t0 + 0.86);
   o.connect(f); f.connect(g); g.connect(sfx.master); o.start(t0); o.stop(t0 + 0.9);
 }
 function copThrow() {
@@ -12519,7 +12710,7 @@ if (location.hash === '#debug') {
   window.__cl = { P, keys, pressed, released, combo, game, letters, tape, heightAt, renderer, scene, render: () => renderer.render(scene, camera),
     step: dt => { game.clock += dt; physics(dt); for (const k in pressed) delete pressed[k]; for (const k in released) delete released[k]; },
     anim: dt => animate(dt), fx: dt => fxTick(dt), cam: dt => updateCamera(dt), rails, startGrind, legs, arms, pose, rider, camera,
-    sfx, SPAWNS, RIM, setMap, RAG, bail, glance, grad, get MAPID() { return MAPID; }, RV, ARCH, BUM, WRECK, COP, obstacles, get MP() { return MP; }, FIRE, RV_CARS, mpPresenceObj, mpNewRemote, mpTakePresence, mpDrop, mpCrash, mpTick, flames, river: dt => { game.clock += dt; physics(dt); riverTick(dt); for (const k in pressed) delete pressed[k]; for (const k in released) delete released[k]; }, get RVP() { return { RV_KNOCK, RV_CARTS, RV_TIRES, RV_CONES, RV_BAGS, RV_PALLETS, RV_DUMPSTERS, RV_TEETERS, PCS, PUFFS, LIT, pcsMesh }; }, get camYaw() { return camYaw; }, set camYaw(v) { camYaw = v; }, get SPIRALS() { return SPIRALS; }, get inSky() { return inSky; }, get mp() { return { MP, mpPeers, mpTick, mpPresenceObj, mpCrash, NET }; }, snap: () => [P.state, +P.pos.x.toFixed(2), +P.pos.y.toFixed(2), +P.pos.z.toFixed(2), +P.s.toFixed(2), +P.vel.y.toFixed(2), +P.heading.toFixed(2), P.switchSt ? 'sw' : ''] };
+    sfx, SPAWNS, RIM, setMap, RAG, bail, glance, grad, get MAPID() { return MAPID; }, RV, ARCH, BUM, WRECK, COP, obstacles, get MP() { return MP; }, FIRE, RV_CARS, mpPresenceObj, mpNewRemote, mpTakePresence, mpDrop, mpCrash, mpTick, flames, river: dt => { game.clock += dt; physics(dt); riverTick(dt); for (const k in pressed) delete pressed[k]; for (const k in released) delete released[k]; }, get RVP() { return { RV_KNOCK, RV_CARTS, RV_TIRES, RV_CONES, RV_BAGS, RV_PALLETS, RV_DUMPSTERS, RV_TEETERS, PCS, PUFFS, LIT, pcsMesh, PN, PSND, propEvent, propSound, propApplyRemote, propNetIn, pnTick, pnHost, pnLive }; }, get camYaw() { return camYaw; }, set camYaw(v) { camYaw = v; }, get SPIRALS() { return SPIRALS; }, get inSky() { return inSky; }, get mp() { return { MP, mpPeers, mpTick, mpPresenceObj, mpCrash, NET }; }, snap: () => [P.state, +P.pos.x.toFixed(2), +P.pos.y.toFixed(2), +P.pos.z.toFixed(2), +P.s.toFixed(2), +P.vel.y.toFixed(2), +P.heading.toFixed(2), P.switchSt ? 'sw' : ''] };
 }
 
 // ---------- Main loop ----------
@@ -12661,6 +12852,7 @@ async function mpNames() {
 function mpCrash(msg) {
   if (!msg || msg.sameTab || !msg.data) return;
   if (msg.data.ev === 'alarm' || msg.data.ev === 'cop') { mpAlarmIn(msg.data); return; }
+  if (PN_EV[msg.data.ev]) { try { propNetIn(msg.data); } catch (e) {} return; }   // co-op props
   if (msg.data.to !== MP.mePeer) return;
   if (game.running && !game.paused && P.state !== 'bail') { bail('Wiped out by another skater'); shake = 1.2; }
 }

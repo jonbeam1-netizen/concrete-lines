@@ -290,7 +290,7 @@ body.touch .readout { padding: 3px 8px 4px 7px; }
   <div class="splash-in">
     <h1>Concrete <span class="hz">Lines</span></h1>
     <p class="splash-by">Made by Jon Beam<br>with the use of Claude Code</p>
-    <p class="splash-date">Updated October 26, 2026 · Play-test 0.022</p>
+    <p class="splash-date">Updated October 26, 2026 · Play-test 0.023</p>
     <p class="splash-go">Click to play</p>
   </div>
 </div>
@@ -3221,10 +3221,10 @@ function junkLitter(spots, heightAt, seed, scale) {
       var r = rng(seedOf(o));
       n = Math.max(1, n || 4);
       var root = new T.Group();
-      var ring = Math.sqrt(n) * 0.55;
+      var ring = Math.sqrt(n) * 0.8;
       var placed = [];
       for (var i = 0; i < n; i++) {
-        var rad = rr(r, 0.25, 0.32);   // ~0.65-0.85 m across once slumped: real bin bags
+        var rad = rr(r, 0.36, 0.44);   // ~0.9-1.1 m across once slumped: big full bin bags
         var top = n >= 4 && i === n - 1;   // a big pile gets one slung on top; the rest sit side by side on the ground
         var a = i * 2.39996 + r() * 0.5, d = top ? 0.3 : Math.sqrt(i / n) * ring;
         var x = Math.cos(a) * d, z = Math.sin(a) * d, y = 0;
@@ -9006,17 +9006,17 @@ if (typeof junkLitter === 'function') {
   rvPallet(RV.xc + 8, -184.5, 0.2, 2);
   rvPallet(RV.xc + 5, -47, 0.35, 4);   // a stack right in the line down the channel: plough straight through it
   put(P_(junkShoppingBags), 6, -196, 0, null); put(P_(junkShoppingBags), -2, 40, 0, null);
-  bags(3, RV.xc - 14, -100, 0.5);
+  bags(2, RV.xc - 14, -100, 0.5);
   // the decks and the upper street
   { // his tent: a rounded dome you can ride up and over like a bump
     const t = put(P_(junkTent, { tarp: true }), BUM.x + 3.25, BUM.z - 3, -Math.PI / 2, null, true), D = t.userData.dome, ty = t.position.y;
     addObs({ cx: t.position.x, cz: t.position.z, a: -Math.PI / 2, hw: D.SX, hl: D.SZ, f: (lx, lz) => { const q = Math.hypot(lx / D.SX, lz / D.SZ); return q < 1 ? ty + D.SY * D.prof(q) + 0.0001 : 0; } });
   }
-  bags(5, BUM.x + 3.4, BUM.z + 1.7, 0.3);   // piled against the barrier
+  bags(2, BUM.x + 3.4, BUM.z + 1.7, 0.3);   // piled against the barrier
   put(P_(junkMattress), BUM.x + 1.4, BUM.z + 4.4, 0.12, [0.72, 0.99, 0.27, 0.6]);   // his bed, flat on the deck
   RV_BOUNCE.push({ x: BUM.x + 1.4, z: BUM.z + 4.4, c: Math.cos(0.12), s: Math.sin(0.12), hw: 0.72, hl: 0.99 });
   put(P_(junkBarrel), BUM.x + 1, BUM.z - 6.2, 0, [0.3, 0.3, 0.88]);
-  bags(4, 54.6, 40, 0);
+  bags(1, 54.6, 40, 0);
   rvKnock(put(P_(junkCart, { tipped: true, loaded: true }), 53.8, -60, -0.6, null), 'cart', true);
   rvKnock(put(P_(junkCone, { knocked: true }), RV.lipE + 1.4, -172, 0.5, null), 'cone', true); rvKnock(put(P_(junkCone), RV.lipW - 1.6, 10, 0, null), 'cone', false);
   put(P_(junkSign, { kind: 'notrespass' }), RV.lipW - 1.4, 16.5, Math.PI / 2, null, true);
@@ -9031,14 +9031,14 @@ if (typeof junkLitter === 'function') {
   rvPallet(RV.wallX + 0.2, -40, Math.PI / 2, 1, 0.3);
   rvPallet(47, -12, -0.3, 3);   // on the east deck
   put(P_(junkCouch), -70.8, -128, Math.PI / 2, [1.05, 0.47, 0.9]);
-  rvKnock(put(P_(junkTire), -72.4, -20, Math.PI / 2, null), 'tire'); bags(3, -60, -32, 1);
+  rvKnock(put(P_(junkTire), -72.4, -20, Math.PI / 2, null), 'tire'); bags(1, -60, -32, 1);
   rvKnock(put(P_(junkCart), -61.5, -146, 0.9, null), 'cart');
   // dumpsters: one against the barrier on the east deck, one against the wall on the west deck, one in the street; bags dumped round them
-  rvDumpster(55.25, -88, Math.PI / 2, 0x2d4a36); bags(4, 54.9, -90.6, 0.4); bags(2, 54.6, -85.6, 1.2);
-  rvDumpster(RV.wallX + 0.62, -88, Math.PI / 2, 0x234a5c); bags(3, RV.wallX + 1.5, -85.5, 2.1);
-  rvDumpster(-58.6, -236, Math.PI / 2, 0x3c5a2e); bags(5, -58.9, -238.7, 0.3); put(P_(junkShoppingBags), -59.8, -233.4, 0.4, null);
+  rvDumpster(55.25, -88, Math.PI / 2, 0x2d4a36); bags(2, 54.9, -90.6, 0.4); bags(1, 54.6, -85.6, 1.2);
+  rvDumpster(RV.wallX + 0.62, -88, Math.PI / 2, 0x234a5c); bags(1, RV.wallX + 1.5, -85.5, 2.1);
+  rvDumpster(-58.6, -236, Math.PI / 2, 0x3c5a2e); bags(2, -58.9, -238.7, 0.3); put(P_(junkShoppingBags), -59.8, -233.4, 0.4, null);
   // a bigger heap of junk under the third bridge on the west deck
-  bags(6, -30.5, -186.5, 0.7); put(P_(junkShoppingBags), -29.6, -185.2, 1.2, null); put(junkMilkCrate({ color: 0x1f5fa8 }), -31.6, -185.6, 0.4, null);
+  bags(2, -30.5, -186.5, 0.7); put(P_(junkShoppingBags), -29.6, -185.2, 1.2, null); put(junkMilkCrate({ color: 0x1f5fa8 }), -31.6, -185.6, 0.4, null);
   // ---- new spots ----
   // the teeter-totter in the channel: a flat bar on a pivot, east of the sludge
   rvTeeter(RV.xc + 9, -112, 0, 2.3, 0.42);

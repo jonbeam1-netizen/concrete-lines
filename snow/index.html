@@ -138,7 +138,7 @@ button.ghost:hover{background:rgba(58,143,208,.14)}
   <div class="gear"><button class="ghost" id="boardBtn" type="button">Board</button><button class="ghost" id="riderBtn" type="button">Rider</button></div>
   <div class="best" id="bestLine"></div>
   <a class="sib" href="https://jonbeam1-netizen.github.io/concrete-lines/" target="_top"><svg width="22" height="12" viewBox="0 0 22 12" aria-hidden="true"><rect x="1" y="2" width="20" height="4" rx="2" fill="currentColor"/><circle cx="5" cy="9" r="2.2" fill="currentColor"/><circle cx="17" cy="9" r="2.2" fill="currentColor"/></svg>Also play <b>Concrete Lines</b> &middot; skateboarding &rarr;</a>
-  <div class="sub">Updated November 14, 2026 &middot; Play-test 0.004</div>
+  <div class="sub">Updated November 14, 2026 &middot; Play-test 0.005</div>
 </div></div>
 <div class="overlay" id="pause"><div class="card">
   <h2>Paused</h2>
@@ -780,7 +780,7 @@ function createSnowRider(THREE, opts) {
     // B space: +X chest/toe edge, nose -Z, the chase camera sits off the tail (+Z) and above. Nose-down pitch turns the
     // teal base toward the camera; yaw gives the board a diagonal silhouette instead of an end-on stick.
     // Free arm: out, soft elbow (target well inside full reach). One leg boned, one tucked.
-    indy: { h: [1], p: [[HW, 0.006, 0.1]], bone: [-0.7, STANCE], f: { hipY: 0.98, by: 0.28, bx: 0.04, bYaw: -0.5, bPitch: -0.12, bRoll: 0.4, bend: 0.3, twist: -0.12, hipYaw: 0.2, side: 0.08, headYaw: 1.35, headPitch: -0.12, a0x: 0.26, a0y: 0.1, a0o: 0.4 } },
+    indy: { h: [1], p: [[HW, 0.006, 0.1]], bone: [-0.7, STANCE], f: { hipY: 0.98, by: 0.28, bx: 0.04, bYaw: -0.62, bPitch: -0.16, bRoll: 0.6, bend: 0.3, twist: -0.12, hipYaw: 0.2, side: 0.08, headYaw: 1.35, headPitch: -0.12, a0x: 0.14, a0y: 0.32, a0o: 0.5 } },
     mute: { h: [0], p: [[HW, 0.006, -0.12]], bone: [0.72, -STANCE], f: { hipY: 0.98, by: 0.24, bx: 0.06, bYaw: -0.6, bPitch: -0.12, bRoll: 1.55, bend: 0.4, twist: 0.32, hipYaw: 0.0, side: -0.14, headYaw: 1.1, headPitch: -0.15, a1x: -0.32, a1y: 0.06, a1o: 0.44 } },
     melon: { h: [0], p: [[-HW, 0.006, -0.1]], bone: [-0.6, STANCE], hint: [-0.2, -0.3, 1.0], f: { hipY: 1.02, by: 0.12, bx: -0.46, bYaw: 1.2, bPitch: -0.3, bRoll: -1.05, bend: 0.5, twist: 0.5, hipYaw: 0.45, side: -0.34, headYaw: 1.2, headPitch: -0.1, a1x: -0.05, a1y: 0.2, a1o: 0.56 } },
     method: { h: [0], p: [[-HW, 0.006, -0.04]], hint: [-0.3, -0.1, 1.0], f: { hipY: 0.98, by: 0.64, bx: -0.52, bYaw: 0.95, bPitch: -0.6, bRoll: -1.4, bend: -0.32, hipPitch: -0.14, twist: 0.42, side: -0.16, headYaw: 1.45, headPitch: 0.24, a1x: -0.12, a1y: 0.42, a1o: 0.5 } },
@@ -826,15 +826,18 @@ function createSnowRider(THREE, opts) {
   const setArm = (i, x, y, o) => { const K = AK[i]; T[K[0]] = x; T[K[1]] = y; T[K[2]] = o; };
   const mixArm = (i, x, y, o, w) => { if (w <= 0) return; const K = AK[i]; T[K[0]] = lerp(T[K[0]], x, w); T[K[1]] = lerp(T[K[1]], y, w); T[K[2]] = lerp(T[K[2]], o, w); };
   function ridingTargets() {
-    const sp = S.speed, fs = smoothT((sp - 4) / 16);
-    T.hipY = lerp(0.99, 0.82, fs) + 0.008 * Math.sin(clock * 1.1) * (1 - fs); T.hipX = 0.02 * fs; T.hipZ = 0; T.hipYaw = 0.3 - 0.06 * fs; T.hipPitch = 0.05 + 0.1 * fs; T.hipRoll = 0;
-    T.lean = 0; T.bend = 0.1 + 0.32 * fs + 0.012 * Math.sin(clock * 1.7) * (1 - fs); T.twist = 0.12; T.side = 0;
-    T.headYaw = 1.0; T.headPitch = -0.1 - 0.05 * fs; T.headRoll = 0;
+    const sp = S.speed, fs = smoothT((sp - 4) / 16), ff = smoothT((sp - 13) / 9);   // ff: the fast end (30 -> 50 mph), compact
+    // pass 7 (judged in game frames from the chase cam): the three speeds read apart - tall and loose (~20 mph), lower
+    // and active (~30), low, compact, chest forward over the front knee with the hands pulled in (45+)
+    T.hipY = lerp(1.0, 0.8, fs) - 0.06 * ff + 0.01 * Math.sin(clock * 1.1) * (1 - fs); T.hipX = 0.02 * fs + 0.03 * ff; T.hipZ = -0.04 * ff; T.hipYaw = 0.3 - 0.06 * fs; T.hipPitch = 0.04 + 0.12 * fs + 0.1 * ff; T.hipRoll = 0;
+    T.lean = 0; T.bend = 0.06 + 0.34 * fs + 0.16 * ff + 0.014 * Math.sin(clock * 1.7) * (1 - fs); T.twist = 0.12 + 0.08 * ff; T.side = 0;
+    T.headYaw = 1.0; T.headPitch = -0.1 - 0.05 * fs - 0.12 * ff; T.headRoll = 0;
     T.bx = T.by = T.bz = T.bYaw = T.bPitch = T.bRoll = 0; T.ground = 1;
     T.r0 = T.r1 = 0;
     // arms: loose and low when slow, out and active at cruise, compact in front when fast
-    setArm(0, lerp(0.1, 0.26, fs), lerp(-0.46, -0.34, fs), lerp(0.24, 0.3, fs) + 0.012 * Math.sin(clock * 1.3));
-    setArm(1, lerp(-0.04, 0.16, fs), lerp(-0.47, -0.38, fs), lerp(0.2, 0.22, fs));
+    setArm(0, lerp(0.06, 0.26, fs), lerp(-0.48, -0.34, fs), lerp(0.22, 0.3, fs) + 0.016 * Math.sin(clock * 1.3) * (1 - fs));
+    setArm(1, lerp(-0.06, 0.16, fs), lerp(-0.49, -0.38, fs), lerp(0.18, 0.24, fs) + 0.014 * Math.sin(clock * 1.1 + 1) * (1 - fs));
+    if (ff > 0) { mixArm(0, 0.3, -0.3, 0.12, ff * 0.8); mixArm(1, 0.24, -0.34, 0.06, ff * 0.8); }
     // speed tuck
     const tk = S.tuck;
     if (tk > 0) {
@@ -868,7 +871,7 @@ function createSnowRider(THREE, opts) {
     const k = S.skid;
     if (k > 0) {
       T.lean = lerp(T.lean, 0.62, k); T.bRoll = lerp(T.bRoll, 0.62, k); T.hipY -= 0.16 * k; T.hipX -= 0.2 * k; T.bend += 0.3 * k; T.hipPitch += 0.2 * k; T.twist += 0.3 * k; T.headYaw -= 0.4 * k; T.headPitch += 0.12 * k;
-      mixArm(0, 0.48, -0.1, 0.3, k); mixArm(1, 0.12, 0.02, 0.4, k);
+      mixArm(0, 0.4, -0.22, 0.2, k); mixArm(1, -0.04, -0.02, 0.32, k);
       T.hipY += 0.01 * k * Math.sin(clock * TAU * 8.3); T.bRoll += 0.02 * k * Math.sin(clock * TAU * 11.7);   // chatter as the edge scrapes
     }
     // crouch / load and spin wind-up
@@ -999,7 +1002,8 @@ function createSnowRider(THREE, opts) {
       const pw = Math.min(1, popL);
       T.hipY = lerp(T.hipY, 1.08 + 0.05 * lk, pw); T.by = lerp(T.by, -0.05 - 0.05 * lk, pw); T.bend = lerp(T.bend, -0.06 * lk, pw); T.hipPitch = lerp(T.hipPitch, -0.06 - 0.08 * lk, pw);
       T.headPitch = lerp(T.headPitch, 0.2 + 0.1 * lk, pw); T.bx = lerp(T.bx, 0, pw);
-      mixArm(0, 0.3, 0.26 + 0.06 * lk, 0.2 + 0.1 * lk, pw); mixArm(1, 0.16, 0.2 + 0.06 * lk, 0.3 + 0.1 * lk, pw);
+      const ps = 1 - clamp(Math.abs(S.spinRate) / 3, 0, 1) * 0.75;   // spinning: the arms wrap with the turn instead of flying up
+      mixArm(0, 0.3, 0.26 + 0.06 * lk, 0.2 + 0.1 * lk, pw * ps); mixArm(1, 0.16, 0.2 + 0.06 * lk, 0.3 + 0.1 * lk, pw * ps);
     }
     T.bPitch += 0.26 * (1 - 0.6 * big) * Math.sin(PI * clamp(at / 0.32, 0, 1));
     // long hang: breathe. Arms balance on slow offset waves, the board drifts in a lazy shifty, the shoulders counter it
@@ -1014,7 +1018,12 @@ function createSnowRider(THREE, opts) {
     }
     // spin: compact; tighter the faster it goes (540+)
     const sr = S.spinRate, k = clamp(Math.abs(sr) / 7.5, 0, 1), sg = sr > 0 ? 1 : sr < 0 ? -1 : 0;
-    if (k > 0) { T.by += 0.12 * k; T.bend += 0.16 * k; mixArm(0, 0.24, -0.2, 0.14, k * 0.85); mixArm(1, 0.18, -0.22, 0.12, k * 0.85); }
+    if (k > 0) {
+      T.by += 0.2 * k; T.bend += 0.2 * k;
+      // pass 7: the lead arm wraps across the chest in the spin direction, the trailing arm pulls in tight (it was a T)
+      const lw = smoothT(k * 1.6);
+      mixArm(0, 0.26, -0.16, 0.14 - 0.22 * sg, lw * 0.9); mixArm(1, 0.2, -0.22, 0.1 + 0.2 * sg, lw * 0.9);
+    }
     // flips / corks: a tight ball, head thrown back for a backflip, chin tucked for a frontflip
     const fr = S.flipRate, f = clamp(Math.abs(fr) / 5, 0, 1), fsg = fr > 0 ? 1 : -1;
     if (f > 0) { T.by += 0.22 * f; T.bend += 0.4 * f; T.hipPitch += 0.2 * f; T.headPitch += (fsg > 0 ? -0.45 : 0.35) * f; mixArm(0, 0.3, -0.3, 0.06, f); mixArm(1, 0.3, -0.3, -0.02, f); }
@@ -1038,7 +1047,7 @@ function createSnowRider(THREE, opts) {
     }
     // spin style on top of the grab: head leads the shoulders, which lead the hips, which lead the board
     const lead = k * (1 - 0.6 * spot);
-    T.headYaw += 0.7 * sg * lead; T.twist += 0.42 * sg * lead; T.hipYaw += 0.16 * sg * lead; T.bYaw -= 0.24 * sg * lead;
+    T.headYaw += 0.85 * sg * lead; T.twist += 0.55 * sg * lead; T.hipYaw += 0.16 * sg * lead; T.bYaw -= 0.3 * sg * lead;
     // shifty (S.shifty -1..1): the board turns under a still upper body, the shoulders counter it
     const shf = clamp(S.shifty || 0, -1, 1);
     if (shf) { T.bYaw += 0.85 * shf; T.hipYaw += 0.22 * shf; T.twist -= 0.4 * shf; T.headYaw -= 0.12 * shf; T.bRoll += 0.12 * Math.abs(shf); T.by += 0.04 * Math.abs(shf); }
@@ -1323,7 +1332,7 @@ function createSnowRider(THREE, opts) {
     // landing absorb: fast drop, slower rise; deeper and longer with strength
     if (L.t < 3) {
       // absorb: a fast drop into the knees (deeper and longer for bigger hits), a short hold at the bottom, a slower rise
-      const s = L.s, t = L.t, sm = Math.min(s, 1.3), D = 0.09 + 0.24 * sm, tD = 0.08 + 0.07 * sm, tH = 0.06 * sm, tU = 0.3 + 0.4 * sm;
+      const s = L.s, t = L.t, sm = Math.min(s, 1.3), D = 0.1 + 0.26 * sm, tD = 0.08 + 0.07 * sm, tH = 0.03 + 0.08 * sm, tU = 0.32 + 0.42 * sm;
       const env = t < tD ? Math.sin(PI / 2 * t / tD) : t < tD + tH ? 1 : t < tD + tH + tU ? 0.5 + 0.5 * Math.cos(PI * (t - tD - tH) / tU) : 0;
       // the upper body arrives a beat late: chest folds over the knees, head nods then comes up
       const t2 = t - 0.05, T2 = tD * 1.4, env2 = t2 <= 0 ? 0 : t2 < T2 ? Math.sin(PI / 2 * t2 / T2) : t2 < T2 + tH + tU ? 0.5 + 0.5 * Math.cos(PI * (t2 - T2) / (tH + tU)) : 0;
@@ -4059,10 +4068,31 @@ function createScenery(THREE, renderer, scene, opts) {
       tAT[o4] = u; tAT[o4 + 1] = seq; tAT[o4 + 2] = U.uTime.value; tAT[o4 + 3] = dep;
     }
   }
+  // ground plane round the rider, for the spray's soft particles when the game gives no ground sampler: a least-squares
+  // plane through the last ~48 board-on-snow points (trail + spray contacts), ridge-damped across a straight track
+  var GPN = 48, gpX = new Float32Array(GPN), gpY = new Float32Array(GPN), gpZ = new Float32Array(GPN), gpN = 0, gpI = 0;
+  var GP = { ok: false, x: 0, y: 0, z: 0, gx: 0, gz: 0 };
+  function gpAdd(x, y, z) {
+    if (!(isFinite(x) && isFinite(y) && isFinite(z))) return;
+    if (gpN > 0) { var l = (gpI + GPN - 1) % GPN; if (Math.abs(gpX[l] - x) + Math.abs(gpZ[l] - z) > 40) gpN = 0; } // teleport
+    gpX[gpI] = x; gpY[gpI] = y; gpZ[gpI] = z; gpI = (gpI + 1) % GPN; if (gpN < GPN) gpN++;
+  }
+  function gpFit() {
+    if (gpN < 4) { GP.ok = false; return; }
+    var mx = 0, my = 0, mz = 0, k;
+    for (k = 0; k < gpN; k++) { mx += gpX[k]; my += gpY[k]; mz += gpZ[k]; }
+    mx /= gpN; my /= gpN; mz /= gpN;
+    var sxx = 0, szz = 0, sxz = 0, sxh = 0, szh = 0;
+    for (k = 0; k < gpN; k++) { var dx = gpX[k] - mx, dz = gpZ[k] - mz, dh = gpY[k] - my; sxx += dx * dx; szz += dz * dz; sxz += dx * dz; sxh += dx * dh; szh += dz * dh; }
+    var lam = 0.08 * gpN; sxx += lam; szz += lam;
+    var det = sxx * szz - sxz * sxz; if (det < 1e-6) { GP.ok = false; return; }
+    var gx = (sxh * szz - szh * sxz) / det, gz = (szh * sxx - sxh * sxz) / det;
+    GP.gx = Math.max(-1.5, Math.min(1.5, gx)); GP.gz = Math.max(-1.5, Math.min(1.5, gz)); GP.x = mx; GP.y = my; GP.z = mz; GP.ok = true;
+  }
   var _ts = new V3(), _tn = new V3(), _tr0 = new V3();
   SC.trail = {
     add: function (p, side, width) {
-      width = width || 0.3;
+      width = width || 0.3; gpAdd(p.x, p.y, p.z);
       _tr0.copy(side); if (_tr0.lengthSq() > 1e-8) _tr0.normalize();
       // the board's toe-heel vector tilts with the edge angle; lay the groove flat across the slope instead
       _ts.copy(side); _ts.y = 0;
@@ -4104,55 +4134,80 @@ function createScenery(THREE, renderer, scene, opts) {
   var SPN = LOW ? 900 : 2400;
   var sP = new Float32Array(SPN * 3), sV = new Float32Array(SPN * 3), sLife = new Float32Array(SPN), sMax = new Float32Array(SPN),
     sS0 = new Float32Array(SPN), sS1 = new Float32Array(SPN), sAm = new Float32Array(SPN), sDrag = new Float32Array(SPN), sGrav = new Float32Array(SPN);
-  var sSize = new Float32Array(SPN), sAlpha = new Float32Array(SPN), sSeed = new Float32Array(SPN), sKind = new Float32Array(SPN);
-  for (var i0 = 0; i0 < SPN; i0++) { sSeed[i0] = Math.random(); sP[i0 * 3 + 1] = -1e5; }
+  var sSize = new Float32Array(SPN), sAlpha = new Float32Array(SPN), sSeed = new Float32Array(SPN), sKind = new Float32Array(SPN), sGy = new Float32Array(SPN);
+  var sFrontW = new Float32Array(SPN), sFrontI = new Int32Array(SPN); // puffs over the rider this frame (see stepSpray)
+  for (var i0 = 0; i0 < SPN; i0++) { sSeed[i0] = Math.random(); sP[i0 * 3 + 1] = -1e5; sGy[i0] = -1e4; }
   var sGeo = new THREE.BufferGeometry();
   var sPA = new THREE.BufferAttribute(sP, 3).setUsage(THREE.DynamicDrawUsage), sSA = new THREE.BufferAttribute(sSize, 1).setUsage(THREE.DynamicDrawUsage), sAA = new THREE.BufferAttribute(sAlpha, 1).setUsage(THREE.DynamicDrawUsage);
-  var sKA = new THREE.BufferAttribute(sKind, 1).setUsage(THREE.DynamicDrawUsage);
+  var sKA = new THREE.BufferAttribute(sKind, 1).setUsage(THREE.DynamicDrawUsage), sGA = new THREE.BufferAttribute(sGy, 1).setUsage(THREE.DynamicDrawUsage);
   sGeo.setAttribute('position', sPA); sGeo.setAttribute('aSize', sSA); sGeo.setAttribute('aAlpha', sAA); sGeo.setAttribute('aSeed', new THREE.BufferAttribute(sSeed, 1)); sGeo.setAttribute('aKind', sKA);
+  sGeo.setAttribute('aGy', sGA);
+  // Puffs are flat camera-facing sprites at one depth, so where one dips into the snow (or the camera rolls in a carve) the
+  // depth test cuts it along a straight line. Soft particles without a depth texture: each fragment's point on the sprite is
+  // put back into the world (camera right/up), its height over the local ground plane (puff's own ground height + the slope
+  // round the rider) fades it out before the snow can cut it.
+  var SPR_CAP = LOW ? 0.5 : 0.6;   // largest puff on screen, as a fraction of the drawing-buffer height (alpha is 0 by then)
   var sprayMat = new THREE.ShaderMaterial({
     uniforms: { uPx: { value: 600 }, uSunView: { value: new V3(0, 1, 0) }, uLit: { value: new THREE.Color(litT.r * 1.03, litT.g * 1.03, litT.b * 1.03) }, uShad: { value: shadT.clone().multiplyScalar(0.9) },
       uGlow: { value: col(0xfff0d2) }, uFogCol: U.uFogCol, uFogNear: U.uFogNear, uFogFar: U.uFogFar,
       // the rider on screen (drawing-buffer px, view depth) and the half size of the see-through window around him (px)
-      uRid: { value: new V3(0, 0, -1) }, uRidR: { value: new THREE.Vector2(40, 70) } },
+      uRid: { value: new V3(0, 0, -1) }, uRidR: { value: new THREE.Vector2(40, 70) },
+      // soft particles: drawing-buffer height, camera near, camera right / up in the world, ground slope (dh/dx, dh/dz)
+      uH: { value: 720 }, uNear: { value: 0.1 }, uCR: { value: new V3(1, 0, 0) }, uCU: { value: new V3(0, 1, 0) }, uGrad: { value: new THREE.Vector2() } },
     vertexShader: [
-      'uniform float uPx; uniform float uFogNear; uniform float uFogFar; attribute float aSize; attribute float aAlpha; attribute float aSeed; attribute float aKind;',
-      'varying float vA; varying float vSeed; varying float vFog; varying float vKind; varying float vNear; varying float vD;',
+      'uniform float uPx; uniform float uFogNear; uniform float uFogFar; uniform float uH; uniform float uNear; uniform vec3 uRid;',
+      'attribute float aSize; attribute float aAlpha; attribute float aSeed; attribute float aKind; attribute float aGy;',
+      'varying float vA; varying float vSeed; varying float vFog; varying float vKind; varying float vNear; varying float vD; varying float vWR; varying float vH; varying float vFront;',
       'void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv;',
-      ' float d = max(-mv.z, 0.05); gl_PointSize = min(aSize * uPx / d, ' + (LOW ? '160.0' : '280.0') + ');',
-      ' vA = aAlpha * smoothstep(0.25, 1.4, d) * (aSize > 0.0 ? 1.0 : 0.0); vSeed = aSeed; vFog = smoothstep(uFogNear, uFogFar, d); vKind = aKind;',
-      ' vNear = 1.0 - smoothstep(1.2, 4.5, d); vD = d; }'].join('\n'),
+      ' float d = max(-mv.z, 0.05); float ps = aSize * uPx / d; float cap = uH * ' + SPR_CAP.toFixed(2) + ';',
+      // a puff that grows past about a third of the screen is fog over everything: it fades out before it reaches the cap,
+      // so no sprite is ever drawn as a flat capped disc
+      ' float big = aKind < 0.5 ? 1.0 - smoothstep(uH * 0.34, cap, ps) : 1.0;',
+      ' gl_PointSize = min(ps, cap);',
+      ' vA = aAlpha * smoothstep(0.25, 1.4, d) * (aSize > 0.0 ? 1.0 : 0.0) * big; vSeed = aSeed; vFog = smoothstep(uFogNear, uFogFar, d); vKind = aKind;',
+      ' vNear = 1.0 - smoothstep(uNear + 1.2, uNear + 5.5, d); vD = d;',
+      ' vWR = 0.5 * gl_PointSize * d / uPx; vH = position.y - aGy;',
+      // between the camera and the rider: the nearer the camera, the thinner (a veil, never a wall)
+      ' vFront = uRid.z > 0.3 ? clamp((uRid.z - 0.5 - d) / max(uRid.z * 0.5, 1.0), 0.0, 1.0) : 0.0; }'].join('\n'),
     fragmentShader: [
       'uniform vec3 uSunView; uniform vec3 uLit; uniform vec3 uShad; uniform vec3 uGlow; uniform vec3 uFogCol; uniform vec3 uRid; uniform vec2 uRidR;',
-      'varying float vA; varying float vSeed; varying float vFog; varying float vKind; varying float vNear; varying float vD;',
+      'uniform vec3 uCR; uniform vec3 uCU; uniform vec2 uGrad;',
+      'varying float vA; varying float vSeed; varying float vFog; varying float vKind; varying float vNear; varying float vD; varying float vWR; varying float vH; varying float vFront;',
       NOISE,
       'void main(){ vec2 pc = gl_PointCoord * 2.0 - 1.0; pc.y = -pc.y;',
       ' float r2 = dot(pc, pc); if (r2 > 1.0) discard;',
       ' float back = pow(max(-uSunView.z, 0.0), 1.5);', // looking toward the sun: the powder is lit from behind
       // see-through window: powder in front of (or level with) the rider thins out over his silhouette on screen, so the
       // player always sees him clearly; the cloud around and behind him is untouched
-      ' float hole = 0.0;',
+      ' float hole = 0.0, fr = 0.0;',
       ' if (uRid.z > 0.3) { vec2 hq = (gl_FragCoord.xy - uRid.xy) / uRidR; float he = dot(hq, hq);',
-      '  hole = (1.0 - smoothstep(0.45, 2.6, he)) * (1.0 - smoothstep(uRid.z - 0.3, uRid.z + 1.2, vD)); }',
+      '  hole = (1.0 - smoothstep(0.5, 2.2, sqrt(he))) * (1.0 - smoothstep(uRid.z - 0.3, uRid.z + 1.2, vD));', // wide + soft: a narrow window read as a straight cut
+      // between him and the camera and anywhere near him on screen: thinned to a veil (the tail off to the side is untouched)
+      '  fr = vFront * (1.0 - smoothstep(1.2, 3.5, sqrt(he))); }',
       ' vec3 c; float a;',
       ' if (vKind < 0.5) {',
       // soft cloud: lumpy noisy density, fake sphere normal for the sun side, a silver lining when backlit
       '  float nz = vnoise(pc * 2.3 + vSeed * 31.0) * 0.6 + vnoise(pc * 5.1 - vSeed * 17.0) * 0.4;',
-      '  float den = smoothstep(1.0, 0.15, r2 + (nz - 0.5) * 0.75);',
+      '  float den = smoothstep(1.0, 0.15, r2 + (nz - 0.5) * 0.75) * (1.0 - smoothstep(0.55, 1.0, r2));', // always 0 at the rim
       '  if (den < 0.01) discard;',
+      // soft particles: this fragment's point on the sprite, its height over the snow (local plane) -> fade before the cut
+      '  vec2 o2 = pc * vWR; vec3 ow = uCR * o2.x + uCU * o2.y;',
+      '  float hg = vH + ow.y - dot(uGrad, ow.xz);',
+      '  float soft = smoothstep(0.0, 0.25 + 0.5 * vWR, hg);',
+      '  if (soft < 0.005) discard;',
       '  vec3 n = vec3(pc * 0.9, sqrt(max(1.0 - r2 * 0.8, 0.0)));',
       '  float w = clamp((dot(n, uSunView) + 0.2) / 1.2, 0.0, 1.0);',
       '  c = mix(mix(uShad, uLit, 0.3), uLit, w * (0.7 + 0.3 * nz));', // a thick cloud shades its own far side blue
       '  float edge = 1.0 - den;',
       '  c = mix(c, uGlow * 1.3, back * (0.25 + 0.75 * edge * edge) * 0.9);', // backlit: the thin edges glow
-      '  a = vA * den * (1.0 - vNear) * (1.0 - hole * 0.9);',
+      '  a = vA * den * soft * (1.0 - vNear) * (1.0 - hole * 0.92) * (1.0 - 0.7 * fr);',
       ' } else {',
       '  float lump = 1.0 - 0.12 * (0.5 + 0.5 * sin(atan(pc.y, pc.x) * 3.0 + vSeed * 40.0));',
       '  float rr = r2 / (lump * lump); if (rr > 1.0) discard;',
       '  vec3 n = vec3(pc, sqrt(1.0 - min(rr, 1.0)));',
       '  float w = clamp((dot(n, uSunView) + 0.3) / 1.3, 0.0, 1.0);',
       '  c = uLit * (0.9 + 0.14 * w) + uGlow * back * 0.6;',
-      '  a = vA * smoothstep(1.0, 0.45, rr) * (1.0 - hole * 0.5);',
+      '  a = vA * smoothstep(1.0, 0.45, rr) * (1.0 - hole * 0.6) * (1.0 - 0.8 * vNear) * (1.0 - 0.4 * fr);',
       ' }',
       ' c = mix(c, uFogCol, vFog);',
       ' if (a < 0.008) discard;',
@@ -4176,14 +4231,21 @@ function createScenery(THREE, renderer, scene, opts) {
   SC.spray = {
     emit: function (p, vel, count, size) {
       size = size || 0.3;
+      // a throw with a horizontal part (the hockey stop) fans out into a wide sheet across it and starts a little ahead of
+      // the board, so it reads either side of the rider instead of as a ball on his knees; a straight-up throw is unchanged
+      var hl = Math.sqrt(vel.x * vel.x + vel.z * vel.z), fx = 0, fz = 0, fan = 0, bias = rr() * 0.8;
+      if (hl > 0.5) { fx = vel.x / hl; fz = vel.z / hl; fan = 1.4 + 0.45 * hl; }
       for (var i = 0; i < count; i++) {
-        var j = 0.5, f = 1 + rr() * j;
+        var j = 0.5, f = 1 + rr() * j, u = Math.max(-1, Math.min(1, rr() * 2.2 + bias)), ax = -fz * u, az = fx * u;
         // grains
-        spawn(p.x + rr() * 0.3, p.y + 0.05, p.z + rr() * 0.3, vel.x * f + rr() * 1.2, vel.y * (0.7 + 0.6 * Math.random()) + Math.random() * 0.6, vel.z * f + rr() * 1.2,
-          size * 0.25, size * 0.35, 0.5 + 0.4 * Math.random(), 1.0, 1.4, 0.9, 1);
-        // a puff for every other grain: the hanging cloud
-        if (Math.random() < 0.6 * Q_SP + 0.2) spawn(p.x + rr() * 0.3, p.y + 0.15, p.z + rr() * 0.3, vel.x * f * 0.7 + rr(), vel.y * 0.5 + Math.random() * 0.5, vel.z * f * 0.7 + rr(),
-          size * (0.6 + 0.5 * Math.random()), size * (2.6 + 2.0 * Math.random()), 0.9 + 0.8 * Math.random(), 0.42, 2.2, 0.12, 0);
+        spawn(p.x + rr() * 0.3 + ax * 0.35 + fx * 0.15, p.y + 0.05, p.z + rr() * 0.3 + az * 0.35 + fz * 0.15,
+          vel.x * f + ax * fan + rr() * 1.2, vel.y * (0.7 + 0.6 * Math.random()) + Math.random() * 0.6, vel.z * f + az * fan + rr() * 1.2,
+          size * (hl > 0.5 ? 0.14 : 0.25), size * (hl > 0.5 ? 0.2 : 0.35), 0.5 + 0.4 * Math.random(), 1.0, 1.4, 0.9, 1);
+        // a puff for every other grain: the hanging cloud (blooms out of the sheet, not at the feet)
+        if (Math.random() < 0.6 * Q_SP + 0.2) { var ah = 0.3 + 0.4 * Math.random();
+          spawn(p.x + rr() * 0.3 + ax * 0.5 + fx * ah, p.y + 0.2, p.z + rr() * 0.3 + az * 0.5 + fz * ah,
+            vel.x * f * 0.7 + ax * fan * 0.8 + rr(), vel.y * 0.5 + Math.random() * 0.5, vel.z * f * 0.7 + az * fan * 0.8 + rr(),
+            size * (0.5 + 0.4 * Math.random()), size * (2.4 + 1.8 * Math.random()), 0.9 + 0.8 * Math.random(), hl > 0.5 ? 0.36 : 0.42, 2.2, 0.12, 0); }
       }
     },
     // A rooster tail. dir: either the travel direction (edge sign picks the side, dir x up = +) or, as the game passes it,
@@ -4219,7 +4281,7 @@ function createScenery(THREE, renderer, scene, opts) {
       for (i = 0; i < n; i++) {
         // the rooster tail: thrown hard out to the side and up, so it hangs well clear of the camera's line to the rider
         // (it trails back past the camera off to the side, not through it); keeps more of the rider's speed at first
-        var keep2 = 0.4 + 0.25 * Math.random(), out2 = (2.0 + sp * 0.32 * a) * (0.6 + 0.6 * Math.random()), up2 = (1.5 + sp * 0.24 * a) * (0.5 + 0.7 * Math.random());
+        var keep2 = 0.4 + 0.25 * Math.random(), out2 = (2.4 + sp * 0.38 * a) * (0.6 + 0.6 * Math.random()), up2 = (1.8 + sp * 0.27 * a) * (0.5 + 0.7 * Math.random());
         var s1 = 0.12 + 0.12 * Math.random(), off = 0.9 + 0.5 * Math.random();
         spawn(p.x + _r.x * off + rr() * 0.4, p.y + 0.25, p.z + _r.z * off + rr() * 0.4,
           vx * keep2 + _r.x * out2 + rr() * 0.6, vy * keep2 + up2, vz * keep2 + _r.z * out2 + rr() * 0.6,
@@ -4228,7 +4290,7 @@ function createScenery(THREE, renderer, scene, opts) {
     },
     // a soft powder explosion: a low ring of billowing puffs, a column of fine dust, grains thrown out
     land: function (p, strength) {
-      var s = Math.max(0.1, Math.min(1.6, strength || 0.5));
+      var s = Math.max(0.1, Math.min(1.6, strength || 0.5)); gpAdd(p.x, p.y, p.z);
       var vl = focusVel.length(), cx = vl > 1 ? focusVel.x * 0.35 : 0, cz = vl > 1 ? focusVel.z * 0.35 : 0;
       var n = Math.round((24 + 50 * s) * Q_SP);
       for (var i = 0; i < n; i++) {
@@ -4251,8 +4313,12 @@ function createScenery(THREE, renderer, scene, opts) {
     }
   };
   var WIND_MS = 2.2; // m/s of drift per unit of uWind for puffs
+  // rider readability: set each frame by SC.update. The view matrix, the rider's view-space body centre, pixel scale.
+  var FV = { on: false, e: null, rx: 0, ry: 0, rz: 1, px: 600, capPx: 360, near: 0.1, s: 1 };
+  var FRONT_MAX = 0.22; // most a stack of puffs may cover the rider's body centre (opacity)
   function stepSpray(dt) {
     var wx = U.uWind.value.x * WIND_MS, wz = U.uWind.value.y * WIND_MS;
+    var nF = 0, logT = 0, e = FV.e, fOn = FV.on && e;
     for (var i = 0; i < SPN; i++) {
       if (sLife[i] <= 0) { if (sSize[i] !== 0) { sSize[i] = 0; sAlpha[i] = 0; } continue; }
       sLife[i] -= dt;
@@ -4270,10 +4336,32 @@ function createScenery(THREE, renderer, scene, opts) {
         if (rd2 < 4.4) { var rq = Math.sqrt(rd2); a *= 0.15 + 0.85 * Math.min(1, Math.max(0, (rq - 0.5) / 1.6)); }
       }
       if (groundFn) { var gy = groundFn(sP[o], sP[o + 2]); if (sP[o + 1] < gy) { sP[o + 1] = gy; sV[o + 1] = 0; sV[o] *= 0.5; sV[o + 2] *= 0.5; if (!puff && sLife[i] > 0.15) sLife[i] = 0.15; }
+        sGy[i] = gy;
         if (!puff) a *= Math.min(1, (sP[o + 1] - gy + sSize[i] * 0.5) / (sSize[i] * 0.8 + 0.01)); }
+      else sGy[i] = GP.ok ? GP.y + GP.gx * (sP[o] - GP.x) + GP.gz * (sP[o + 2] - GP.z) : -1e4;
       sAlpha[i] = a;
+      // how much of the rider's body centre this puff covers, if it is between him and the camera (estimated with the same
+      // fades the shader applies there: front thinning, the see-through window's leftover, an average sprite density)
+      if (puff && fOn && a > 0.004) {
+        var X = sP[o], Y = sP[o + 1], Z = sP[o + 2];
+        var dd = -(e[2] * X + e[6] * Y + e[10] * Z + e[14]);
+        if (dd > FV.near && dd < FV.rz + 0.6) {
+          var vx = e[0] * X + e[4] * Y + e[8] * Z + e[12], vy = e[1] * X + e[5] * Y + e[9] * Z + e[13], q = dd / FV.rz;
+          var R = 0.5 * Math.min(sSize[i], FV.capPx * dd / FV.px), dx = vx - FV.rx * q, dy = vy - FV.ry * q;
+          var dist = Math.sqrt(dx * dx + dy * dy * 0.6), w = 1 - (dist - 0.35 * R) / (0.75 * R + 0.35 * q);
+          if (w > 0) { if (w > 1) w = 1;
+            var fr = Math.min(1, Math.max(0, (FV.rz - 0.5 - dd) / Math.max(FV.rz * 0.5, 1)));
+            var x = Math.min(0.95, a * w * 0.6 * (1 - 0.7 * fr) * 0.15);
+            logT += Math.log(1 - x); sFrontW[nF] = w; sFrontI[nF++] = i; }
+        }
+      }
     }
-    sPA.needsUpdate = true; sSA.needsUpdate = true; sAA.needsUpdate = true; sKA.needsUpdate = true;
+    // the stack over his body is capped: scale those puffs down together (drops at once, recovers over about half a second)
+    var sT = 1;
+    if (logT < Math.log(1 - FRONT_MAX)) sT = Math.log(1 - FRONT_MAX) / logT;
+    FV.s = Math.min(sT, FV.s + dt * 2);
+    if (FV.s < 0.999) for (var k = 0; k < nF; k++) { var ii = sFrontI[k]; sAlpha[ii] *= 1 - (1 - FV.s) * sFrontW[k]; }
+    sPA.needsUpdate = true; sSA.needsUpdate = true; sAA.needsUpdate = true; sKA.needsUpdate = true; sGA.needsUpdate = true;
   }
 
   // ---------------------------------------------------------------- snowfall (GPU, camera-wrapped box)
@@ -4542,13 +4630,23 @@ function createScenery(THREE, renderer, scene, opts) {
     sprayMat.uniforms.uPx.value = _sz.y / (2 * Math.tan(fov * Math.PI / 360));
     _sv.copy(sunDir).transformDirection(camera.matrixWorldInverse); sprayMat.uniforms.uSunView.value.copy(_sv);
     // the rider's window in the spray: his body centre on screen, and a window about 1.1 x 2 m around it
-    var rw = sprayMat.uniforms.uRid.value; rw.z = -1;
+    var rw = sprayMat.uniforms.uRid.value; rw.z = -1; FV.on = false;
     if (focus !== camera.position) {
       _sv.copy(focus); _sv.y += 0.8; _sv.applyMatrix4(camera.matrixWorldInverse);
       var rdep = -_sv.z;
-      if (rdep > 0.5) { _sv.applyMatrix4(camera.projectionMatrix); rw.set((_sv.x * 0.5 + 0.5) * _sz.x, (_sv.y * 0.5 + 0.5) * _sz.y, rdep);
-        var ppm = sprayMat.uniforms.uPx.value / rdep; sprayMat.uniforms.uRidR.value.set(Math.max(14, 0.55 * ppm), Math.max(22, 0.95 * ppm)); }
+      if (rdep > 0.5) { FV.on = true; FV.e = camera.matrixWorldInverse.elements; FV.rx = _sv.x; FV.ry = _sv.y; FV.rz = rdep;
+        _sv.applyMatrix4(camera.projectionMatrix); rw.set((_sv.x * 0.5 + 0.5) * _sz.x, (_sv.y * 0.5 + 0.5) * _sz.y, rdep);
+        var ppm = sprayMat.uniforms.uPx.value / rdep; sprayMat.uniforms.uRidR.value.set(Math.max(20, 0.85 * ppm), Math.max(26, 1.05 * ppm)); }
     }
+    // soft particles: screen height, near plane, camera axes in the world, ground slope round the rider
+    var spu2 = sprayMat.uniforms;
+    spu2.uH.value = _sz.y; spu2.uNear.value = camera.near || 0.1;
+    FV.px = spu2.uPx.value; FV.capPx = _sz.y * SPR_CAP; FV.near = camera.near || 0.1;
+    var me = camera.matrixWorld.elements; spu2.uCR.value.set(me[0], me[1], me[2]); spu2.uCU.value.set(me[4], me[5], me[6]);
+    if (groundFn && focus !== camera.position) {
+      var g0 = groundFn(focus.x, focus.z), gx1 = groundFn(focus.x + 2, focus.z), gz1 = groundFn(focus.x, focus.z + 2);
+      if (isFinite(g0) && isFinite(gx1) && isFinite(gz1)) spu2.uGrad.value.set((gx1 - g0) / 2, (gz1 - g0) / 2);
+    } else if (!groundFn) { gpFit(); if (GP.ok) spu2.uGrad.value.set(GP.gx, GP.gz); }
     // spray + trail
     if (dt > 0) stepSpray(dt);
     flushTrail(); trailMat.uniforms.uHead.value = tr.seq;
@@ -5259,8 +5357,8 @@ const DS = 2;
 const CL = { x: [0], z: [0], y: [0], th: [0], n: 1 };
 const G = 10.8; // gravity (a touch heavier than real for snappy arcade air)
 
-const plan = { rng: mulberry(SEED ^ 0x51ed27), end: 0, step: 0, cyc: 0, lastBig: '', zones: [], grade: [[0, 0.2]], curv: [], curvEnd: 0, noTree: [] };
-const bumps = [], kickers = [], railDefs = [], obstacles = [], cliffs = [], markers = [];
+const plan = { rng: mulberry(SEED ^ 0x51ed27), end: 0, step: 0, cyc: 0, lastBig: '', zones: [], grade: [[0, 0.2]], curv: [], curvEnd: 0, noTree: [], straight: [], nextSig: 560, sigN: 0, peakN: 0, noRock: [] };
+const bumps = [], kickers = [], railDefs = [], obstacles = [], cliffs = [], markers = [], gullies = [];
 
 function halfWidth(s) { return 35 + 5.5 * vnoise(s * 0.004, 3.3); }
 // sometimes one side of the run opens up and falls away (ridge shoulder) so the backdrop peaks show
@@ -5290,15 +5388,17 @@ function curvAt(s) {
   const C = plan.curv; let i = C.length - 1;
   while (i > 0 && C[i][0] > s) i--;
   const k = C[i][1], kp = i > 0 ? C[i - 1][1] : 0;
-  return lerp(kp, k, smooth(0, 50, s - C[i][0]));
+  return lerp(kp, k, smooth(0, 50, s - C[i][0])) * (1 - straightAt(s));
 }
+// big jumps, cliffs and signature moments run straight (the approach and landing read head-on); bends ease in and out over 40 m
+function straightAt(s) { let m = 0; for (let i = plan.straight.length - 1; i >= 0; i--) { const r = plan.straight[i]; if (r[1] < s - 60) break; m = Math.max(m, smooth(r[0] - 40, r[0], s) * smooth(r[1] + 40, r[1], s)); } return m; }
 
 // ---- zone planner (pacing: big feature -> run-out -> mini features -> breather)
 function lane(r, side, a, b) { return side * (a + r() * (b - a)); }
 function addBump(o) { bumps.push(o); }
 function noTree(s0, s1) { plan.noTree.push([s0, s1]); }
 function addKicker(sLip, d, size) {
-  const S = [{ H: 0.9, L: 4, a: 24, W: 4.5 }, { H: 1.5, L: 5.8, a: 29, W: 6 }, { H: 2.3, L: 8, a: 33, W: 7.5 }][size];
+  const S = KS[size];
   const p = S.L * Math.tan(S.a * Math.PI / 180) / S.H;
   const k = { s: sLip, d, H: S.H, L: S.L, W: S.W, p, size };
   kickers.push(k); return k;
@@ -5307,26 +5407,148 @@ function addRail(type, s0, d0, len, opt) { const o = Object.assign({ type, s: s0
 function addObstacle(kind, s, d, size) { obstacles.push({ kind, s, d, size }); }
 function addMarker(s, d, color) { markers.push({ s, d, color }); }
 
+// ---- jump landings sized from the feel constants. The planner flies the same launch the physics does (lip angle,
+// a full-charge pop, kickerLaunch's throw and soft cap, hang gravity, air drag) and shapes each landing so that whatever
+// speed comes down at x meets the snow with the same impact (an equal-impact profile): slow riders touch down on the deck,
+// fast ones far down a steeper landing, all with the same soft absorb. Then a 30 m transition back to the run.
+const KS = [{ H: 0.9, L: 4, a: 24, W: 4.5 }, { H: 1.5, L: 5.8, a: 29, W: 6 }, { H: 2.3, L: 8, a: 33, W: 7.5 }];
+const JPC = {}, TJ = { y: 0, vx: 0, vy: 0 };
+function launchVel(size, v, gk) {
+  const S = KS[size], al = S.a * Math.PI / 180 - Math.atan(gk);
+  const vl = Math.sqrt(Math.max(9, v * v - 2 * G * S.H));
+  let vx = vl * Math.cos(al), vy = vl * Math.sin(al);
+  const pv = (FEEL.popBase + FEEL.popCharge) * FEEL.kickPop; vx -= pv * Math.sin(al); vy += pv * Math.cos(al);
+  const spd = Math.abs(vx);
+  vy += (Math.min(spd, 18) + 0.4 * clamp(spd - 18, 0, FEEL.kickSoft - 18)) * FEEL.kickUp[size];
+  vy = Math.min(vy, kickCapY(size, spd));
+  if (spd > FEEL.kickScrubAt) vx *= (spd - FEEL.kickScrub * (spd - FEEL.kickScrubAt)) / spd;
+  return [vx, vy];
+}
+function trajAt(v0, x) {
+  let vx = v0[0], vy = v0[1], px = 0, py = 0; const st = 0.01;
+  for (let i = 0; i < 1500 && px < x; i++) { const sp = Math.hypot(vx, vy), k = Math.max(0, sp - 0.006 * sp * sp * st) / sp; vx *= k; vy *= k; vy -= airG(vy) * st; px += vx * st; py += vy * st; }
+  TJ.y = py; TJ.vx = vx; TJ.vy = vy; return TJ;
+}
+function jumpProfile(size, gk, gDeck, vLo, vHi, vn) {
+  const key = [size, gk, gDeck, vLo, vHi, vn].join(); if (JPC[key]) return JPC[key];
+  const H = KS[size].H, st = 2, lo0 = launchVel(size, vLo, gk);
+  let x = 2; while (x < 60 && trajAt(lo0, x).y > -H - gDeck * x) x += 1;
+  const x0 = x, pts = []; let y = -H - gDeck * x;
+  while (x < 150) {
+    let lo = vLo * 0.7, hi = vHi * 1.7;
+    for (let it = 0; it < 18; it++) { const m = (lo + hi) / 2; if (trajAt(launchVel(size, m, gk), x).y > y) hi = m; else lo = m; }
+    if (lo > vHi) break;
+    const t = trajAt(launchVel(size, lo, gk), x), V = Math.hypot(t.vx, t.vy), phi = Math.atan2(-t.vy, t.vx);
+    const g = Math.tan(clamp(phi - Math.asin(Math.min(0.9, vn / V)), Math.atan(gDeck + 0.04), 0.87));
+    pts.push([x, g]); y -= g * st; x += st;
+  }
+  return (JPC[key] = { x0, pts, xEnd: x, H });
+}
+// grade schedule for one jump: approach -> ramp base -> deck -> equal-impact landing -> transition. Returns the end s.
+function jumpGrades(sk, prof, gA, gk, gDeck, gOut) {
+  gp(sk - 22, gA); gp(sk - 9, gk); gp(sk + 1, gDeck); gp(sk + prof.x0 - 2, gDeck);
+  for (const q of prof.pts) gp(sk + q[0], q[1]);
+  const gl = prof.pts.length ? prof.pts[prof.pts.length - 1][1] : gDeck;
+  gp(sk + prof.xEnd + 6, gl); gp(sk + prof.xEnd + 20, lerp(gl, gOut, 0.6)); gp(sk + prof.xEnd + 32, gOut);
+  plan.noRock.push([sk, sk + prof.xEnd + 32]);
+  return sk + prof.xEnd + 32;
+}
+// a stump (or a broken snag) poking out of a snow mound: a little pop when you ride over it, never a crash
+function addBonk(s, d, big) { addBump({ s, d, rs: big ? 1.9 : 1.5, rd: big ? 1.9 : 1.5, h: big ? 0.75 : 0.55, type: 0, bonk: big ? 2 : 1 }); }
+// a snow ridge along the fall line: a spine (air across the crest) and the base of a hip
+function addRidge(s, d, len, h, rd) { addBump({ s: s + len / 2, d, rs: len / 2, rd, h, type: 5 }); }
+// wallride: a steep snow bank against a rock wall at the edge of the run (side = which way the wall rises)
+function addWall(s, d, len, side) { addBump({ s: s + len / 2, d, rs: len / 2, rd: 3.2, h: 2.4, type: 6, side, wall: true }); }
+function guardRollers(nB) {
+  // no feature sits right after a blind roller: rollers within 35 m before a feature (any lane) are flattened
+  const fs = []; for (const k of kickers) if (k.s > plan.end - 50) fs.push(k.s - k.L);
+  for (const r of railDefs) if (r.s > plan.end - 50) fs.push(r.s);
+  for (let i = nB; i < bumps.length; i++) { const b = bumps[i]; if (b.bonk || b.type >= 5) fs.push(b.s - (b.rs || 2)); }
+  for (let i = nB; i < bumps.length; i++) { const b = bumps[i]; if (b.type !== 1) continue; for (const f of fs) if (f > b.s - 2 && f < b.s + 35) { b.h = Math.min(b.h, 0.28); break; } }
+}
+
+// ---- small air hits sprinkled between the lines (own random stream, so the zone plan itself does not shift):
+// snow lips (mini kickers shaped from the snow) either side of the clear line, rollers that pop, little pillow drops,
+// stump bonks and side hits at the run edge. Each one throws a short, readable air (0.4-1.5 s) onto the open slope.
+// Rules: never inside a jump or cliff landing, never within 35 m after a blind roller, never on top of another feature,
+// the clear middle (|d| < 4) stays clear (only a full-width roller crosses it, which is rideable at any speed).
+plan.hrng = mulberry(SEED ^ 0x3b1f5);
+function hitBusy(s, d, roller) {
+  // the air must come down on the same pitch or steeper: no hit that throws onto a flattening (breather, run-out)
+  const g0 = gradeAt(s); for (let x = 8; x <= 48; x += 8) if (gradeAt(s + x) < g0 - 0.06) return true;
+  for (const q of plan.noRock) if (s > q[0] - 12 && s < q[1] + 6) return true;
+  for (let i = kickers.length - 1; i >= 0 && kickers[i].s > s - 120; i--) { const k = kickers[i]; if (s > k.s - k.L - 30 && s < k.s + (k.deck || 10) + 6) return true; }
+  for (let i = railDefs.length - 1; i >= 0 && railDefs[i].s > s - 80; i--) { const q = railDefs[i]; if (s > q.s - (roller ? 38 : 9) && s < q.s + q.len + 8 && (roller || Math.abs(q.d - d) < 7)) return true; }
+  for (let i = Math.max(0, bumps.length - 300); i < bumps.length; i++) { // the current zone's bumps are not sorted yet
+    const b = bumps[i]; if (b.s < s - 60 || b.s > s + 60) continue;
+    if (b.type === 1) { if (b.h > 0.3 && s > b.s - 4 && s < b.s + 35) return true; continue; }  // no hit right after a blind roller
+    if (roller && (b.bonk || b.hit || b.type >= 5) && b.s > s && b.s < s + 38) return true;         // a roller would hide it
+    if (Math.abs(b.s - s) < 9 + (b.rs || 0) && (roller || Math.abs(b.d - d) < 6 + (b.rd || 0) * 0.5)) return true;
+  }
+  for (const o of obstacles) if (Math.abs(o.s - s) < 9 && Math.abs(o.d - d) < 6) return true;
+  for (const c of cliffs) if (s > c.s - 30 && s < c.s + 60) return true;
+  return false;
+}
+function addHits(s0, s1, gapLo, gapHi, opt) {
+  const r = plan.hrng, o = opt || {}; let s = s0 + gapLo * 0.5 + r() * (gapHi - gapLo) * 0.5, n = 0;
+  while (s < s1) {
+    const side = r() < 0.5 ? -1 : 1, pick = r(), cd = o.centre ? o.centre(s) : 0;
+    let placed = false;
+    if (pick < (o.pRoll || 0.28)) {
+      // a roller that pops: short and round, so at cruising speed it throws a little air off the crest
+      if (!hitBusy(s, 0, true)) { addBump({ s, d: cd, rs: 4.6 + r() * 1.2, rd: 60, h: (0.85 + r() * 0.25) * (o.hs || 1), type: 1, hit: 1 }); placed = true; }
+    } else if (pick < 0.7) {
+      // snow lip (a mini kicker shaped from the snow) just off the clear line; now and then a pair, one each side
+      const d = cd + side * (7 + r() * 2.5), pair = r() < 0.45;
+      if (!hitBusy(s, d)) { addBump({ s, d, rs: 4.6 + r() * 1, rd: 3, h: 0.85 + r() * 0.2, type: 2, hit: 1 }); placed = true; }
+      if (pair && !hitBusy(s + 3, cd - side * 7.5)) { addBump({ s: s + 3, d: cd - side * (7 + r() * 2), rs: 4.8, rd: 3, h: 0.8 + r() * 0.2, type: 2, hit: 1 }); placed = true; }
+    } else if (pick < 0.85) {
+      // a little pillow drop: a round snow pillow to ride up and off
+      const d = cd + side * (6.5 + r() * 3), rs = 2.4 + r() * 0.5;
+      if (!hitBusy(s, d)) { addBump({ s, d, rs, rd: rs * 1.1, h: rs * 0.42, type: 0, pillow: true, hit: 1 }); placed = true; }
+    } else if (pick < 0.94) {
+      const d = cd + side * (6 + r() * 3);
+      if (!hitBusy(s, d)) { addBonk(s, d, true); bumps[bumps.length - 1].hit = 1; placed = true; }
+    } else if (!o.noEdge) {
+      // side hit on the run edge (a wind lip against the trees)
+      const d = side * (halfWidth(s) - 6);
+      if (!hitBusy(s, d)) { addBump({ s, d, rs: 5, rd: 3.5, h: 1.0 + r() * 0.3, type: 2, hit: 1 }); placed = true; }
+    }
+    if (placed) n++;
+    s += placed ? gapLo + r() * (gapHi - gapLo) : 9;
+  }
+  return n;
+}
+
 function planZone() {
   const r = plan.rng, s = plan.end;
   const nB = bumps.length, nK = kickers.length, nR = railDefs.length, nO = obstacles.length, nM = markers.length;
-  let type;
+  let type, sig = null;
   const st = plan.step++;
   if (st === 0) type = 'start';
   else if (st === 1) type = 'mini';
   else if (st === 2) type = 'jumps';
   else {
+    // rhythm: build-up (a jib or flow line) -> peak (a big line) -> run-out -> breather (semi-flat, mini features).
+    // A signature moment takes the build-up or the peak slot every ~600-900 m.
     plan.cyc = (plan.cyc + 1) % 4;
-    if (plan.cyc === 0) {
-      const opts = [['jumps', 3], ['rails', 2.6], ['natural', 2.2]];
-      if (s > 400 && plan.lastBig !== 'cliff') opts.push(['cliff', 2.2]);
-      let tot = 0; for (const o of opts) tot += o[1];
-      let x = r() * tot; type = opts[0][0];
-      for (const o of opts) { if (x < o[1]) { type = o[0]; break; } x -= o[1]; }
+    const sigDue = s >= plan.nextSig;
+    if (plan.cyc === 1) {
+      if (sigDue && plan.sigN % 4 === 3) { sig = 'garden'; type = 'rails'; }
+      else type = r() < 0.45 ? 'rails' : r() < 0.6 ? 'gully' : 'mini';
+    } else if (plan.cyc === 2) {
+      if (sigDue && plan.sigN % 4 !== 3) { sig = ['stepdown', 'cliffband', 'gap'][plan.sigN % 4]; type = sig === 'cliffband' ? 'cliff' : 'jumps'; }
+      else {
+        const opts = [['jumps', 3], ['natural', 2.6]];
+        if (s > 400 && plan.lastBig !== 'cliff') opts.push(['cliff', 1.6]);
+        let tot = 0; for (const o of opts) tot += o[1];
+        let x = r() * tot; type = opts[0][0];
+        for (const o of opts) { if (x < o[1]) { type = o[0]; break; } x -= o[1]; }
+      }
       plan.lastBig = type;
-    } else if (plan.cyc === 1) type = 'runout';
-    else if (plan.cyc === 2) type = 'mini';
-    else type = r() < 0.7 ? 'breather' : 'mini';
+    } else if (plan.cyc === 3) type = 'runout';
+    else type = r() < 0.75 ? 'breather' : 'mini';
+    if (sig) { plan.sigN++; plan.nextSig = s + 600 + r() * 220; }
   }
   let len = 100;
   const side = r() < 0.5 ? -1 : 1;
@@ -5337,97 +5559,163 @@ function planZone() {
     len = 32; gp(s + 12, 0.26); gp(s + 32, 0.28);
     addBump({ s: s + 20, d: lane(r, side, 14, 22), rs: 7, rd: 5, h: 0.7, type: 0 });
   } else if (type === 'mini' || type === 'breather') {
+    // build-up: rollers and side hits with small jibs either side; breather: semi-flat, a pause with a few tiny features
     const br = type === 'breather';
-    len = br ? 45 + r() * 12 : 72 + r() * 25;
-    if (br) { gp(s + 18, 0.1); gp(s + len - 14, 0.1); gp(s + len, 0.2); }
+    len = br ? 55 + r() * 20 : 80 + r() * 25;
+    if (br) { gp(s + 16, 0.11); gp(s + len - 12, 0.11); gp(s + len, 0.22); }
     else { gp(s + 20, 0.3 + r() * 0.06); gp(s + len * 0.5, 0.26 + r() * 0.1); gp(s + len, 0.3); }
-    // rollers across the run (natural little pops)
     const nRoll = br ? 1 : 2 + (r() * 2 | 0);
-    for (let i = 0; i < nRoll; i++) addBump({ s: s + 25 + (len - 45) * (i + r() * 0.5) / nRoll, d: 0, rs: 6 + r() * 4, rd: 60, h: (br ? 0.45 : 0.7) + r() * 0.5, type: 1 });
-    // side hits near the banks
+    for (let i = 0; i < nRoll; i++) addBump({ s: s + 25 + (len - 45) * (i + r() * 0.5) / nRoll, d: 0, rs: 4.8 + r() * 1.8, rd: 60, hit: 1, h: (br ? 0.4 : 0.65) + r() * 0.4, type: 1 });
     for (let i = 0; i < (br ? 1 : 3); i++) { const sd = r() < 0.5 ? -1 : 1, ss = s + 15 + r() * (len - 30); addBump({ s: ss, d: sd * (halfWidth(ss) - 5), rs: 5, rd: 3.5, h: 0.8 + r() * 0.5, type: 2 }); }
-    // one or two mini features off the clear line
-    const nf = br ? 1 : 2 + (r() < 0.35 ? 1 : 0);
+    // mini features either side of the clear line (no kickers here: a kicker only ever sits on a built landing)
+    const nf = br ? 3 : 3 + (r() < 0.4 ? 1 : 0);
     for (let i = 0; i < nf; i++) {
-      const fs = s + 12 + (len - 28) * (i + 0.5) / nf, fd = lane(r, i % 2 ? -side : side, 7, 15), pick = r();
-      if (br || pick < 0.3) addRail('box', fs, fd, 7, { h: 0.3 });
-      else if (pick < 0.6) { addKicker(fs, fd, 0); addMarker(fs - 40, fd + 4 * Math.sign(fd), 1); }
-      else if (pick < 0.8) addRail('log', fs, fd, 6, { radius: 0.32 });
-      else addObstacle('rock', fs, fd, 1.1 + r() * 0.6);
+      const fs = s + 10 + (len - 24) * (i + 0.5) / nf, fd = lane(r, i % 2 ? -side : side, 7, 15), pick = r();
+      if (pick < 0.3) addRail('box', fs, fd, br ? 6 : 8, { h: br ? 0.25 : 0.35 });
+      else if (pick < 0.62) { addBonk(fs, fd, !br && r() < 0.4); if (r() < 0.6) addBonk(fs + 7 + r() * 3, fd + (r() - 0.5) * 3, false); }
+      else if (pick < 0.85) addRail('log', fs, fd, br ? 6 : 8, { radius: 0.32, broken: r() < 0.5 });
+      else addObstacle('rock', fs, fd + Math.sign(fd) * 6, 1.1 + r() * 0.6);
     }
   } else if (type === 'jumps') {
-    const A = 50, sk = s + A;
-    const big = r() < 0.35 + later * 0.4 ? 2 : 1;
-    const deck = [4, 8, 12][big], landLen = [30, 48, 68][big], gL = [0.5, 0.58, 0.64][big];
-    gp(s + 15, 0.3); gp(sk - 6, 0.3); gp(sk + 2, 0.15); gp(sk + deck, 0.15); gp(sk + deck + 8, gL);
-    gp(sk + deck + 8 + landLen, gL); gp(sk + deck + 8 + landLen + 30, 0.26);
-    len = A + deck + 8 + landLen + 44;
-    const laneBig = lane(r, side, 8, 12);
-    const kb = addKicker(sk, laneBig, big);
-    addKicker(sk + (deck - [4, 8, 12][big - 1]), -side * (9 + r() * 6), big - 1);
-    if (r() < 0.6) addKicker(sk + deck - 4 + 2, side * (laneBig * side + 11 + r() * 4), 0);
-    addMarker(sk - 45, laneBig - kb.W / 2 - 1, 0); addMarker(sk - 45, laneBig + kb.W / 2 + 1, 0);
-    addMarker(sk - 1, laneBig - kb.W / 2 - 0.6, 0); addMarker(sk - 1, laneBig + kb.W / 2 + 0.6, 0);
-    // combo: a down rail on the landing of the big kicker
-    if (r() < 0.55) addRail('down', sk + deck + 10, laneBig, 14 + big * 2, { h: 0.6 });
+    // a jump line: big route (kicker -> kicker, maybe a rail on the landing, a rail to finish) on one side,
+    // the easy route (smaller kickers on the same landings, then a box) on the other, the middle stays clear
+    const step = sig === 'stepdown', gap = sig === 'gap';
+    const nJ = step ? 1 : gap ? 2 : 2 + (r() < 0.25 + later * 0.35 ? 1 : 0);
+    const laneBig = lane(r, side, gap ? 11 : 8, gap ? 13 : 12), laneEasy = lane(r, -side, 8, 12);
+    gp(s + 12, 0.3);
+    let x = s + 20;
+    for (let j = 0; j < nJ; j++) {
+      const big = step ? 2 : (j === nJ - 1 && r() < 0.35 + later * 0.45) ? 2 : 1;
+      const gk = 0.2, gDeck = step ? 0.34 : 0.12, gA = step ? 0.34 : j ? 0.18 : 0.3; // later lips: no convex break on the approach
+      const prof = jumpProfile(big, gk, gDeck, 10, step ? 26 : 24, 8);
+      const sk = x + (j === 0 ? (step ? 70 : 40) : 34);
+      if (step) gp(s + 20, 0.34);
+      const kb = addKicker(sk, laneBig, big); kb.deck = prof.x0; kb.tag = sig || 'line';
+      const ke = addKicker(sk, laneEasy, big - 1); ke.deck = prof.x0; ke.tag = 'easy';
+      addMarker(sk - 42, laneBig - kb.W / 2 - 1, 0); addMarker(sk - 42, laneBig + kb.W / 2 + 1, 0);
+      addMarker(sk - 1, laneBig - kb.W / 2 - 0.6, 0); addMarker(sk - 1, laneBig + kb.W / 2 + 0.6, 0);
+      // rails to land on: a down rail beside the sweet spot of the landing (steer onto it in the air, or ride past)
+      if (step || (j === nJ - 1 && r() < 0.6)) addRail('down', sk + prof.x0 + 6, laneBig + side * 3.4, step ? 22 : 15, { h: 0.6 });
+      if (gap) {
+        // a fallen tree bridging the gap: snow drifted against it, so riding over it is a little hop, flying it is the gap
+        const gs = sk + prof.x0 * 0.55;
+        addRail('log', gs, laneBig - 5, 10, { radius: 0.5, broken: true, branches: true, across: true });
+        addBump({ s: gs, d: laneBig, rs: 1.6, rd: 4.5, h: 0.75, type: 1 });
+      }
+      x = jumpGrades(sk, prof, gA, gk, gDeck, j < nJ - 1 ? 0.14 : 0.24); // a flatter run-out scrubs the landing speed before the next lip
+      plan.straight.push([sk - 60, sk + prof.xEnd + 20]);
+    }
+    // finish the line: a down / kink rail on the run-out (big side) and a box on the easy side
+    gp(x + 30, 0.27);
+    addRail(r() < 0.5 ? 'down' : 'kink', x - 6, laneBig, 11, { h: 0.7 });
+    addRail('box', x - 2, laneEasy, 8, { h: 0.35 });
+    len = x - s + 36;
     noTree(s + 10, s + len);
   } else if (type === 'rails') {
-    len = 120 + r() * 30;
-    gp(s + 15, 0.22 + r() * 0.04); gp(s + len - 15, 0.22); gp(s + len, 0.27);
-    const types = ['box', 'down', 'kink', 'rainbow', 'kickup', 'log', 'tree', 'gap'];
-    let sd = side;
-    for (let fs = s + 14; fs < s + len - 20; fs += 22 + r() * 8) {
-      const t = types[(r() * types.length) | 0], d = lane(r, sd, 7, 16);
+    // a jib line: log -> roller -> down rail, box -> kickup into a short landing, kinks; alternating sides.
+    // The garden (signature): longer, with multi-kink rails and a second row.
+    const garden = sig === 'garden';
+    len = garden ? 175 + r() * 20 : 125 + r() * 30;
+    gp(s + 15, 0.24 + r() * 0.03); gp(s + len - 15, 0.23); gp(s + len, 0.27);
+    let sd = side, fs = s + 16;
+    const seq = garden ? ['multi', 'kickup', 'kink', 'multi', 'rainbow', 'down', 'multi'] : ['logroll', 'kickup', 'kink', 'tree', 'rainbow', 'box', 'down', 'logroll'];
+    let qi = (r() * seq.length) | 0;
+    while (fs < s + len - 22) {
+      const t = seq[qi++ % seq.length], d = lane(r, sd, 7, 14);
+      let adv = 22 + r() * 7;
       if (t === 'box') addRail('box', fs, d, 8 + r() * 4, { h: 0.35 });
-      else if (t === 'down') addRail('down', fs, d, 10, { h: 0.7 });
-      else if (t === 'kink') addRail('kink', fs, d, 12, { h: 0.8 });
-      else if (t === 'rainbow') addRail('rainbow', fs, d, 8, { h: 0.6 });
-      else if (t === 'kickup') addRail('kickup', fs, d, 10, { h: 0.55 });
-      else if (t === 'log') addRail('log', fs, d, 7, { radius: 0.35 });
-      else if (t === 'tree') addRail('log', fs, d, 11, { radius: 0.45, broken: true, branches: true, skew: (r() - 0.5) * 0.5, rise: 0.6 });
-      else { addKicker(fs, d, 0); addRail('down', fs + 7, d, 9, { h: 0.9 }); fs += 8; }
-      sd = -sd;
+      else if (t === 'down') addRail('down', fs, d, 12, { h: 0.7 });
+      else if (t === 'kink') addRail('kink', fs, d, 13, { h: 0.8 });
+      else if (t === 'rainbow') addRail('rainbow', fs, d, 9, { h: 0.6 });
+      else if (t === 'multi') { addRail('multi', fs, d, 19, { h: 0.7, segs: [['f', 3], ['d', 5], ['f', 3], ['d', 5], ['f', 3]] }); adv += 6; }
+      else if (t === 'tree') addRail('log', fs, d, 11, { radius: 0.45, broken: true, branches: true, skew: (r() - 0.5) * 0.4, rise: 0.6 });
+      else if (t === 'kickup') {
+        // a lone rail that kicks up at the end and works as a ramp: a short steeper landing after it
+        addRail('kickup', fs, d, 10, { h: 0.55 }); gp(fs + 12, 0.24); gp(fs + 15, 0.45); gp(fs + 26, 0.45); gp(fs + 34, 0.25); adv += 8;
+      } else { // logroll: a log jib, then a roller to pop off, then a down rail on the far side of it
+        addRail('log', fs, d, 8, { radius: 0.35, broken: r() < 0.5 });
+        addBump({ s: fs + 13, d, rs: 4, rd: 5, h: 0.8, type: 0 });
+        addRail('down', fs + 21, d, 10, { h: 0.65 }); adv += 14;
+      }
+      if (garden) addRail(r() < 0.5 ? 'box' : 'down', fs + 4, d + sd * 6, 10, { h: 0.45 }); // a second row
+      fs += adv; sd = -sd;
     }
     noTree(s, s + len);
+    if (garden) plan.straight.push([s, s + len]);
+  } else if (type === 'gully') {
+    // a natural halfpipe (the bowl's gully shape) down the middle of the run: carve the walls, air the lips
+    len = 190 + r() * 40;
+    gp(s + 15, 0.27); gp(s + len - 10, 0.27);
+    gullies.push({ s0: s + 6, s1: s + len - 6, w: 14 + r() * 3, D: 4.2 + r() * 1.3, ph: r() * 6.3 });
+    const gw = gullies[gullies.length - 1];
+    for (let i = 0; i < 4; i++) { const ss = s + 45 + i * (len - 80) / 3, sd2 = i % 2 ? -side : side; addBump({ s: ss, d: gullyC(gw, ss) + sd2 * (gw.w * 1.05), rs: 4, rd: 4, h: 0.9, type: 2 }); }
+    addRail('log', s + len * 0.45, gullyC(gw, s + len * 0.45) + side * 5, 9, { radius: 0.4, broken: true });
+    noTree(s, s + len);
   } else if (type === 'natural') {
-    len = 160 + r() * 30;
-    const ledge = r() < 0.5, sc = s + len - 30;
-    gp(s + 15, 0.32); gp(s + len * 0.5, 0.36);
-    if (ledge) { gp(sc - 2, 0.3); gp(sc + 3, 0.6); gp(sc + 15, 0.6); gp(sc + 26, 0.3); } else gp(s + len - 10, 0.3);
+    len = 170 + r() * 30;
+    let ledge = r() < 0.5, sc = s + len - 30;
+    gp(s + 15, 0.32);
     // pillow line on one side
     const pd = side * (13 + r() * 6);
-    // (round domes in the heightfield, so each one gives a little pop; the scenery's lumpy pillow mesh sits on top)
     const np = 5 + (r() * 3 | 0);
     for (let i = 0; i < np; i++) { const rs = 2.2 + r() * 1.5; addBump({ s: s + 30 + i * 6.5 + r() * 2, d: pd + (r() - 0.5) * 6 - i * side * 0.6, rs, rd: rs * (0.9 + r() * 0.25), h: rs * (0.5 + r() * 0.12), type: 0, pillow: true }); }
     for (let i = 0; i < 2; i++) { const rs = 1.4 + r() * 0.8; addBump({ s: s + 34 + r() * np * 6, d: pd + (r() < 0.5 ? -1 : 1) * (5 + r() * 4), rs, rd: rs, h: rs * 0.5, type: 0, pillow: true }); }
-    // a wind lip on the other side (now and then curled into a small cornice)
-    addBump({ s: s + 50 + r() * 30, d: -side * (12 + r() * 8), rs: 7, rd: 6, h: 1.1 + r() * 0.5, type: 2, cornice: r() < 0.55 ? { len: 10 + r() * 4, depth: 2.2 } : null });
-    // rocks + stumps off line
-    for (let i = 0; i < 5; i++) addObstacle('rock', s + 20 + r() * (len - 40), (r() < 0.5 ? -1 : 1) * (7 + r() * 20), 0.8 + r() * 1.2);
-    for (let i = 0; i < 3; i++) addObstacle('stump', s + 20 + r() * (len - 40), (r() < 0.5 ? -1 : 1) * (8 + r() * 18), 0.35 + r() * 0.15);
-    addRail('log', s + 90 + r() * 20, -side * (8 + r() * 6), 10, { radius: 0.45, broken: true, branches: true, skew: (r() - 0.5) * 0.4, rise: 0.4 });
+    // the other side: a spine (a snow ridge to air across), now and then with a hip kicker angled at its crest,
+    // then a wallride bank against a rock wall
+    const rd0 = -side * (13 + r() * 3), rs0 = s + 22 + r() * 10;
+    addRidge(rs0, rd0, 34, 2.1 + r() * 0.5, 6.5);
+    let hipEnd = 0;
+    if (r() < 0.6) {
+      const hk = addKicker(rs0 + 12, rd0 + side * 6.5, 0); hk.yaw = -side * 0.42; hk.tag = 'hip';
+      const hp = jumpProfile(0, 0.25, 0.2, 10, 24, 8); hk.deck = hp.x0; hipEnd = jumpGrades(hk.s, hp, 0.32, 0.25, 0.2, 0.3);
+      plan.straight.push([hk.s - 40, hk.s + hp.xEnd]);
+    }
+    if (hipEnd) { ledge = false; len = Math.max(len, hipEnd - s + 15); }
+    else { gp(s + len * 0.5, 0.36); if (ledge) { gp(sc - 2, 0.3); gp(sc + 3, 0.6); gp(sc + 15, 0.6); gp(sc + 26, 0.3); } else gp(s + len - 10, 0.3); }
+    const wsd = -side, ws = rs0 + 52;
+    addWall(ws, wsd * (halfWidth(ws) - 9), 18, wsd);
+    // a wind lip on the pillow side's run-out (now and then curled into a small cornice)
+    addBump({ s: s + 105 + r() * 20, d: side * (9 + r() * 5), rs: 7, rd: 6, h: 1.1 + r() * 0.5, type: 2, cornice: r() < 0.55 ? { len: 10 + r() * 4, depth: 2.2 } : null });
+    // rocks off the line, stumps to ollie, broken trees to slide
+    for (let i = 0; i < 4; i++) addObstacle('rock', s + 20 + r() * (len - 40), (r() < 0.5 ? -1 : 1) * (19 + r() * 8), 0.8 + r() * 1.2);
+    for (let i = 0; i < 3; i++) addBonk(s + 25 + r() * (len - 60), (r() < 0.5 ? -1 : 1) * (6 + r() * 6), r() < 0.3);
+    addRail('log', s + 128 + r() * 10, -side * (8 + r() * 4), 11, { radius: 0.45, broken: true, branches: true, skew: (r() - 0.5) * 0.4, rise: 0.4 });
     if (ledge) { // small ledge with a log into the drop
       addCliff(sc, 2.6, side * (halfWidth(sc) - 12));
       addRail('log', sc - 9, -side * (9 + r() * 4), 11, { radius: 0.4, overEdge: sc });
-      // a cornice lip along part of the ledge, away from the log and the sneak path
       const cd = side * (2 + r() * 6); addBump({ s: sc - 0.6, d: cd, rs: 4, rd: 8, h: 0.8, type: 3, cornice: { len: 17, depth: 2.6 } });
     }
+    noTree(s + 15, s + len - 10);
   } else if (type === 'cliff') {
-    const A = 60, sc = s + A, D = plan.cliffN ? 6.5 + r() * 3.5 : 6;
+    // a dead-drop cliff band with launch options: a kicker, a wind lip, a rail off the edge, or just send it;
+    // a sneak path rolls down one side. The band (signature) is taller and gets all three options.
+    const band = sig === 'cliffband';
+    const A = 70, sc = s + A, D = band ? 7.5 + r() * 2 : plan.cliffN ? 5.5 + r() * 2 : 5;
     plan.cliffN = (plan.cliffN || 0) + 1;
-    gp(s + 15, 0.24); gp(sc - 8, 0.22); gp(sc - 1, 0.22); gp(sc + 3, 0.8); gp(sc + 58, 0.8); gp(sc + 84, 0.32);
-    len = A + 84 + 20;
-    const hw = halfWidth(sc);
-    addCliff(sc, D, -side * (hw - 9));
+    const gc = band ? 1.05 : 0.95;
+    gp(s + 15, 0.26); gp(sc - 8, 0.22); gp(sc - 1, 0.22); gp(sc + 3, gc); gp(sc + 64, gc); gp(sc + 92, 0.3);
+    plan.noRock.push([sc + 2, sc + 90]);
+    len = A + 92 + 20;
+    const hw = halfWidth(sc), sneak = -side * (hw - 9);
+    addCliff(sc, D, sneak);
     addBump({ s: sc - 0.5, d: 0, rs: 7, rd: 60, h: 0.55, type: 3 }); // cornice lip along the edge
-    // takeoff options: a kicker at the edge, a rail off the edge, or just send it
-    addKicker(sc - 1.2, side * (10 + r() * 4), 1);
-    addRail('down', sc - 15, -side * (8 + r() * 3), 16, { h: 0.6, overEdge: sc });
-    for (const m of [-8, 8]) addMarker(sc - 50, m, 1);
+    // launch options at the edge: a wind lip (a kicker here would throw him far past any landing), a rail off the edge, the cornice
+    addBump({ s: sc - 2.2, d: side * (11 + r() * 3), rs: 5, rd: 4, h: 1.0, type: 2 });
+    addRail('down', sc - 15, -side * (7 + r() * 2), 16, { h: 0.6, overEdge: sc });
+    if (band) addBump({ s: sc - 3, d: side * 3, rs: 4, rd: 3.5, h: 0.9, type: 2, cornice: { len: 7, depth: 1.8 } });
+    for (const m of [-8, 8]) addMarker(sc - 55, m, 1);
     noTree(s + 20, s + len);
+    plan.straight.push([s, sc + 70]);
   }
-  plan.zones.push({ type, s0: s, s1: s + len });
+  // small air hits: build-ups and breathers a hit every ~22-34 m, jib lines and natural zones a few beside the features,
+  // gullies a few low rollers (whoops) down the floor
+  if (type === 'mini' || type === 'breather') addHits(s + 6, s + len - 4, 22, 34);
+  else if (type === 'rails') addHits(s + 12, s + len - 12, 26, 38, { pRoll: 0 }); // lips / pillows / bonks opposite the jibs
+  else if (type === 'gully') { const gw = gullies[gullies.length - 1]; addHits(s + 30, s + len - 30, 40, 60, { centre: q => gullyC(gw, q), pRoll: 1, hs: 0.8 }); }
+  else if (type === 'natural') addHits(s + 15, s + len - 15, 30, 45, { pRoll: 0 });
+  plan.zones.push({ type, s0: s, s1: s + len, sig, line: type === 'jumps' || type === 'rails' || type === 'natural' || type === 'cliff' || type === 'gully' });
   plan.end = s + len;
+  guardRollers(nB);
   sortTail(bumps, nB); sortTail(kickers, nK); sortTail(railDefs, nR); sortTail(obstacles, nO); sortTail(markers, nM);
 }
 function addCliff(s, D, sneakD) {
@@ -5494,6 +5782,11 @@ function bumpH(s, d) {
       let p = 0;
       if (u <= 0) { const q = u + 1; p = q * q; } else if (b.type === 2 && u < 0.3) { const q = 1 - u / 0.3; p = q * q; } else if (b.type === 3) p = 1 - smooth(0, 0.6, u);
       h += b.h * p * (b.type === 3 ? 1 : (1 - v * v));
+    } else if (b.type === 5) { // ridge along the fall line (spine): cos^2 across, tapering ends
+      const v = (d - b.d) / b.rd; if (v > -1 && v < 1) { const c = Math.cos(v * Math.PI * 0.5); h += b.h * c * c * smooth(1, 0.55, Math.abs(u)); }
+    } else if (b.type === 6) { // wallride bank: a steep transition up to a rock wall, short top, quick back side
+      const x = (d - b.d) * b.side, R = b.rd;
+      if (x > 0 && x < R + 5.5) h += b.h * smooth(1, 0.7, Math.abs(u)) * (x < R ? Math.pow(x / R, 2.2) : x < R + 1.5 ? 1 : 1 - smooth(0, 1, (x - R - 1.5) / 4));
     }
   }
   return h;
@@ -5507,6 +5800,17 @@ function cliffH(s, d) {
   const w = 2.4 + 18 * sn, t = clamp01((s - c.s) / w);
   const f = sn > 0.01 ? lerp(t, t * t * (3 - 2 * t), sn) : t;
   return -(c.cum + c.D * f);
+}
+// halfpipe gully cross-section (x = offset / half-width): flat floor, walls steepening to a lip with a small berm.
+// The bowl's gullies and the Endless gully sections share it.
+function gullyCut(x, D, e) { const ax = Math.abs(x); return ax < 1 ? -D * e * (1 - x * x * x * x) : ax < 1.7 ? D * 0.22 * e * Math.sin(Math.PI * (ax - 1) / 0.7) : 0; }
+function gullyC(g, s) { return 5 * Math.sin(s * 0.018 + g.ph); }
+function gullyH(s, d) {
+  for (let i = gullies.length - 1; i >= 0; i--) {
+    const g = gullies[i]; if (g.s1 < s) break; if (g.s0 > s) continue;
+    return gullyCut((d - gullyC(g, s)) / g.w, g.D, smooth(g.s0, g.s0 + 40, s) * smooth(g.s1, g.s1 - 40, s));
+  }
+  return 0;
 }
 // base terrain (no built features)
 function heightSD(s, d) {
@@ -5523,22 +5827,36 @@ function heightSD(s, d) {
   const amp = 0.2 + 0.45 * smooth(6, 28, ad) + (ad > hw ? 0.9 : 0);
   h += vnoise(s * 0.05, d * 0.05) * amp + vnoise(s * 0.13 + 7.1, d * 0.13) * amp * 0.35;
   h += bumpH(s, d) + cliffH(s, d);
+  if (gullies.length) h += gullyH(s, d);
   return h;
 }
-let lastKicker = null;
+let lastKicker = null, lastKU = 0;
 function kickerH(s, d) {
   lastKicker = null;
-  let h = 0, i = lowerBound(kickers, s - 0.01);
+  let h = 0, i = lowerBound(kickers, s - 4);
   for (; i < kickers.length; i++) {
-    const k = kickers[i]; if (k.s - k.L > s) break;
-    const u = s - k.s; if (u > 0 || u < -k.L) continue;
-    if (Math.abs(d - k.d) > k.W * 0.5) continue;
+    const k = kickers[i]; if (k.s - k.L - 4 > s) break;
+    let u = s - k.s, v = d - k.d;
+    if (k.yaw) { const c = Math.cos(k.yaw), sn = Math.sin(k.yaw), uu = u * c + v * sn; v = v * c - u * sn; u = uu; } // a hip: the ramp turned across the run
+    if (u > 0 || u < -k.L) continue;
+    if (Math.abs(v) > k.W * 0.5) continue;
     const kh = k.H * Math.pow((u + k.L) / k.L, k.p);
-    if (kh > h) { h = kh; lastKicker = k; }
+    if (kh > h) { h = kh; lastKicker = k; lastKU = u; }
   }
   return h;
 }
 function groundSD(s, d) { return heightSD(s, d) + kickerH(s, d); }
+// snow spray (parts/scenery.js) clamps puffs to the snow and fades them into it: give it the ground height at world (x, z).
+// Works for Endless and the bowl (both go through project + groundSD). It saves and restores the shared projection /
+// kicker scratch, since it runs inside SC.update.
+if (SC.setGroundSampler) SC.setGroundSampler((x, z) => {
+  if (CL.n < 2) return -1e9;
+  const ps = PJ.s, pd = PJ.d, pi = PJ.i, lk = lastKicker, lu = lastKU;
+  let h;
+  try { project(x, z, P.hint); h = groundSD(PJ.s, PJ.d); } catch (e) { h = -1e9; }
+  PJ.s = ps; PJ.d = pd; PJ.i = pi; lastKicker = lk; lastKU = lu;
+  return isFinite(h) ? h : -1e9;
+});
 
 // ground query at world (x,z): height + normal + course coords
 const GQ = { h: 0, n: new V3(0, 1, 0), s: 0, d: 0, i: 0, kicker: null };
@@ -5554,9 +5872,9 @@ function ground(x, z, hint, wantNormal) {
     if (k) {
       // on a kicker: base slope + the ramp's own analytic slope (a finite difference across the lip would
       // see the 2 m drop behind it and tilt the normal wildly, throwing random launch angles)
-      const u = s - k.s;
-      hs = (heightSD(s + e, d) - heightSD(s - e, d)) / (2 * e) + k.H * k.p / k.L * Math.pow(Math.max(0, (u + k.L) / k.L), k.p - 1);
-      hd = (heightSD(s, d + e) - heightSD(s, d - e)) / (2 * e);
+      const u = lastKU, sl = k.H * k.p / k.L * Math.pow(Math.max(0, (u + k.L) / k.L), k.p - 1), yw = k.yaw || 0;
+      hs = (heightSD(s + e, d) - heightSD(s - e, d)) / (2 * e) + sl * Math.cos(yw);
+      hd = (heightSD(s, d + e) - heightSD(s, d - e)) / (2 * e) + sl * Math.sin(yw);
     } else {
       hs = (groundSD(s + e, d) - groundSD(s - e, d)) / (2 * e);
       hd = (groundSD(s, d + e) - groundSD(s, d - e)) / (2 * e);
@@ -5696,6 +6014,7 @@ function buildTerrain(k) {
   const p = { x: 0, z: 0 };
   for (let r = 0; r < ROWS; r++) {
     const s = s0 + r * DS, th = thAt(s), fx = Math.sin(th), fz = -Math.cos(th), rx = Math.cos(th), rz = Math.sin(th);
+    let snowRow = 0; for (const q of plan.noRock) if (s > q[0] - 4 && s < q[1] + 4) { snowRow = 1; break; }
     for (let c = 0; c < COLS; c++) {
       const d = -DMAX + c * DSTEP, o = (r * COLS + c) * 3;
       worldFromSD(s, d, p);
@@ -5704,7 +6023,7 @@ function buildTerrain(k) {
       const hs = (heightSD(s + 1, d) - heightSD(s - 1, d)) / 2, hd = (heightSD(s, d + 1.2) - heightSD(s, d - 1.2)) / 2.4;
       _ts.set(fx, hs, fz); _td.set(rx, hd, rz); _a.crossVectors(_td, _ts).normalize();
       nor[o] = _a.x; nor[o + 1] = _a.y; nor[o + 2] = _a.z;
-      const rock = smooth(0.8, 0.55, _a.y), shade = 1 - 0.04 * (vnoise(s * 0.1, d * 0.1) + 1);
+      const rock = smooth(0.8, 0.55, _a.y) * (snowRow && Math.abs(d) < halfWidth(s) + 4 ? 0.15 : 1), shade = 1 - 0.04 * (vnoise(s * 0.1, d * 0.1) + 1);
       col[o] = lerp(shade, 0.33, rock); col[o + 1] = lerp(shade, 0.34, rock); col[o + 2] = lerp(shade, 0.37, rock);
     }
   }
@@ -5761,11 +6080,12 @@ function buildSkirt(k) {
 }
 
 function buildKicker(k, group, geos) {
-  const N = 12, W2 = k.W / 2, verts = [], p = { x: 0, z: 0 };
+  const N = 12, W2 = k.W / 2, verts = [], p = { x: 0, z: 0 }, yc = Math.cos(k.yaw || 0), ys = Math.sin(k.yaw || 0);
   for (let i = 0; i <= N; i++) {
     const t = i / N, u = -k.L + t * k.L, h = k.H * Math.pow(t, k.p);
     for (const v of [-W2, W2]) {
-      worldFromSD(k.s + u, k.d + v, p); const b = heightSD(k.s + u, k.d + v);
+      const ks = k.s + u * yc - v * ys, kd = k.d + u * ys + v * yc;
+      worldFromSD(ks, kd, p); const b = heightSD(ks, kd);
       verts.push([p.x, b + h, p.z], [p.x, b - 0.5, p.z]);
     }
   }
@@ -5782,20 +6102,24 @@ function buildKicker(k, group, geos) {
   geos.push(g);
   const m = new THREE.Mesh(g, SC.featureMaterials.kicker); m.castShadow = true; m.receiveShadow = true; group.add(m);
   // blue dye line along the lip so it reads at speed
-  worldFromSD(k.s - 0.25, k.d, p); const y = heightSD(k.s - 0.25, k.d) + k.H * Math.pow((k.L - 0.25) / k.L, k.p);
+  const ds0 = k.s - 0.25 * yc, dd0 = k.d - 0.25 * ys; worldFromSD(ds0, dd0, p); const y = heightSD(ds0, dd0) + k.H * Math.pow((k.L - 0.25) / k.L, k.p);
   const dye = new THREE.Mesh(unitBox, SC.featureMaterials.metalBlue);
-  dye.scale.set(k.W + 0.02, 0.06, 0.45); dye.position.set(p.x, y, p.z); dye.rotation.y = -thAt(k.s); group.add(dye);
+  dye.scale.set(k.W + 0.02, 0.06, 0.45); dye.position.set(p.x, y, p.z); dye.rotation.y = -thAt(k.s) - (k.yaw || 0); group.add(dye);
 }
 
 function railPoints(def) {
   // returns list of {s, d, h, ref} control points; y = heightSD(min(s, ref), d) + h
   const P = [], L = def.len, ref = def.overEdge || 1e9;
-  const push = (u, h) => P.push({ s: def.s + u, d: def.d + (def.skew || 0) * u, h, ref });
+  const push = def.across ? (u, h) => P.push({ s: def.s + (def.skew || 0) * u, d: def.d + u, h, ref }) : (u, h) => P.push({ s: def.s + u, d: def.d + (def.skew || 0) * u, h, ref });
   if (def.type === 'box' || def.type === 'down') { for (let u = 0; u <= L + 0.01; u += 1.5) push(Math.min(u, L), def.h); }
   else if (def.type === 'kink') { const y0 = heightSD(def.s, def.d) + def.h; for (let u = 0; u <= L + 0.01; u += 1.5) { const hh = u < 4 ? Math.max(def.h, y0 - heightSD(def.s + u, def.d)) : def.h; push(u, hh); } }
   else if (def.type === 'rainbow') { for (let u = 0; u <= L + 0.01; u += 1) push(u, def.h + 0.9 * Math.sin(Math.PI * u / L)); }
   else if (def.type === 'kickup') { for (let u = 0; u <= L + 0.01; u += 1) push(u, def.h + (u > L - 3 ? Math.pow((u - (L - 3)) / 3, 2) * 1.1 : 0)); }
   else if (def.type === 'log') { push(0, def.radius); push(L, def.radius + (def.rise || 0)); }
+  else if (def.type === 'multi') { // flat -> down -> flat -> down ...: flats hold their height, downs drop at ~37 deg back to the snow + h
+    let y = heightSD(def.s, def.d) + def.h, u = 0; push(0, def.h);
+    for (const sg of def.segs) for (let i = 0; i < sg[1]; i++) { u += 1; const t = heightSD(def.s + u, def.d) + def.h; y = sg[0] === 'f' ? Math.max(y, t) : Math.max(t, y - 0.75); push(u, y - heightSD(def.s + u, def.d)); }
+  }
   return P;
 }
 function buildRail(def, group, geos) {
@@ -5879,6 +6203,11 @@ function buildChunk(k) {
   for (let i = lowerBound(bumps, s0); i < bumps.length && bumps[i].s < s1; i++) {
     const b = bumps[i];
     if (b.pillow && SC.makePillow) { worldFromSD(b.s, b.d, p); const m = SC.makePillow(b.rs * 1.05, (b.s * 13 + b.d * 7) | 1); m.position.set(p.x, heightSD(b.s, b.d) - b.h, p.z); m.rotation.y = b.s * 1.3; m.userData.prop = true; group.add(m); }
+    if (b.bonk) { worldFromSD(b.s, b.d, p); const m = SC.makeStump(b.bonk === 2 ? 0.42 : 0.32, (b.s * 11) | 1); m.position.set(p.x, heightSD(b.s, b.d) - (b.bonk === 2 ? 0.6 : 0.48), p.z); m.rotation.y = b.s * 2.1; m.userData.prop = true; group.add(m); }
+    if (b.wall) for (let q = 0; q < 4; q++) {
+      const ss = b.s - b.rs + (q + 0.5) * b.rs / 2, dd = b.d + b.side * (b.rd + 2.8 + hash2(q, ss | 0) * 0.8); worldFromSD(ss, dd, p);
+      const rk = SC.makeRock(2.1 + hash2(q, (ss * 3) | 0) * 0.8, (ss * 7 + q) | 0); rk.position.set(p.x, heightSD(ss, dd) - 0.7, p.z); rk.scale.set(1, 1.3, 1); rk.rotation.y = ss * 0.7; rk.userData.prop = true; group.add(rk);
+    }
     if (b.cornice && SC.makeCornice) { worldFromSD(b.s - 0.3, b.d, p); const m = SC.makeCornice(b.cornice.len, b.cornice.depth, (b.s * 5) | 1); m.position.set(p.x, heightSD(b.s - 0.3, b.d) + 0.1, p.z); m.rotation.y = Math.PI - thAt(b.s); m.userData.prop = true; group.add(m); }
   }
   // cliff faces: a jagged rock band with snowy ledges (one mesh per cliff) and a few boulders at the foot
@@ -6117,7 +6446,7 @@ function bowlH(s, d) {
     if (bs < g.s0 || bs > g.s1) continue;
     const e = smooth(g.s0, g.s0 + 60, bs) * smooth(g.s1, g.s1 - 60, bs);
     const c = g.d * (1 - 0.35 * smooth(g.s0, g.s1, bs)) + 20 * Math.sin(bs * 0.011 + g.ph), x = (d - c) / g.w, ax = Math.abs(x);
-    if (ax < 1) h -= g.D * e * (1 - x * x * x * x); else if (ax < 1.7) h += g.D * 0.22 * e * Math.sin(Math.PI * (ax - 1) / 0.7);
+    h += gullyCut(x, g.D, e);
   }
   // rock bands: a bench above, then a near-vertical step (the rock mesh covers the face)
   for (const c of BCL) {
@@ -6162,9 +6491,9 @@ function resetWorld(reseed) {
   }
   BOWL = false;
   if (reseed && !AUTO) SEED = (Math.random() * 1e9) | 0;
-  bumps.length = 0; kickers.length = 0; railDefs.length = 0; obstacles.length = 0; cliffs.length = 0; markers.length = 0;
+  bumps.length = 0; kickers.length = 0; railDefs.length = 0; obstacles.length = 0; cliffs.length = 0; markers.length = 0; gullies.length = 0;
   CL.x = [0]; CL.z = [0]; CL.y = [0]; CL.th = [0]; CL.n = 1;
-  Object.assign(plan, { rng: mulberry(SEED ^ 0x51ed27), end: 0, step: 0, cyc: 0, lastBig: '', zones: [], grade: [[0, 0.2]], curv: [], curvEnd: 0, noTree: [] });
+  Object.assign(plan, { rng: mulberry(SEED ^ 0x51ed27), hrng: mulberry(SEED ^ 0x3b1f5), end: 0, step: 0, cyc: 0, lastBig: '', zones: [], grade: [[0, 0.2]], curv: [], curvEnd: 0, noTree: [], straight: [], nextSig: 560, sigN: 0, peakN: 0, noRock: [] });
   Object.assign(BW, { built: false, group: null, geos: [], rails: [], colliders: [], camTrees: [], refreshT: 0, drop: -1, runs: 0, done: false, finishWait: 0, lastSum: null });
   dropRng = mulberry(SEED ^ 0x4d0f);
   lastKicker = null; activeRails = []; activeColliders = []; activeCamTrees = [];
@@ -6589,7 +6918,11 @@ const FEEL = {
   skidDec: 15,                        // m/s^2 hockey stop
   popBase: 3.4, popCharge: 3.1, popFull: 0.45, // ollie m/s along the normal; seconds to full charge
   kickUp: [0.07, 0.09, 0.11],         // kicker launch: extra vertical m/s per m/s of speed, by size
-  kickSoft: 21, kickSoftUp: 0.55, kickSoftH: 0.018, // above 21 m/s at the lip: m/s of throw removed per m/s over, and horizontal scrub per m/s over
+  kickSoft: 21,                       // the speed-proportional boost flattens out above 18 m/s and stops at this speed
+  // fast hits: past capAt m/s of forward speed at the lip (by size) the upward throw is capped at capY, falling capK per m/s
+  // (never below capMin), and past scrubAt the forward speed loses scrub m/s per m/s over. Fast riders fly further and
+  // flatter instead of higher, so 20-30 m/s hits stay ~3-4 s airs that meet the sized landing at a sensible angle.
+  kickCapAt: [13, 11, 9.5], kickCapY: [9, 9.8, 9.4], kickCapK: [0.6, 0.8, 1.0], kickCapMin: [4, 2.5, 1.5], kickScrubAt: 15, kickScrub: 0.65,
   kickPop: 0.8,                       // ollie multiplier when popped on a kicker (the ramp does most of the work)
   hang: 0.4, hangV: 3.4,              // air gravity drops by up to 40% when |vy| < ~3.4 m/s (apex float)
   airSteer: 0.45,                     // rad/s of drift steering in the air (no E / Q held)
@@ -6598,17 +6931,17 @@ const FEEL = {
 };
 function airG(vy) { return G * (1 - FEEL.hang * Math.exp(-(vy * vy) / (FEEL.hangV * FEEL.hangV))); }
 // kicker launch: throws you up in proportion to speed
+// the cap on the upward throw for a kicker of this size at forward speed spd (shared by the physics and the landing planner)
+function kickCapY(size, spd) { return spd > FEEL.kickCapAt[size] ? Math.max(FEEL.kickCapMin[size], FEEL.kickCapY[size] - FEEL.kickCapK[size] * (spd - FEEL.kickCapAt[size])) : 1e9; }
 function kickerLaunch(k) {
   if (!k) return;
-  const spd = Math.hypot(P.vel.x, P.vel.z);
-  P.vel.y += (Math.min(spd, 18) + 0.4 * clamp(spd - 18, 0, FEEL.kickSoft - 18)) * FEEL.kickUp[k.size || 0];
-  // very fast hits: the lip bleeds off some of the throw so 25-30 m/s airs stay in the 4-4.5 s range
-  const over = Math.max(0, P.vel.length() - FEEL.kickSoft);
-  if (over > 0) {
-    P.vel.y -= Math.min(Math.max(0, P.vel.y) * 0.6, over * FEEL.kickSoftUp);
-    const keepH = 1 - FEEL.kickSoftH * over; P.vel.x *= keepH; P.vel.z *= keepH;
-  }
-  P.leftKickerT = 0; P.launchK = k.size + 1;
+  const size = k.size || 0, spd = Math.hypot(P.vel.x, P.vel.z);
+  P.vel.y += (Math.min(spd, 18) + 0.4 * clamp(spd - 18, 0, FEEL.kickSoft - 18)) * FEEL.kickUp[size];
+  // fast hits: cap the upward throw, scrub a little forward speed (keeps 20-30 m/s airs ~3-4 s, landing on the sized landing)
+  P.kickCapY = kickCapY(size, spd);
+  if (P.vel.y > P.kickCapY) P.vel.y = P.kickCapY;
+  if (spd > FEEL.kickScrubAt) { const keepH = (spd - FEEL.kickScrub * (spd - FEEL.kickScrubAt)) / spd; P.vel.x *= keepH; P.vel.z *= keepH; }
+  P.leftKickerT = 0; P.launchK = size + 1;
 }
 
 function stepRide(dt) {
@@ -6668,18 +7001,24 @@ function stepRide(dt) {
   if (spd > 0.01) P.vel.multiplyScalar(ns / spd); else P.vel.copy(P.heading).multiplyScalar(ns);
   // pop on Space release
   const kick = g.kicker, onKicker = !!kick;
+  if (!onKicker) P.kickPopPend = 0;
   if (!ctl.space && P.prevSpace) {
     const charge = clamp01(P.holdT / FEEL.popFull);
     let pv = FEEL.popBase + FEEL.popCharge * charge;
     if (onKicker) pv *= FEEL.kickPop;
     P.holdT = 0;
-    P.vel.addScaledVector(n, pv);
-    if (onKicker) kickerLaunch(kick);
-    P.popT = 0; P.popCharge = charge;
-    sfx.pop(0.6 + 0.4 * charge);
-    takeoff();
-    P.pos.addScaledVector(P.vel, dt);
-    return;
+    // a fast kicker hit (throw capped at the lip): the pop fires as he leaves the lip, so popping a little early on the
+    // ramp never dips him back into it
+    if (onKicker && kickCapY(kick.size || 0, Math.hypot(P.vel.x, P.vel.z)) < 1e8) { P.kickPopPend = pv; P.popCharge = charge; }
+    else {
+      P.vel.addScaledVector(n, pv);
+      if (onKicker) kickerLaunch(kick);
+      P.popT = 0; P.popCharge = charge;
+      sfx.pop(0.6 + 0.4 * charge);
+      takeoff();
+      P.pos.addScaledVector(P.vel, dt);
+      return;
+    }
   }
   if (!ctl.space) P.holdT = Math.max(0, P.holdT - dt * 3);
   // move
@@ -6688,6 +7027,8 @@ function stepRide(dt) {
   const gap = P.pos.y - g2.h;
   const thr = 0.5 * G * g2.n.y * dt * dt * 1.25 + 0.0015;
   if (gap > thr && P.vel.dot(g2.n) > -0.5) {
+    if (onKicker && P.kickPopPend) { P.vel.addScaledVector(n, P.kickPopPend); P.popT = 0; sfx.pop(0.6 + 0.4 * P.popCharge); }
+    P.kickPopPend = 0;
     if (onKicker) kickerLaunch(kick);
     takeoff();
   } else {
@@ -6736,7 +7077,9 @@ function stepAir(dt) {
   if (!ctl.space && P.prevSpace) {
     if (!P.airDrop && P.popT > 0.3 && (P.leftKickerT < 0.18 || P.airT < 0.15)) {
       const pv = (FEEL.popBase + FEEL.popCharge * clamp01(P.holdT / FEEL.popFull)) * (P.leftKickerT < 0.18 ? FEEL.kickPop : 1);
+      const vy0 = P.vel.y;
       P.vel.y += Math.max(0, pv - Math.max(0, P.vel.y) * 0.35); P.popT = 0; P.popCharge = 1; sfx.pop(0.8);
+      if (P.leftKickerT < 0.18 && P.kickCapY !== undefined) P.vel.y = Math.min(P.vel.y, Math.max(vy0, P.kickCapY)); // a late pop off a fast kicker obeys the same cap
       if (P.leftKickerT < 0.18) P.launchCue = Math.max(P.launchCue || 0, clamp01((P.vel.y - 1.5) / 7));
       cam.kick = Math.max(cam.kick, 2 + pv * 0.25);
     }
@@ -7459,7 +7802,9 @@ function clearView(prev) {
   return best;
 }
 function updateCamera(dt) {
-  const spd = P.speed;
+  // in the air the framing follows the forward speed only: a long fall's vertical speed must not widen the FOV or push
+  // the camera back (the rider would shrink to a speck by touchdown)
+  const spd = P.mode === 'air' ? Math.min(P.speed, Math.hypot(P.vel.x, P.vel.z)) : P.speed;
   // travel direction (velocity), blended with the course direction ahead
   _cd.set(P.vel.x, 0, P.vel.z);
   if (_cd.lengthSq() < 4 || P.mode === 'bail' || P.mode === 'ragdoll') downDir(P.s, _cd, P.pos.x, P.pos.z); _cd.normalize();
@@ -7516,6 +7861,12 @@ function updateCamera(dt) {
     if (P.mode === 'air' && P.vel.y < -4) cam.pos.y += P.vel.y * 0.45 * dt;
     cam.pos.x += (_cp.x - cam.pos.x) * kp; cam.pos.z += (_cp.z - cam.pos.z) * kp; cam.pos.y += (_cp.y - cam.pos.y) * ky;
     cam.look.lerp(_cl, 1 - Math.exp(-10 * cu * dt));
+    // long airs: the eased camera trails a falling rider; never let it drift more than a couple of metres past the framing
+    // distance, so he stays a readable size all the way to touchdown
+    if (P.mode === 'air' && !P.heliDrop) {
+      const maxD = Math.hypot(dist, hgt) + 2, dx = cam.pos.x - P.pos.x, dy = cam.pos.y - P.pos.y, dz = cam.pos.z - P.pos.z, dd = Math.hypot(dx, dy, dz);
+      if (dd > maxD) { const f = maxD / dd; cam.pos.set(P.pos.x + dx * f, P.pos.y + dy * f, P.pos.z + dz * f); }
+    }
     // never inside the snow: a hard floor under the eased camera (the eased target already keeps 1.2 m and a clear line)
     const fh = ground(cam.pos.x, cam.pos.z, P.hint, false).h + 0.7; if (cam.pos.y < fh) cam.pos.y = fh;
   }
@@ -8134,6 +8485,27 @@ function runShot(name) {
     else riderRun(t, dt);
     const pre = document.getElementById('dbg'); pre.style.display = 'block';
     pre.textContent = 'bowl drop ' + BW.drop + ' ' + DROPS[BW.drop].name + '  t ' + t + '  mode ' + P.mode + '  bs ' + (P.s - BO).toFixed(0) + ' d ' + P.d.toFixed(0) + '  ' + Math.round(P.speed * 2.237) + ' mph  calls ' + renderer.info.render.calls + '  runs ' + BW.runs;
+  } else if (name === 'line') {
+    // one line / signature moment: &id=N (index into plan.zones) or &sig=stepdown|cliffband|gap|garden or &type=jumps|rails|natural|gully|cliff;
+    // &view=side (default, 3/4 from above the bank; &side=r for the other bank) | chase (the line bot rides it; &t= s after the start, &v= m/s)
+    ensurePlan(6000); ensureCourse(6000);
+    const zi = QS.has('id') ? parseInt(QS.get('id'), 10) : plan.zones.findIndex(q => QS.has('sig') ? q.sig === QS.get('sig') : q.type === (QS.get('type') || 'jumps') && q.s0 > 100);
+    const z = plan.zones[zi >= 0 ? zi : 2], view = QS.get('view') || 'side', len = z.s1 - z.s0;
+    const info = 'line ' + plan.zones.indexOf(z) + ' ' + z.type + (z.sig ? ' (' + z.sig + ')' : '') + '  s ' + Math.round(z.s0) + '-' + Math.round(z.s1) +
+      '  kickers ' + kickers.filter(k => k.s > z.s0 && k.s < z.s1).map(k => k.size + (k.yaw ? 'h' : '')).join(',') + '  rails ' + railDefs.filter(q => q.s > z.s0 && q.s < z.s1).map(q => q.type).join(',');
+    if (view === 'chase') {
+      const v = parseFloat(QS.get('v') || '15');
+      startAt(z.s0 - 25, 0, v); scripted = lineBot(z);
+      riderRun(t, dt);
+    } else {
+      startAt(z.s0, 0, 0); stream(z.s1 + 60, 99); riderRun(0.05, dt); P.mode = 'heli'; R.root.visible = false;
+      const sd = QS.get('side') === 'r' ? 1 : -1, p = { x: 0, z: 0 }, cs = z.s0 - 20 + len * 0.15;
+      const cs2 = z.s0 - 18; worldFromSD(cs2, sd * 24, p); camera.position.set(p.x, cyAt(cs2) + 26 + len * 0.06, p.z);
+      const ls = z.s0 + len * 0.5; worldFromSD(ls, -sd * 4, p); camera.lookAt(p.x, cyAt(ls) - 2, p.z);
+      camera.fov = parseFloat(QS.get('fov') || '58'); camera.updateProjectionMatrix();
+      for (let i = 0; i < 3; i++) SC.update(dt, camera, camera.position, 0);
+    }
+    const pre = document.getElementById('dbg'); pre.style.display = 'block'; pre.textContent = info + (view === 'chase' ? '  t ' + t + '  ' + Math.round(P.speed * 2.237) + ' mph  ' + P.mode + '  airs ' + P.stats.airs + ' slides ' + P.stats.slides : '') + '  calls ' + renderer.info.render.calls;
   } else if (name === 'overview') {
     const s0 = parseFloat(QS.get('s') || '150');
     startAt(s0, 0, 0); P.mode = 'ride';
@@ -8165,6 +8537,26 @@ function triBreak() {
   if (QS.get('tris') === '2') { const nl = []; root.traverse(o => { if (o.isLOD && o.levels[0].object.isMesh) { const dd = camera.position.distanceTo(_v.setFromMatrixPosition(o.matrixWorld)); if (dd < 330) nl.push(dd.toFixed(0) + ':' + o.getCurrentLevel() + (o.parent.visible ? '' : 'h') + ':' + o.levels[0].object.userData.step + (fr.intersectsObject(o.levels[o.getCurrentLevel()].object) ? 'v' : '')); } }); window.__lodList = nl.join(' '); }
   return 'tris total ' + (tot / 1000).toFixed(0) + 'k  calls ' + calls + '  terrain ' + (ter / 1000).toFixed(0) + 'k in ' + terN + ' tiles (levels fine->coarse ' + lv.map(v => (v / 1000).toFixed(0)).join('/') + 'k)' +
     '  statics in view ' + (st / 1000).toFixed(0) + 'k (' + stN + ' meshes, casters ' + (stCast / 1000).toFixed(0) + 'k)' + (window.__lodList ? '\n' + window.__lodList : '') + (ts ? '  trees near ' + (ts.near / 1000).toFixed(0) + 'k mid ' + (ts.mid / 1000).toFixed(0) + 'k card ' + (ts.card / 1000).toFixed(0) + 'k backdrop ' + (ts.backdrop / 1000).toFixed(0) + 'k' : '');
+}
+// line bot: rides a zone's big route. Aims at the next kicker / rail ahead, holds Space into a kicker and pops at the lip,
+// holds R near rails, grabs on big airs, otherwise follows the clear line
+function lineBot(z) {
+  const feats = kickers.filter(k => k.s > z.s0 && k.s < z.s1 && k.tag !== 'easy').map(k => ({ s: k.s, d: k.d, yaw: k.yaw || 0, k }))
+    .concat(railDefs.filter(q => q.s > z.s0 && q.s < z.s1 && !q.across && q.overEdge === undefined).map(q => ({ s: q.s, d: q.d, yaw: 0, rail: q }))).sort((a, b) => a.s - b.s);
+  return tt => {
+    const o = { steer: 0 };
+    if (P.mode === 'air') { o.q = P.airT > 0.3 && P.timeToLand > 0.5; return o; }
+    if (P.mode !== 'ride') return o;
+    const f = feats.find(q => q.s + (q.rail ? 2 : 0) > P.s + 0.5 && q.s < P.s + 70);
+    let want = f ? f.d + Math.sin(f.yaw) * (P.s - f.s) : 0;
+    if (f && f.k && P.s > f.s - 32) o.space = P.s < f.s - 0.4;
+    if (f && f.rail) o.r = true;
+    // steer the travel direction (relative to the course) toward the target lane, like the test=1 bot
+    const wantA = clamp((want - P.d) * 0.06, -0.45, 0.45);
+    courseDir(P.s, _ca); const vx = P.vel.x, vz = P.vel.z, cur = Math.atan2(-(_ca.z * vx - _ca.x * vz), _ca.x * vx + _ca.z * vz);
+    o.steer = clamp((wantA - cur) * 2.2, -1, 1);
+    return o;
+  };
 }
 // headless capture does not composite the WebGL canvas reliably: freeze the frame into an <img> under the HUD
 function finishShot() {
@@ -8228,7 +8620,126 @@ function bowlTest() {
   console.log(lines.join('\n'));
   finishShot();
 }
+// ?test=course (&km=4): what the player meets per kilometre. Static plan counts + spacing, the clear centre lane,
+// feature visibility from the approach (line of sight over the snow), and every kicker jumped for real at 12 / 17 / 22 m/s
+// (popped at the lip): where he lands, how hard, the slope he lands on, and anything in the way.
+function courseTest() {
+  const KM = Math.max(1, parseInt(QS.get('km') || '4', 10)), S1 = KM * 1000, dt = 1 / 60;
+  ensureCourse(S1 + 400);
+  const lines = ['Powder Lines course audit  seed ' + SEED + '  ' + KM + ' km'];
+  const K = []; for (let i = 0; i < KM; i++) K.push({ kick: 0, big: 0, rails: 0, logs: 0, cliffs: 0, nat: 0, obs: 0, centre: 0, moments: [], vis40: 0, visN: 0, blind: 0, land: 0, good: 0, short: 0, flat: 0, deep: 0, bail: 0, block: 0, onrail: 0, sig: 0, lines: 0, turns: 0 });
+  const at = s => K[Math.min(KM - 1, Math.floor(s / 1000))];
+  const feats = [];
+  for (const k of kickers) if (k.s < S1) { const o = at(k.s); o.kick++; if (k.size === 2) o.big++; feats.push({ s: k.s, d: k.d, y: () => heightSD(k.s - 0.3, k.d) + k.H, what: 'kicker' }); }
+  for (const r of railDefs) if (r.s < S1) { const o = at(r.s); if (r.type === 'log') o.logs++; else o.rails++; feats.push({ s: r.s, d: r.d, y: () => heightSD(r.s, r.d) + (r.h || r.radius || 0.4), what: r.type }); }
+  for (const c of cliffs) if (c.s < S1 && c.D > 2) { at(c.s).cliffs++; const dd = c.sneakD > 0 ? -12 : 12; feats.push({ s: c.s - 1, d: dd, y: () => heightSD(c.s - 1.5, dd) + 0.3, what: 'cliff' }); }
+  for (const b of bumps) if (b.s < S1 && b.type !== 1 && (b.pillow || b.cornice || b.bonk || b.type >= 4 || (b.type === 2 && b.h > 0.9))) { at(b.s).nat++; feats.push({ s: b.s - (b.rs || 3) * 0.5, d: b.d, y: () => heightSD(b.s, b.d) + 0.3, what: 'natural' }); }
+  for (const o of obstacles) if (o.s < S1) { at(o.s).obs++; if (Math.abs(o.d) < 4.5) at(o.s).centre++; }
+  for (const k of kickers) if (k.s < S1 && Math.abs(k.d) < 4.5) at(k.s).centre++;
+  for (const r of railDefs) if (r.s < S1 && Math.abs(r.d) < 4.5 && Math.abs(r.d + (r.skew || 0) * r.len) < 4.5) at(r.s).centre++;
+  for (const z of plan.zones) if (z.s0 < S1) { if (z.sig) at(z.s0).sig++; if (z.line) at(z.s0).lines++; }
+  // moments: features within 8 m of each other along s are one moment (a line's parallel options)
+  feats.sort((a, b) => a.s - b.s);
+  let last = -1e9; for (const f of feats) { if (f.s - last > 8) at(f.s).moments.push(f.s); last = f.s; }
+  // turns: course direction change per km (deg) and how many 100 m stretches bend more than 10 deg
+  for (let s = 0; s < S1; s += 100) if (Math.abs(thAt(s + 100) - thAt(s)) > 10 * Math.PI / 180) at(s).turns++;
+  // visibility: eye 1.5 m over the snow on the feature's own lane, L m upstream; the feature counts as seen from the
+  // longest L where every closer eye point also sees it
+  for (const f of feats) {
+    if (f.s < 60) continue;
+    const ty = f.y(); let seen = 0;
+    for (let L = 10; L <= 80; L += 5) {
+      const es = f.s - L, ey = heightSD(es, f.d) + 1.5; let ok = true;
+      for (let i = 1; i < 30; i++) { const t = i / 30, s = es + (f.s - es) * t; if (f.s - s < 3) break; if (groundSD(s, f.d) > ey + (ty - ey) * t - 0.05) { ok = false; break; } }
+      if (!ok) break; seen = L;
+    }
+    const o = at(f.s); o.visN++; if (seen >= 40) o.vis40++; if (seen < 25) { o.blind++; if (QS.has('v')) lines.push('  blind ' + f.what + ' s ' + f.s.toFixed(0) + ' d ' + f.d.toFixed(0) + ' seen ' + seen); }
+  }
+  // kickers jumped for real
+  const speeds = (QS.get('speeds') || '12,17,22').split(',').map(Number), detail = [];
+  let errors = 0;
+  for (const k of kickers) {
+    if (k.s >= S1 || k.s < 40) continue;
+    for (const v of speeds) {
+      try {
+        for (const kk in P.stats) P.stats[kk] = typeof P.stats[kk] === 'number' ? 0 : '';
+        startAt(k.s - 26, k.d - Math.sin(k.yaw || 0) * 26, v); P.invuln = 0;
+        if (k.yaw) { courseDir(k.s, _v); courseRight(k.s, _w); P.heading.copy(_v).multiplyScalar(Math.cos(k.yaw)).addScaledVector(_w, Math.sin(k.yaw)); projPlane(P.heading, P.n).normalize(); P.vel.copy(P.heading).multiplyScalar(v); }
+        const aim = s => k.d + Math.sin(k.yaw || 0) * (s - k.s);
+        scripted = () => ({ steer: P.mode === 'ride' && P.s < k.s - 0.5 ? clamp((aim(P.s) - P.d) * 0.3, -1, 1) : 0, space: P.mode === 'ride' && P.s < k.s - 0.4 });
+        let flew = false, res = null; const lv = {};
+        for (let i = 0; i < 60 * 9 && !res; i++) {
+          if (P.mode === 'ride' && P.s < k.s - 6) { const l = P.vel.length(); if (l > 0.1) P.vel.multiplyScalar(v / l); }
+          frame(dt);
+          if (P.mode === 'air' && P.airT > 0.15) flew = true;
+          if (P.mode === 'air') { lv.h = Math.hypot(P.vel.x, P.vel.z); lv.y = P.vel.y; lv.t = P.airT; if (lv.y0 === undefined) { lv.y0 = P.vel.y; lv.h0 = lv.h; } }
+          if (flew && P.mode !== 'air') {
+            const ls = P.s, ld = P.d, g = (heightSD(ls - 1.5, ld) - heightSD(ls + 1.5, ld)) / 3;
+            let blk = false;
+            for (const c of activeColliders) if (Math.hypot(c.x - P.pos.x, c.z - P.pos.z) < c.r + 2.5) { blk = true; break; }
+            res = { dist: ls - k.s, g, str: P.lastLand ? P.lastLand.strength : 0, mode: P.mode, why: P.stats.why, blk, air: P.airT };
+          }
+          if (!flew && P.s > k.s + 4) { res = { dist: 0, g: 0, str: 0, mode: 'nolaunch', why: '', blk: false }; }
+        }
+        if (!res) res = { dist: 0, g: 0, str: 0, mode: 'timeout', why: '', blk: false };
+        const o = at(k.s); o.land++;
+        let tag;
+        if (res.mode === 'rail') { o.onrail++; o.good++; tag = 'rail'; }
+        else if (res.mode === 'bail' || res.mode === 'ragdoll') { o.bail++; tag = 'BAIL ' + res.why; }
+        else if (res.mode !== 'ride') { tag = res.mode; }
+        else if (res.str > 0.85) { o.flat++; tag = 'HARD'; }
+        else if (res.g < 0.2 && res.dist < (k.deck || 14) + 2) { o.short++; tag = 'SHORT'; }
+        else if (res.g < 0.2) { o.deep++; tag = 'DEEP'; }
+        else { o.good++; tag = 'ok'; }
+        if (res.blk) o.block++;
+        if (QS.has('v') || tag !== 'ok') detail.push('  kicker s ' + k.s.toFixed(0) + ' d ' + k.d.toFixed(0) + ' size ' + k.size + (k.yaw ? ' hip' : '') + (k.tag ? ' ' + k.tag : '') + ' @' + v + ': ' + tag + '  land +' + res.dist.toFixed(0) + ' m  grade ' + res.g.toFixed(2) + '  str ' + res.str.toFixed(2) + (res.blk ? '  BLOCKED' : '') + (QS.has('vv') ? '  air ' + (lv.t || 0).toFixed(2) + ' takeoff ' + (lv.h0 || 0).toFixed(1) + '/' + (lv.y0 || 0).toFixed(1) + ' impact ' + (lv.h || 0).toFixed(1) + '/' + (lv.y || 0).toFixed(1) : ''));
+      } catch (e) { errors++; if (errors < 3) console.error(e); }
+    }
+  }
+  // small hits (lips, pop rollers, pillows, bonks) ridden straight over at each speed, popped at the crest: air, landing
+  const HT = {}; const hitList = bumps.filter(b => b.hit && b.s < S1 && b.s > 40);
+  for (const v of speeds) HT[v] = { n: 0, air: 0, airs: 0, hard: 0, bail: 0, max: 0 };
+  for (const b of hitList) for (const v of speeds) {
+    try {
+      for (const kk in P.stats) P.stats[kk] = typeof P.stats[kk] === 'number' ? 0 : '';
+      startAt(b.s - 24, b.d, v); P.invuln = 0;
+      const crest = b.type === 2 ? b.s - 0.3 : b.s - 0.5;
+      scripted = () => ({ steer: P.mode === 'ride' && P.s < b.s ? clamp((b.d - P.d) * 0.3, -1, 1) : 0, space: P.mode === 'ride' && P.s > b.s - 14 && P.s < crest });
+      let air = 0, res = null;
+      for (let i = 0; i < 60 * 6 && !res; i++) {
+        if (P.mode === 'ride' && P.s < b.s - 8) { const l = P.vel.length(); if (l > 0.1) P.vel.multiplyScalar(v / l); }
+        frame(dt);
+        if (P.mode === 'air') air = P.airT;
+        else if (air > 0 || P.s > b.s + 25) res = { mode: P.mode, str: air > 0.25 && P.lastLand ? P.lastLand.strength : 0 };
+      }
+      const o = HT[v]; o.n++;
+      if (res && (res.mode === 'bail' || res.mode === 'ragdoll')) o.bail++;
+      if (air > 0.25) { o.airs++; o.air += air; o.max = Math.max(o.max, air); }
+      if (res && res.str > 0.85) { o.hard++; if (QS.has('v')) lines.push('  hit HARD s ' + b.s.toFixed(0) + ' d ' + b.d.toFixed(0) + ' type ' + b.type + ' @' + v + ' air ' + air.toFixed(2) + ' str ' + res.str.toFixed(2)); }
+    } catch (e) { errors++; if (errors < 3) console.error(e); }
+  }
+  scripted = null;
+  const f1 = x => x.toFixed(1), pct = (a, b) => b ? Math.round(100 * a / b) + '%' : '-';
+  lines.push('small hits ' + hitList.length + ' (' + (hitList.length / KM).toFixed(1) + '/km): ' + speeds.map(v => { const o = HT[v]; return '@' + v + ' air ' + o.airs + '/' + o.n + ' avg ' + (o.airs ? o.air / o.airs : 0).toFixed(2) + ' s max ' + o.max.toFixed(1) + ' hard ' + o.hard + ' bail ' + o.bail; }).join('  |  '));
+  lines.push('km | kick(big) rails logs cliffs natural obstacles | moments gap avg/max  >120m | centre-lane blocks | seen>=40m blind<25m | jumps: ok short deep hard bail onrail | landing blocked | lines sig turns');
+  const T = { m: 0, g: 0, n: 0 };
+  K.forEach((o, i) => {
+    const m = o.moments, gaps = []; for (let j = 1; j < m.length; j++) gaps.push(m[j] - m[j - 1]);
+    const avg = gaps.length ? gaps.reduce((a, b) => a + b, 0) / gaps.length : 0, mx = gaps.length ? Math.max(...gaps) : 0;
+    lines.push((i + 1) + '  | ' + o.kick + '(' + o.big + ') ' + o.rails + ' ' + o.logs + ' ' + o.cliffs + ' ' + o.nat + ' ' + o.obs + ' | ' + m.length + ' ' + avg.toFixed(0) + '/' + mx.toFixed(0) + ' ' + gaps.filter(g => g > 120).length +
+      ' | ' + o.centre + ' | ' + pct(o.vis40, o.visN) + ' ' + o.blind + ' | ' + o.good + ' ' + o.short + ' ' + o.deep + ' ' + o.flat + ' ' + o.bail + ' ' + o.onrail + ' /' + o.land + ' | ' + o.block + ' | ' + o.lines + ' ' + o.sig + ' ' + o.turns);
+  });
+  const sum = key => K.reduce((a, o) => a + o[key], 0);
+  lines.push('total jumps ' + sum('land') + ': ok ' + pct(sum('good'), sum('land')) + '  short ' + sum('short') + '  deep ' + sum('deep') + '  hard ' + sum('flat') + '  bail ' + sum('bail') + '  blocked ' + sum('block') + '  | blind features ' + sum('blind') + '/' + sum('visN') + '  centre blocks ' + sum('centre'));
+  lines.push('zones ' + plan.zones.filter(z => z.s0 < S1).map(z => z.type + (z.sig ? '*' : '') + '@' + Math.round(z.s0)).join(' '));
+  lines.push('errors ' + errors);
+  for (const d of detail.slice(0, QS.has('v') ? 400 : 60)) lines.push(d);
+  const pre = document.getElementById('dbg'); pre.style.display = 'block'; pre.textContent = lines.join('\n');
+  console.log(lines.join('\n'));
+  finishShot();
+}
 function runTest() {
+  if (TEST === 'course') return courseTest();
   if (TEST === 'bowl') return bowlTest();
   if (TEST === 'soak') return soakTest();
   if (TEST === 'states') return statesTest();
@@ -8251,9 +8762,11 @@ function runTest() {
     return o;
   };
   const n = Math.round(secs / dt);
-  let minS = 1e9, errors = 0;
+  let minS = 1e9, errors = 0, airLog = [], wasAir = false, airs0 = 0;
   for (let i = 0; i < n; i++) {
     try { frame(dt); } catch (e) { errors++; if (errors < 3) console.error(e); }
+    // &airs=1: where every counted air landed (s, lane, zone, air time, landing strength)
+    if (QS.has('airs')) { const isAir = P.mode === 'air'; if (P.stats.airs > airs0) { airLog.push(Math.round(P.s) + '/' + Math.round(P.d) + ' ' + (plan.zones.find(z => P.s >= z.s0 && P.s < z.s1) || { type: '?' }).type.slice(0, 4) + ' ' + P.airT.toFixed(1) + 's' + (P.lastLand ? ' ' + P.lastLand.strength.toFixed(2) : '')); airs0 = P.stats.airs; } wasAir = isAir; }
     if (i % 60 === 0) speeds.push(Math.round(P.speed * 2.237) + (QS.has('trace') ? '[' + Math.round(P.d) + (P.mode[0]) + (plan.zones.find(z => P.s >= z.s0 && P.s < z.s1) || { type: '?' }).type.slice(0, 3) + ']' : ''));
   }
   const st = P.stats;
@@ -8267,7 +8780,8 @@ function runTest() {
     'chunks live    ' + chunks.size + '   rails ' + activeRails.length + '   colliders ' + activeColliders.length,
     'errors         ' + errors,
     'bails          ' + (st.why || ''),
-    'mph / s        ' + speeds.join(' ')].join('\n');
+    'mph / s        ' + speeds.join(' ')].join('\n') + (airLog.length ? '\nair log        ' + airLog.join('  ') : '') +
+    (QS.has('airs') ? '\nhits           ' + bumps.filter(b => b.hit && b.s < P.s).map(b => Math.round(b.s) + '/' + Math.round(b.d) + ['p', 'r', 'l'][b.type] + (b.bonk ? 'b' : '')).join(' ') : '');
   const pre = document.getElementById('dbg'); pre.style.display = 'block'; pre.textContent = out;
   console.log(out);
   finishShot();
@@ -8321,7 +8835,8 @@ function soakTest() {
     if (i % fpm === 0) sample(i / fpm);
   }
   const fromI = Math.min(2, rows.length - 1), tail = rows.slice(fromI), rng = k => Math.max(...tail.map(r => r[k])) - Math.min(...tail.map(r => r[k]));
-  const g0 = Math.min(...tail.map(r => r.geos)), okG = rng('geos') <= Math.max(8, g0 * 0.15), okT = rng('tex') <= 3, okP = rng('progs') === 0, okK = rng('kids') <= 3;
+  // geometries: a leak trends up; the chunk-to-chunk feature mix only swings, so a wide range without a trend still passes
+  const g0 = Math.min(...tail.map(r => r.geos)), okG = rng('geos') <= Math.max(8, g0 * 0.15) || (tail.length >= 6 && (() => { const m = a => a.reduce((x, r) => x + r.geos, 0) / a.length, h = tail.length >> 1; return m(tail.slice(h)) <= m(tail.slice(0, h)) + 4 && rng('geos') <= g0 * 0.25; })()), okT = rng('tex') <= 3, okP = rng('progs') === 0, okK = rng('kids') <= 3;
   const st = P.stats, lines = ['Powder Lines soak test  seed ' + SEED + '  ' + mins + ' min Endless, speed floor ' + vMin + ' m/s, step 1/60',
     'min   geos  tex  progs  scene  chunks  trees  banners  heap MB  builds  km     sound nodes/min'];
   for (const r of rows) lines.push(pad(r.m, 6) + pad(r.geos, 6) + pad(r.tex, 5) + pad(r.progs, 7) + pad(r.kids, 7) + pad(r.chunks, 8) + pad(r.trees, 7) + pad(r.banners, 9) + pad(r.heap, 9) + pad(r.builds, 8) + pad(r.km.toFixed(1), 7) + r.nodes);

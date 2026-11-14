@@ -320,6 +320,14 @@ body.touch .readout { padding: 3px 8px 4px 7px; }
 .sib-go { font-size: 18px; font-weight: 700; color: var(--muted); }
 .sib:hover .sib-go { color: var(--chalk); }
 .pe-empty { margin: 0; color: var(--muted); font-size: 16px; }
+.pe-sel span#peDims { font-size: 14px; color: var(--chalk); opacity: .8; }
+.pe-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px; }
+.pe-card { display: flex; flex-direction: column; gap: 0; padding: 0; overflow: hidden; text-align: left; background: rgba(18,16,15,.55); color: var(--chalk);
+  border: 2px solid var(--line-strong); border-radius: 3px; box-shadow: 2px 2px 0 var(--ink); cursor: pointer; }
+.pe-card:hover, .pe-card:focus-visible { border-color: var(--hazard); outline: none; }
+.pe-card img { display: block; width: 100%; aspect-ratio: 1.6; object-fit: cover; background: #2b2826; }
+.pe-card span { padding: 5px 8px 6px; font-size: 15px; font-weight: 700; letter-spacing: .03em; }
+.pe-card.blank img { visibility: hidden; }
 .pe-code { width: 100%; box-sizing: border-box; min-height: 74px; resize: vertical; background: rgba(14,12,11,.7); color: var(--chalk); border: 2px solid var(--line-strong); border-radius: 3px;
   padding: 8px 9px; font: 13px/1.35 ui-monospace, Consolas, monospace; word-break: break-all; box-shadow: inset 2px 2px 0 rgba(0,0,0,.35); }
 .pe-code:focus { outline: 2px solid var(--hazard); outline-offset: 1px; }
@@ -370,7 +378,7 @@ body.touch .pe-help { display: none; }
   <div class="splash-in">
     <h1>Concrete <span class="hz">Lines</span></h1>
     <p class="splash-by">Made by Jon Beam<br>with the use of Claude Code</p>
-    <p class="splash-date">Updated November 14, 2026 · Play-test 0.032</p>
+    <p class="splash-date">Updated November 14, 2026 · Play-test 0.033</p>
     <p class="splash-go">Click to play</p>
   </div>
 </div>
@@ -477,15 +485,17 @@ body.touch .pe-help { display: none; }
     <button class="btn ghost" id="peBoard" type="button">Board</button>
     <button class="btn ghost" id="peParks" type="button">Parks</button>
     <button class="btn ghost" id="peMenu" type="button">Menu</button>
+    <button class="btn ghost" id="peTest" type="button" title="Drop in at the middle of the view, facing the way the camera looks (Shift+Enter drops in at the pointer). Tab comes back.">Test line</button>
     <button class="btn pe-ride" id="peRide" type="button">Ride it</button>
   </div>
   <div class="pe-pal" id="pePal" role="group" aria-label="Pieces"></div>
   <details class="pe-help" open><summary>Controls</summary>
     <b>Click</b> a piece on the left, then click the lot to place it. <b>Drag</b> a piece to move it, drag empty ground to pan.<br>
-    <b>R</b> / <b>Shift+R</b> rotate 15&deg; &middot; <b>[ ]</b> lower / raise (the piece's height) &middot; <b>- =</b> smaller / larger &middot; <b>T</b> style<br>
+    <b>R</b> / <b>Shift+R</b> rotate 15&deg; &middot; <b>[ ]</b> lower / raise (the piece's height) &middot; <b>- =</b> smaller / larger &middot; <b>T</b> style &middot; <b>P</b> look<br>
+    A rail dropped next to a ledge, pad, wall or table lines up with its edge. Hold <b>Alt</b> to place it freely.<br>
     Ledges, manual pads and rails sit on top of whatever is under them: place one on a funbox, a table top or a bank deck to stack it.<br>
     <b>Shift</b> while dragging: fine snap &middot; <b>Ctrl+D</b> duplicate &middot; <b>Del</b> delete &middot; <b>Ctrl+Z / Ctrl+Y</b> undo / redo<br>
-    <b>Right-drag</b> orbit &middot; <b>Wheel</b> zoom &middot; <b>WASD</b> pan &middot; <b>Q / E</b> turn &middot; <b>V</b> top view &middot; <b>Enter</b> ride
+    <b>Right-drag</b> orbit &middot; <b>Wheel</b> zoom &middot; <b>WASD</b> pan &middot; <b>Q / E</b> turn &middot; <b>V</b> top view &middot; <b>Enter</b> ride &middot; <b>Shift+Enter</b> test a line from the pointer, facing the way you look (<b>Tab</b> comes back)
   </details>
   <div class="pe-view">
     <button class="pe-tool" id="peOrbL" type="button" aria-label="Turn view left">&#8630;</button>
@@ -495,7 +505,7 @@ body.touch .pe-help { display: none; }
     <button class="pe-tool pe-wide" id="peTop" type="button">Top view</button>
   </div>
   <div class="pe-bar">
-    <div class="pe-sel"><b id="peSelName">0 pieces</b><span id="peSelInfo"></span><em id="peMsg" aria-live="polite"></em></div>
+    <div class="pe-sel"><b id="peSelName">0 pieces</b><span id="peSelInfo"></span><span id="peDims"></span><em id="peMsg" aria-live="polite"></em></div>
     <div class="pe-tools">
       <button class="pe-tool" id="peRotL" type="button" title="Rotate left (Shift+R)">&#8634; 15&deg;</button>
       <button class="pe-tool" id="peRotR" type="button" title="Rotate right (R)">&#8635; 15&deg;</button>
@@ -504,6 +514,7 @@ body.touch .pe-help { display: none; }
       <button class="pe-tool" id="peSmaller" type="button" title="Smaller (-)">Smaller</button>
       <button class="pe-tool" id="peLarger" type="button" title="Larger (=)">Larger</button>
       <button class="pe-tool" id="peStyle" type="button" title="Style (T)">Style</button>
+      <button class="pe-tool" id="peLook" type="button" title="Look: concrete, paint, wood or graffiti (P)">Look</button>
       <span class="pe-sep"></span>
       <button class="pe-tool" id="peDup" type="button" title="Duplicate (Ctrl+D)">Duplicate</button>
       <button class="pe-tool warn" id="peDel" type="button" title="Delete (Del)">Delete</button>
@@ -519,11 +530,14 @@ body.touch .pe-help { display: none; }
     <div class="section-lbl">Saved in this browser</div>
     <div id="peSlots" class="pe-slots"></div>
     <div class="row"><input class="netin" id="peSaveName" maxlength="24" placeholder="Park name" autocomplete="off" spellcheck="false" aria-label="Save as"><button class="btn" id="peSaveBtn" type="button">Save</button></div>
-    <div class="section-lbl">Start from</div>
-    <div class="row">
-      <button class="btn ghost" type="button" data-start="blank">Empty lot</button>
-      <button class="btn ghost" type="button" data-start="plaza">Street plaza</button>
-      <button class="btn ghost" type="button" data-start="trans">Transition park</button>
+    <div class="section-lbl">Starters</div>
+    <div class="pe-cards">
+      <button class="pe-card" type="button" data-start="plaza"><img data-thumb="plaza" alt=""><span>Plaza</span></button>
+      <button class="pe-card" type="button" data-start="trans"><img data-thumb="trans" alt=""><span>Transition</span></button>
+      <button class="pe-card" type="button" data-start="street"><img data-thumb="street" alt=""><span>Street course</span></button>
+      <button class="pe-card" type="button" data-start="flow"><img data-thumb="flow" alt=""><span>Flow bowl</span></button>
+      <button class="pe-card" type="button" data-start="diy"><img data-thumb="diy" alt=""><span>Backyard DIY</span></button>
+      <button class="pe-card" type="button" data-start="blank"><img data-thumb="blank" alt=""><span>Empty lot</span></button>
     </div>
     <div class="section-lbl">Share code</div>
     <p class="lede">Copy the code to share this park. To open a shared park, paste its code here and press Load code. Undo brings back the park you had.</p>
@@ -11720,6 +11734,127 @@ function lotRail(ax, az, bx, bz, H, flat) {
 }
 const stairDims = (n, rise, v) => { const Ht = n * rise, B = Math.max(1.6, Ht * 2.4), Lp = 2.4, Ls = n * 0.42; return { Ht, B, Lp, Ls, L: B + Lp + Ls }; };
 const bowlDims = (Rb, Rt, sp) => { const Hl = Rt * 0.7569, S = Hl * 2, D = 1.0; return { Hl, S, D, rMax: Rb + Rt * 0.97 + D + S, sp }; };
+// ---- piece looks: a finish per piece (k), swapped onto the builders' concrete / plywood / wood materials after the piece is built ----
+const LOOKS = ['Standard', 'Raw concrete', 'Painted blue', 'Painted red', 'Painted green', 'Worn wood', 'Graffiti'];
+const LOOK_MATS = [];
+function lotWoodTex(seed) {
+  const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
+  let s = seed; const rnd = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
+  for (let k = 0; k < 16; k++) {   // 16 planks across a 4 m tile, each its own weathered tone
+    const v = 120 + rnd() * 40 | 0; g.fillStyle = `rgb(${v + 22},${v - 4},${v - 38})`; g.fillRect(k * 16, 0, 16, 256);
+    for (let n = 0; n < 9; n++) { g.strokeStyle = `rgba(60,40,24,${(0.08 + rnd() * 0.14).toFixed(2)})`; g.lineWidth = 1; g.beginPath(); const x = k * 16 + 2 + rnd() * 12; g.moveTo(x, 0); g.bezierCurveTo(x + rnd() * 4 - 2, 80, x + rnd() * 4 - 2, 170, x, 256); g.stroke(); }
+    g.fillStyle = 'rgba(30,20,12,0.65)'; g.fillRect(k * 16, 0, 1.5, 256);
+    g.fillStyle = 'rgba(40,40,40,0.55)'; for (const y of [24, 152]) { g.fillRect(k * 16 + 4, y + rnd() * 6, 2, 2); g.fillRect(k * 16 + 10, y + rnd() * 6, 2, 2); }
+  }
+  for (let n = 0; n < 50; n++) { g.fillStyle = `rgba(210,200,180,${(rnd() * 0.12).toFixed(2)})`; g.fillRect(rnd() * 256, rnd() * 256, 2 + rnd() * 30, 1 + rnd() * 3); }   // skids and worn grain
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t;
+}
+const LOT_WOOD = { top: new THREE.MeshStandardMaterial({ map: lotWoodTex(11), roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 }), side: new THREE.MeshStandardMaterial({ map: lotWoodTex(23), color: 0xcfc4b4, roughness: 0.95, side: THREE.DoubleSide }) };
+LOT_WOOD.top.userData.keep = LOT_WOOD.side.userData.keep = true;
+function lookMats(k) {
+  if (LOOK_MATS[k]) return LOOK_MATS[k];
+  const top = o => new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.85, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 }, o));
+  const side = o => new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.9, side: THREE.DoubleSide }, o));
+  let L;
+  if (k === 1) L = { top: mats.ramp, side: mats.rampSide };
+  else if (k >= 2 && k <= 4) {
+    const c = ['#3d6c9e', '#b0473a', '#5d8a4e'][k - 2], tx = concreteTex(c, false);
+    L = { top: top({ map: tx, roughness: 0.6 }), side: side({ map: tx, color: 0xd8d8d8, roughness: 0.7 }), rail: new THREE.MeshStandardMaterial({ color: new THREE.Color(c).multiplyScalar(1.15), roughness: 0.45, metalness: 0.3 }) };
+  } else if (k === 5) L = { top: LOT_WOOD.top, side: LOT_WOOD.side };
+  else if (k === 6) {
+    // the game's own DIY graffiti: patchy concrete with real tags and pieces, tiling every 8 m (uvs are metres / 4)
+    const gt = makeGraffitiTexture(31, 1024, { kind: 'diy' }), gs = makeGraffitiTexture(37, 1024, { kind: 'diyside' });
+    gt.repeat.set(0.5, 0.5); gs.repeat.set(0.5, 0.5);
+    L = { top: top({ map: gt }), side: side({ map: gs }) };
+  } else L = null;
+  if (L) [L.top, L.side, L.rail].forEach(m => { if (m) { m.userData.keep = true; LOT_SHARED.add(m); } });
+  return (LOOK_MATS[k] = L);
+}
+LOT_SHARED.add(LOT_WOOD.top); LOT_SHARED.add(LOT_WOOD.side);
+function lotPaint(hd, k) {
+  const L = k ? lookMats(k) : null; if (!L) return;
+  const map = new Map([[mats.ramp, L.top], [mats.ply, L.top], [LOT_WOOD.top, L.top], [mats.rampSide, L.side], [mats.plySide, L.side], [LOT_WOOD.side, L.side]]);
+  if (L.rail) map.set(mats.rail, L.rail);
+  hd.traverse(o => { if (o.isMesh) o.material = Array.isArray(o.material) ? o.material.map(m => map.get(m) || m) : (map.get(o.material) || o.material); });
+}
+// vertical end walls for a grid-built piece (buildGrid draws only the riding surface): a strip from the ground up to the surface at local x = lx
+function lotSideWall(o, lx, n = 60) {
+  const pos = [], uv = [];
+  for (let j = 0; j < n; j++) {
+    const z0 = -o.hl + 2 * o.hl * j / n, z1 = -o.hl + 2 * o.hl * (j + 1) / n, h0 = o.f(lx, z0), h1 = o.f(lx, z1);
+    if (h0 < 0.003 && h1 < 0.003) continue;
+    pos.push(lx, 0, z0, lx, h0, z0, lx, h1, z1, lx, 0, z0, lx, h1, z1, lx, 0, z1); uv.push(z0 / 4, 0, z0 / 4, h0 / 4, z1 / 4, h1 / 4, z0 / 4, 0, z1 / 4, h1 / 4, z1 / 4, 0);
+  }
+  if (!pos.length) return;
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.computeVertexNormals();
+  const m = new THREE.Mesh(g, mats.rampSide), grp = new THREE.Group(); m.castShadow = m.receiveShadow = true; grp.add(m); grp.position.set(o.cx, 0, o.cz); grp.rotation.y = o.a; scene.add(grp);
+}
+// a box ledge whose top follows a kinked profile prof(lz) (kinked ledge, up-and-down ledge); ks = the kinks, steel edges that grind
+function lotKinkLedge(p, w, L, prof, ks) {
+  const a = p.r * D2R, hl = L / 2;
+  const o = addObs({ cx: p.x, cz: p.z, a, hw: w / 2, hl, f: (lx, lz) => prof(lz) });
+  buildObs(o, mats.ramp, mats.rampSide, [-w / 2, w / 2], uniq([...lin(-hl, hl, Math.ceil(L / 0.25)), ...ks].sort((x, y) => x - y)));
+  [-1, 1].forEach(sd => {
+    const ex = sd * (w / 2 - 0.03), zs = [-hl + 0.03, ...ks.filter(k => k > -hl + 0.05 && k < hl - 0.05), hl - 0.03];
+    const pts = zs.map(lz => { const [x, z] = pW(p, ex, lz); return [x, prof(lz) + 0.02, z]; });
+    addRailPath(pts, { hidden: true, ledge: true });
+    for (let k = 0; k + 1 < pts.length; k++) cylBetween(new V3(pts[k][0], pts[k][1] - 0.025, pts[k][2]), new V3(pts[k + 1][0], pts[k + 1][1] - 0.025, pts[k + 1][2]), 0.03, mats.steel);
+  });
+}
+// a rail along a list of [lx, lz, y] points in the piece's frame (y above the ground), round, with posts
+function lotPathRail(p, pts, opts) { return addRailPath(pts.map(([lx, lz, y]) => { const [x, z] = pW(p, lx, lz); return [x, y, z]; }), opts); }
+// hip: two quarter-pipe faces meeting at a convex ridge that points at you; Y = the angle between the two lips
+function hipDims(S, H, Y) {
+  const R = H / 0.7569, Rl = R * 0.97, Hl = R - Math.sqrt(R * R - Rl * Rl), D = 1.0, B = 1.6, Tp = 1.2, ph = (180 - Y) / 2 * D2R, w0 = Rl * Math.tan(ph), Wf = w0 + S, res = 0.15;
+  const sn = Math.sin(ph), cs = Math.cos(ph), T = Rl + D + B, xs = [], zs = [];
+  [[0, 0], [T, 0], [0, Wf + Tp], [T, Wf + Tp]].forEach(([t, w]) => [1, -1].forEach(sd => { xs.push(sd * (-t * sn + w * cs)); zs.push(t * cs + w * sn); }));
+  const oz = (Math.min(...zs) + Math.max(...zs)) / 2, hw = Math.ceil(Math.max(...xs.map(Math.abs)) / res) * res, hl = (Math.max(...zs) - Math.min(...zs)) / 2;
+  return { R, Rl, Hl, D, B, Tp, sn, cs, w0, Wf, oz, hw, hl, res, H: Hl };
+}
+// vert extension: a quarter whose middle swells to a bigger radius (a true vert transition through the old lip), like the mega half pipe's
+function vxDims(S, H, E) {
+  const R0 = H / 0.7569, Rl0 = R0 * 0.97, Hl0 = R0 - Math.sqrt(R0 * R0 - Rl0 * Rl0), Rmax = (H + E) / 0.7569, D = 1.0, B = 1.8;
+  const kof = R => Math.sqrt(Math.max(0, R * R - (R - Hl0) * (R - Hl0))) - Rl0;
+  const Rof = lx => R0 + (Rmax - R0) * smoothT((S * 0.45 - Math.abs(lx)) / (S * 0.25));
+  const prof = (s, R) => { const t = s + kof(R), Rl2 = R * 0.97, H2 = R - Math.sqrt(R * R - Rl2 * Rl2); if (t <= 0) return 0; if (t < Rl2) return R - Math.sqrt(Math.max(0, R * R - t * t)); if (t < Rl2 + D) return H2; return H2 * (1 - smoothT((t - Rl2 - D) / B)); };
+  const sIn = -kof(Rmax) - 0.2, sOut = Math.max(Rmax * 0.97 - kof(Rmax), Rl0) + D + B + 0.2;
+  return { R0, Rmax, kof, Rof, prof, sIn, sOut, hl: (sOut - sIn) / 2, sMid: (sIn + sOut) / 2, H: H + E };
+}
+// curved ledge: an arc of a 0.6 m deep ledge, radius S to its middle, Y degrees of arc
+function curveDims(S, Y) {
+  const w = 0.6, th = Y * D2R, ro = S + w / 2, ri = S - w / 2, zmax = ro, zmin = Y >= 180 ? Math.min(0, ri * Math.cos(th / 2)) : ri * Math.cos(th / 2), xmax = Y >= 180 ? ro : ro * Math.sin(th / 2);
+  return { w, th, ro, ri, cz0: -(zmax + zmin) / 2, hw: xmax, hl: (zmax - zmin) / 2 };
+}
+// a section of pool wall: a quarter with concrete bullnose coping blocks and a band of tile under the lip
+const LOT_TILE_M = (() => {
+  const c = document.createElement('canvas'); c.width = 128; c.height = 64; const g = c.getContext('2d');
+  g.fillStyle = '#e8e4da'; g.fillRect(0, 0, 128, 64);
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) { g.fillStyle = (i + j) % 2 ? '#2f6f9a' : '#3a83b0'; g.fillRect(i * 32 + 1.5, j * 32 + 1.5, 29, 29); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4;
+  const m = new THREE.MeshStandardMaterial({ map: t, roughness: 0.35, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }); m.userData.keep = true; return m;
+})();
+const LOT_COPING_M = new THREE.MeshStandardMaterial({ color: 0xd9d3c6, roughness: 0.8 }); LOT_COPING_M.userData.keep = true;
+function lotPoolWall(cx, cz, a, W, R, D) {
+  const Rl = R * 0.97, Hl = R - Math.sqrt(R * R - Rl * Rl), hl = (Rl + D) / 2, lip = -hl + Rl;
+  const o = addObs({ cx, cz, a, hw: W / 2, hl, f: (lx, lz) => { const t = lz + hl; return t < Rl ? R - Math.sqrt(Math.max(0, R * R - t * t)) : Hl; } });
+  const g = buildObs(o, mats.ramp, mats.rampSide, [-W / 2, W / 2], [...lin(-hl, lip, Math.round(12 * R)), hl]);
+  // coping blocks: a round nose hanging over the transition and a flat block back onto the deck, with a joint every 0.6 m
+  const nb = Math.max(2, Math.round(W / 0.6)), bw = W / nb;
+  for (let k = 0; k < nb; k++) {
+    const x = -W / 2 + (k + 0.5) * bw;
+    const nose = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, bw - 0.012, 12), LOT_COPING_M); nose.rotation.z = Math.PI / 2; nose.position.set(x, Hl - 0.035, lip + 0.02); nose.castShadow = true; g.add(nose);
+    const blk = new THREE.Mesh(new THREE.BoxGeometry(bw - 0.012, 0.15, 0.3), LOT_COPING_M); blk.position.set(x, Hl - 0.035, lip + 0.17); blk.castShadow = blk.receiveShadow = true; g.add(blk);
+  }
+  // tile band: the last 0.3 m of the transition under the coping
+  { const pos = [], uv = [], idx = [], n = 6;
+    for (let j = 0; j <= n; j++) { const t = Rl - 0.32 + 0.3 * j / n, y = R - Math.sqrt(R * R - t * t), nz = -t / R, ny = Math.sqrt(R * R - t * t) / R;
+      [-W / 2, W / 2].forEach(x => { pos.push(x, y + ny * 0.008, -hl + t + nz * 0.008); uv.push((x + W / 2) / 0.6, j / n); }); }
+    for (let j = 0; j < n; j++) { const a0 = j * 2; idx.push(a0, a0 + 1, a0 + 2, a0 + 1, a0 + 3, a0 + 2); }
+    const tg = new THREE.BufferGeometry(); tg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); tg.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); tg.setIndex(idx); tg.computeVertexNormals();
+    const tm = new THREE.Mesh(tg, LOT_TILE_M); tm.receiveShadow = true; g.add(tm); }
+  const c = Math.cos(a), s = Math.sin(a), cy = Hl + 0.1, pt = lx => [cx + lx * c + lip * s, cy, cz - lx * s + lip * c];
+  addRailPath([pt(-W / 2 + 0.3), pt(W / 2 - 0.3)], { hidden: true }).forEach(sg => { sg.inward = [-s, -c]; });
+}
 const PT = {
   quarter: { code: 'qp', name: 'Quarter pipe', grp: 'Transition', size: [4, 6, 8, 10], sl: v => mm(v) + ' wide', height: [1.2, 1.8, 2.4, 3], hl: v => mm(v) + ' tall',
     dims: (S, H) => ({ hw: S / 2, hl: qDims(H, 1.2).hl, H }),
@@ -11805,6 +11940,135 @@ const PT = {
       addRailPath(pts, { hidden: true, ledge: true, closed: true });
       const ring = new THREE.Mesh(new THREE.TorusGeometry(S - 0.02, 0.03, 6, 64), mats.steel); ring.rotation.x = Math.PI / 2; ring.position.set(p.x, H, p.z); scene.add(ring);
     } },
+  hip: { code: 'hp', name: 'Hip', grp: 'Transition', size: [3, 4.5, 6], sl: v => mm(v) + ' lip each side', height: [1.2, 1.8, 2.4], hl: v => mm(v) + ' tall', style: [90, 120, 150], vl: v => v + '° hip',
+    dims: (S, H, Y) => { const d = hipDims(S, H, Y); return { hw: d.hw, hl: d.hl, H: d.Hl }; },
+    build(p, S, H, Y) {
+      const d = hipDims(S, H, Y), a = p.r * D2R, { R, Rl, Hl, D, B, Tp, sn, cs, Wf } = d;
+      const prof = t => t <= 0 ? 0 : t < Rl ? R - Math.sqrt(Math.max(0, R * R - t * t)) : t < Rl + D ? Hl : Hl * (1 - smoothT((t - Rl - D) / B));
+      const face = (t, w) => w > Wf + Tp ? 0 : prof(t) * (w > Wf ? smoothT((Wf + Tp - w) / Tp) : 1);
+      const o = addObs({ cx: p.x, cz: p.z, a, hw: d.hw, hl: d.hl, f: (lx, lz) => { const X = Math.abs(lx), Z = lz + d.oz; return face(-X * sn + Z * cs, X * cs + Z * sn); } });   // each half is one face; they meet on the ridge (x = 0)
+      buildGrid(o, d.res, mats.ramp);
+      // coping on both lips, one grindable run over the top of the ridge
+      const lipPt = (sd, w) => { const X = sd * (-Rl * sn + w * cs), Z = Rl * cs + w * sn; return [X, Z - d.oz]; };
+      const top = lipPt(1, d.w0), ends = [lipPt(-1, Wf - 0.3), lipPt(1, Wf - 0.3)];
+      const wp = ([lx, lz], y) => { const [x, z] = pW(p, lx, lz); return new V3(x, y, z); };
+      [ends[0], ends[1]].forEach(e => cylBetween(wp(e, Hl), wp(top, Hl), 0.08, mats.steel));
+      const knob = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 8), mats.steel); knob.position.copy(wp(top, Hl)); scene.add(knob);
+      const segs = addRailPath([ends[0], top, ends[1]].map(e => { const v = wp(e, Hl + 0.08); return [v.x, v.y, v.z]; }), { hidden: true });
+      const c = Math.cos(a), s = Math.sin(a), inw = (lx, lz) => [-(lx * c + lz * s), -(-lx * s + lz * c)];
+      segs.forEach((sg, i) => { sg.inward = i === 0 ? inw(-sn, cs) : inw(sn, cs); });
+    } },
+  pool: { code: 'po', name: 'Pool section', grp: 'Transition', size: [6, 8, 10], sl: v => mm(v) + ' wide', height: [1.8, 2.4, 3], hl: v => mm(v) + ' deep', style: [0, 1], vl: v => v ? 'Corner' : 'Straight',
+    dims: (S, H, Y) => ({ hw: S / 2, hl: Y ? S / 2 : qDims(H, 1.2).hl, H }),
+    build(p, S, H, Y) {
+      const q = qDims(H, 1.2), a = p.r * D2R;
+      if (!Y) { lotPoolWall(p.x, p.z, a, S, q.R, 1.2); return; }
+      const [ax, az] = pW(p, 0, S / 2 - q.hl), [bx, bz] = pW(p, S / 2 - q.hl, 0);   // a back wall and a side wall meeting in a corner pocket
+      lotPoolWall(ax, az, a, S, q.R, 1.2); lotPoolWall(bx, bz, a + Math.PI / 2, S, q.R, 1.2);
+    } },
+  vertext: { code: 'vx', name: 'Vert extension', grp: 'Transition', size: [6, 8, 10], sl: v => mm(v) + ' wide', height: [1.8, 2.4], hl: v => mm(v) + ' quarter', style: [1, 1.6], vl: v => '+' + v + ' m extension',
+    dims: (S, H, E) => ({ hw: S / 2, hl: vxDims(S, H, E).hl, H: H + E }),
+    build(p, S, H, E) {
+      const d = vxDims(S, H, E), a = p.r * D2R;
+      const o = addObs({ cx: p.x, cz: p.z, a, hw: S / 2, hl: d.hl, f: (lx, lz) => d.prof(lz + d.sMid, d.Rof(lx)) });
+      buildGrid(o, 0.15, mats.ramp); lotSideWall(o, -S / 2); lotSideWall(o, S / 2);
+      const pts = []; for (let lx = -S / 2 + 0.05; lx <= S / 2 - 0.05 + 1e-6; lx += 0.25) { const R = d.Rof(lx), Rl2 = R * 0.97, s = Rl2 - d.kof(R); pts.push(pW(p, lx, s - d.sMid).concat([R - Math.sqrt(R * R - Rl2 * Rl2)])); }
+      const tube = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(([x, z, y]) => new V3(x, y, z))), pts.length * 2, 0.08, 8), mats.steel); tube.castShadow = true; scene.add(tube);
+      addRailPath(pts.map(([x, z, y]) => [x, y + 0.08, z]), { hidden: true }).forEach(r => { r.inward = [-Math.sin(a), -Math.cos(a)]; });
+    } },
+  rollers: { code: 'rb', name: 'Rollers', grp: 'Transition', size: [2, 3, 4, 5], sl: v => v + ' bumps', height: [0.3, 0.45, 0.6], hl: v => mm(v) + ' tall', style: [3, 4.5], vl: v => mm(v) + ' wide',
+    dims: (S, H, Y) => ({ hw: Y / 2 + 1, hl: S * (2 + H * 2) / 2, H }),
+    build(p, S, H, Y) { const lam = 2 + H * 2, hl = S * lam / 2; profileRamp(p.x, p.z, p.r * D2R, Y, 1, hl, lz => H * Math.pow(Math.sin(Math.PI * (lz + hl) / lam), 2), 0.2); } },
+  pyrail: { code: 'pr', name: 'Pyramid rail', grp: 'Jumps', size: [1.2, 2, 3], sl: v => mm(v) + ' top', height: [0.6, 0.9, 1.2], hl: v => mm(v) + ' tall', style: [0, 1], vl: v => v ? 'Rail over the top' : 'Rail down one face',
+    dims: (S, H) => ({ hw: S / 2 + H * 2.6, hl: S / 2 + H * 2.6, H: H + 0.4 }),
+    build(p, S, H, Y) {
+      const sl = H * 2.6, y = lz => H * clamp(1 - (Math.abs(lz) - S / 2) / sl, 0, 1) + 0.38;
+      funbox(p.x, p.z, p.r * D2R, S, S, H, sl, false);
+      const zs = Y ? [-(S / 2 + sl) + 0.5, -S / 2, S / 2, S / 2 + sl - 0.5] : [S / 2 - 0.25, S / 2, S / 2 + sl - 0.5];
+      lotPathRail(p, zs.map(lz => [0, lz, y(lz)]));
+    } },
+  flatgap: { code: 'fg', name: 'Flat gap', grp: 'Jumps', size: [1.5, 2.5, 3.5], sl: v => mm(v) + ' gap', height: [0.4, 0.6, 0.8], hl: v => mm(v) + ' tall', style: [0, 1], vl: v => v ? 'With a rail' : 'No rail',
+    dims: (S, H) => ({ hw: 1.5, hl: (H * 5.2 + 3.6 + S) / 2, H }),
+    build(p, S, H, Y) {
+      const L1 = H * 2.6, Dk = 1.8, hl = (2 * L1 + 2 * Dk + S) / 2, g0 = -hl + L1 + Dk, g1 = g0 + S;
+      profileRamp(p.x, p.z, p.r * D2R, 3, 0, hl, lz => { const s = lz + hl; return s < L1 ? H * s / L1 : lz < g0 ? H : lz < g1 ? 0 : lz < g1 + Dk ? H : H * (1 - (lz - g1 - Dk) / L1); }, 0.25, mats.ramp, null, { vertical: true, breaks: [g0, g1] });
+      // the deck ends grind like ledges
+      [[g0 - 0.03], [g1 + 0.03]].forEach(([z]) => { const [ax, az] = pW(p, -1.45, z), [bx, bz] = pW(p, 1.45, z); cylBetween(new V3(ax, H - 0.005, az), new V3(bx, H - 0.005, bz), 0.03, mats.steel); addRailPath([[ax, H + 0.02, az], [bx, H + 0.02, bz]], { hidden: true, ledge: true }); });
+      if (Y) lotPathRail(p, [[1.15, g0 - 1.2, H + 0.4], [1.15, g1 + 1.2, H + 0.4]]);
+    },
+    gaps: (p, S, H) => { const L1 = H * 2.6, Dk = 1.8, hl = (2 * L1 + 2 * Dk + S) / 2, g0 = -hl + L1 + Dk, g1 = g0 + S; return [{ name: 'Flat Gap', pts: Math.round(180 + 70 * S), from: pAABB(p, -1.6, 1.6, g0 - 1.6, g0 + 0.15), to: pAABB(p, -1.8, 1.8, g1 + 0.1, hl + 2.5) }]; } },
+  wall: { code: 'ww', name: 'Wallride wall', grp: 'Street', size: [4, 6, 8, 10], sl: v => mm(v) + ' long', height: [1.5, 2, 2.6, 3.2], hl: v => mm(v) + ' tall', style: [0, 1], vl: v => v ? 'Bank at the foot' : 'Plain',
+    dims: (S, H, Y) => ({ hw: Y ? 1.3 : 0.15, hl: S / 2, H }),
+    build(p, S, H, Y) {
+      const a = p.r * D2R, wx = Y ? -1.15 : 0, [cx, cz] = pW(p, wx, 0);
+      const o = addObs({ cx, cz, a, hw: 0.15, hl: S / 2, f: () => H });
+      buildObs(o, mats.ramp, mats.rampSide, [-0.15, 0.15], [-S / 2, S / 2]);
+      [-1, 1].forEach(sd => { const [ax, az] = pW(p, wx + sd * 0.12, -S / 2 + 0.05), [bx, bz] = pW(p, wx + sd * 0.12, S / 2 - 0.05); addRailPath([[ax, H + 0.02, az], [bx, H + 0.02, bz]], { hidden: true, ledge: true }); });
+      if (Y) { const [bx, bz] = pW(p, 0, 0); profileRamp(bx, bz, a + Math.PI / 2, S, 0, 1.0, lz => 0.75 * Math.pow(clamp((1.0 - lz) / 2, 0, 1), 2), 0.15, mats.ramp, null, { vertical: true }); }   // a small curved bank rising into the wall's foot
+    } },
+  aframe: { code: 'af', name: 'A-frame rail', grp: 'Street', size: [1.5, 2.5, 3.5], sl: v => mm(v) + ' top', height: [0.4, 0.6, 0.8], hl: v => mm(v) + ' tall', style: [0, 1, 2], vl: v => ['Rail on one side', 'Rails both sides', 'Rail on top'][v],
+    dims: (S, H, Y) => ({ hw: Y === 2 ? 0.7 : 1.15, hl: S / 2 + H * 3, H: H + 0.4 }),
+    build(p, S, H, Y) {
+      const sl = H * 3, y = lz => H * clamp(1 - (Math.abs(lz) - S / 2) / sl, 0, 1);
+      funbox(p.x, p.z, p.r * D2R, 1.4, S, H, { xn: 0.02, xp: 0.02, zn: sl, zp: sl }, false);
+      const zs = [-(S / 2 + sl) + 0.35, -S / 2, S / 2, S / 2 + sl - 0.35], rail = lx => lotPathRail(p, zs.map(lz => [lx, lz, Math.max(0.3, y(lz) + (lx ? 0.38 : 0.36))]));
+      if (Y === 2) rail(0); else { rail(1.0); if (Y === 1) rail(-1.0); }
+    } },
+  hubba: { code: 'hb', name: 'Kinked ledge', grp: 'Street', size: [5, 7, 9], sl: v => mm(v) + ' long', height: [0.5, 0.7, 0.9], hl: v => mm(v) + ' high end', style: [0, 1], vl: v => v ? 'Up and down' : 'Kinked down',
+    dims: (S, H) => ({ hw: 0.35, hl: S / 2, H }),
+    build(p, S, H, Y) {
+      const hl = S / 2, lo = 0.3, f = 1.2;
+      if (!Y) { const k0 = -hl + f, k1 = hl - f; lotKinkLedge(p, 0.7, S, lz => lz < k0 ? H : lz > k1 ? lo : H + (lo - H) * (lz - k0) / (k1 - k0), [k0, k1]); return; }
+      const k0 = -hl + 0.9, k3 = hl - 0.9, k1 = -0.6, k2 = 0.6;
+      lotKinkLedge(p, 0.7, S, lz => lz < k0 || lz > k3 ? lo : lz < k1 ? lo + (H - lo) * (lz - k0) / (k1 - k0) : lz <= k2 ? H : H + (lo - H) * (lz - k2) / (k3 - k2), [k0, k1, k2, k3]);
+    } },
+  curve: { code: 'cl', name: 'Curved ledge', grp: 'Street', size: [3, 4.5, 6], sl: v => mm(v) + ' radius', height: [0.3, 0.45, 0.6], hl: v => mm(v) + ' tall', style: [60, 90, 180], vl: v => v + '° arc',
+    dims: (S, H, Y) => { const d = curveDims(S, Y); return { hw: d.hw, hl: d.hl, H }; },
+    build(p, S, H, Y) {
+      const d = curveDims(S, Y), a = p.r * D2R, inArc = (X, Z) => { const r = Math.hypot(X, Z); return r >= d.ri && r <= d.ro && Math.abs(Math.atan2(X, Z)) <= d.th / 2; };
+      addObs({ cx: p.x, cz: p.z, a, hw: d.hw, hl: d.hl, f: (lx, lz) => inArc(lx, lz - d.cz0) ? H : 0 });
+      // the mesh: the arc outline extruded straight up (shape y = -z, so the extrusion stands up after rotateX)
+      const n = Math.max(12, Math.round(Y / 5)), sh = new THREE.Shape();
+      for (let i = 0; i <= n; i++) { const t = -d.th / 2 + d.th * i / n; if (i) sh.lineTo(Math.sin(t) * d.ro, -Math.cos(t) * d.ro); else sh.moveTo(Math.sin(t) * d.ro, -Math.cos(t) * d.ro); }
+      for (let i = n; i >= 0; i--) { const t = -d.th / 2 + d.th * i / n; sh.lineTo(Math.sin(t) * d.ri, -Math.cos(t) * d.ri); }
+      const g = new THREE.ExtrudeGeometry(sh, { depth: H, bevelEnabled: false, curveSegments: 1 }); g.rotateX(-Math.PI / 2);
+      { const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 4, uv.getY(i) / 4); }
+      const m = new THREE.Mesh(g, [mats.ramp, mats.rampSide]); m.castShadow = m.receiveShadow = true; m.position.z = d.cz0;
+      const grp = new THREE.Group(); grp.position.set(p.x, 0, p.z); grp.rotation.y = a; grp.add(m); scene.add(grp);
+      // both top edges grind, steel along them
+      [d.ro - 0.03, d.ri + 0.03].forEach(r => {
+        const pts = []; const m2 = Math.max(8, Math.round(d.th * r / 0.3)); for (let i = 0; i <= m2; i++) { const t = -d.th / 2 + d.th * i / m2, [x, z] = pW(p, Math.sin(t) * r, Math.cos(t) * r + d.cz0); pts.push([x, H + 0.02, z]); }
+        addRailPath(pts, { hidden: true, ledge: true });
+        const tube = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(q => new V3(q[0], H - 0.005, q[2]))), m2 * 2, 0.03, 6), mats.steel); tube.castShadow = true; scene.add(tube);
+      });
+    } },
+  pole: { code: 'pj', name: 'Pole jam', grp: 'Street', free: true, late: true, size: [1.6, 2.2, 3], sl: v => mm(v) + ' long', height: [0.7, 1, 1.3], hl: v => mm(v) + ' high end',
+    dims: (S, H) => ({ hw: 0.3, hl: S / 2 + 0.3, H }),
+    build(p, S, H) {
+      // a bent pole out of a footing: low end just off the ground, rising to H; R onto the low end and grind up and off
+      const [ax, az] = pW(p, 0, -S / 2), [bx, bz] = pW(p, 0, S / 2), [fx, fz] = pW(p, 0, -S / 2 - 0.25);
+      cylBetween(new V3(fx, -0.02, fz), new V3(bx, H - 0.05, bz), 0.05, mats.hazard);
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), mats.hazard); cap.position.set(bx, H - 0.05, bz); scene.add(cap);
+      const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.32, 0.06, 16), mats.rampSide); foot.position.set(fx, 0.03, fz); foot.receiveShadow = true; scene.add(foot);
+      const y0 = lerp(-0.02, H - 0.05, 0.25 / (S + 0.25)) + 0.05;
+      addRailPath([[ax, y0, az], [bx, H, bz]], { hidden: true });
+    } },
+  picnic: { code: 'pn', name: 'Picnic table', grp: 'Street', size: [1.8, 2.4], sl: v => mm(v) + ' long', style: [0, 1], vl: v => v ? 'Concrete' : 'Wood',
+    dims: S => ({ hw: 0.85, hl: S / 2, H: 0.76 }),
+    build(p, S, H, Y) {
+      const a = p.r * D2R, top = Y ? mats.ramp : LOT_WOOD.top, side = Y ? mats.rampSide : LOT_WOOD.side, grp = new THREE.Group(); grp.position.set(p.x, 0, p.z); grp.rotation.y = a; scene.add(grp);
+      const box = (w, h, l, x, y, z, m) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, l), [side, side, m, side, side, side]); b.position.set(x, y, z); b.castShadow = b.receiveShadow = true; grp.add(b); return b; };
+      // solid to ride: the top and both benches (the gap under them doesn't count), every long edge grinds
+      [[0, 0.4, 0.76], [-0.68, 0.15, 0.45], [0.68, 0.15, 0.45]].forEach(([lx, hw, h]) => {
+        const [cx, cz] = pW(p, lx, 0); addObs({ cx, cz, a, hw, hl: S / 2, f: () => h });
+        box(hw * 2, Y ? h : 0.06, S, lx, Y ? h / 2 : h - 0.03, 0, top);
+        [-1, 1].forEach(sd => { const [ax2, az2] = pW(p, lx + sd * (hw - 0.03), -S / 2 + 0.04), [bx2, bz2] = pW(p, lx + sd * (hw - 0.03), S / 2 - 0.04); addRailPath([[ax2, h + 0.02, az2], [bx2, h + 0.02, bz2]], { hidden: true, ledge: true }); });
+      });
+      if (!Y) [-S / 2 + 0.25, S / 2 - 0.25].forEach(z => {   // A-frame legs and a bench rail on each end
+        [-1, 1].forEach(sd => { const l = box(0.07, 0.8, 0.07, sd * 0.3, 0.37, z, side); l.rotation.z = sd * 0.42; });
+        box(1.6, 0.07, 0.08, 0, 0.38, z, side);
+      });
+    } },
   start: { code: 'ss', name: 'Drop-in spot', grp: 'Start', unique: true, free: true,
     dims: () => ({ hw: 0.7, hl: 1.1, H: 0.1 }),
     build(p) {
@@ -11863,7 +12127,7 @@ function lotRebuild() {
     for (const i of order) {
       const p = PE.pieces[i], T = PT[p.t], hd = new THREE.Group(); hd.userData.pi = i; LOT_PIECES.add(hd); PE.holders[i] = hd;
       captureInto(hd);
-      try { T.build(p, ...pVals(p)); } catch (err) { console.warn('park piece failed', p, err); }
+      try { T.build(p, ...pVals(p)); if (p.k) lotPaint(hd, p.k); } catch (err) { console.warn('park piece failed', p, err); }
       if (T.gaps) gaps.push(...T.gaps(p, ...pVals(p)));
       if (p.t === 'start') spawns.push({ name: 'Drop-in spot', x: p.x, z: p.z, heading: p.r * D2R });
     }
@@ -11882,9 +12146,9 @@ function peEditOnly(on) { LOT_PIECES.traverse(o => { if (o.userData.editOnly) o.
 MAPS.lot = { name: 'Create a Park', set: LOT_SET, spawns: [{ name: 'Lot', x: 0, z: -LOT.half + 4, heading: 0 }], gaps: [], bounds: [LOT.bound, LOT.bound, -LOT.bound],
   attract: { x: 0, y: 0, z: 0, r: 60, h: 34 }, lede: 'Your own park on an empty lot.', eyebrow: 'Create a Park' };
 ENV.lot = { hemi: [0xc9d4f0, 0x7d6c58, 0.62], sun: [0xffc792, 1.05], amb: [0x5a524a, 0.28], fog: [0xd9b994, 160, 900], sunOff: [-20, 24, 42], sky: 1 };
-// ---- save format: "CLP1." + base64url of {n: name, p: [[code, x*10, z*10, rot, size, height, style], ...]} ----
+// ---- save format: "CLP1." + base64url of {n: name, p: [[code, x*10, z*10, rot, size, height, style, look?], ...]} (look is left off when 0, so older codes still read) ----
 function peEncode(name, pieces) {
-  const o = { n: String(name || '').slice(0, 24), p: pieces.map(p => [PT[p.t].code, Math.round(p.x * 10), Math.round(p.z * 10), Math.round(p.r) % 360, p.s | 0, p.h | 0, p.v | 0]) };
+  const o = { n: String(name || '').slice(0, 24), p: pieces.map(p => { const e = [PT[p.t].code, Math.round(p.x * 10), Math.round(p.z * 10), Math.round(p.r) % 360, p.s | 0, p.h | 0, p.v | 0]; if (p.k) e.push(p.k | 0); return e; }) };
   return 'CLP1.' + btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 function peDecode(code) {
@@ -11900,7 +12164,7 @@ function peDecode(code) {
       const num = (v, lo, hi) => Number.isFinite(+v) ? clamp(+v, lo, hi) : 0;
       const idx = (v, arr) => arr ? clamp(Math.round(num(v, 0, 99)), 0, arr.length - 1) : 0;
       if (T.unique && pieces.some(q => q.t === t)) continue;
-      pieces.push({ t, x: num(e[1], -400, 400) / 10, z: num(e[2], -400, 400) / 10, r: ((Math.round(num(e[3], -720, 720)) % 360) + 360) % 360, s: idx(e[4], T.size), h: idx(e[5], T.height), v: idx(e[6], T.style) });
+      pieces.push({ t, x: num(e[1], -400, 400) / 10, z: num(e[2], -400, 400) / 10, r: ((Math.round(num(e[3], -720, 720)) % 360) + 360) % 360, s: idx(e[4], T.size), h: idx(e[5], T.height), v: idx(e[6], T.style), k: T.unique ? 0 : idx(e[7], LOOKS) });
     }
     return { name: typeof o.n === 'string' ? o.n.slice(0, 24) : '', pieces };
   } catch (e) { return null; }
@@ -11909,20 +12173,59 @@ const PE_KEY_SLOTS = 'concrete-lines-parks', PE_KEY_WORK = 'concrete-lines-park-
 const peSlots = () => { try { return JSON.parse(localStorage.getItem(PE_KEY_SLOTS) || '{}') || {}; } catch (e) { return {}; } };
 function peSaveWork() { try { localStorage.setItem(PE_KEY_WORK, peEncode(PE.name, PE.pieces)); } catch (e) {} }
 // ---- starter layouts ----
-const pc = (t, x, z, r = 0, s = 0, h = 0, v = 0) => ({ t, x, z, r, s, h, v });
+const pc = (t, x, z, r = 0, s = 0, h = 0, v = 0, k = 0) => ({ t, x, z, r, s, h, v, k });
 const PE_STARTERS = {
   blank: { name: 'Empty lot', pieces: () => [pc('start', 0, -28)] },
-  plaza: { name: 'Street plaza', pieces: () => [
+  plaza: { name: 'Plaza', pieces: () => [
     pc('start', 0, -28), pc('stairs', 0, -17, 0, 2, 1, 0), pc('stairs', 18, -21, 0, 1, 1, 2),
     pc('ledge', -7, -6, 0, 2, 1, 1), pc('ledge', 7, -6, 0, 2, 1, 0), pc('ledge', 25, -12, 0, 3, 2, 0), pc('pad', 0, 2, 90, 1, 1, 1),
     pc('rail', -8, 9, 0, 2, 0, 1), pc('rail', 8, 9, 0, 2, 2, 0), pc('funbox', 0, 15, 90, 1, 1, 0), pc('rail', 2.6, 15, 90, 0, 0, 0),
     pc('planter', -15, 17, 0, 1, 1), pc('planter', 15, 17, 0, 1, 1), pc('gap', -22, -15, 0, 1, 1), pc('pyramid', 16, -5, 0, 0, 0),
-    pc('bank', -28.5, 5, 270, 2, 1, 0), pc('bank', 28.5, 5, 90, 2, 1, 0), pc('quarter', 0, 29.3, 0, 3, 1)] },
-  trans: { name: 'Transition park', pieces: () => [
+    pc('bank', -28.5, 5, 270, 2, 1, 0), pc('bank', 28.5, 5, 90, 2, 1, 0), pc('quarter', 0, 29.3, 0, 3, 1),
+    pc('picnic', -24, 23, 0, 0), pc('picnic', -20, 23, 0, 0, 0, 1), pc('curve', 16, 26, 0, 1, 1, 1), pc('hubba', -16, 5, 0, 1, 1, 0), pc('pole', -10, 24, 0, 1, 1)] },
+  trans: { name: 'Transition', pieces: () => [
     pc('start', 0, -28), pc('miniramp', 0, -14, 90, 1, 1, 1), pc('bowl', -16, 12, 0, 1, 1, 1), pc('spine', 16, 14, 90, 1, 1),
     pc('quarter', 0, 29, 0, 3, 2), pc('quarter', -26, -26, 225, 1, 1), pc('quarter', 26, -26, 135, 1, 1), pc('pyramid', 16, -2, 0, 1, 1),
-    pc('tabletop', -16, -10, 0, 1, 1, 1), pc('kicker', 6, 2, 0, 1, 1), pc('rail', 0, 6, 0, 2, 1, 0), pc('bank', 28.5, 4, 90, 2, 2, 1), pc('bank', -28.5, -10, 270, 1, 1, 0)] },
+    pc('tabletop', -16, -10, 0, 1, 1, 1), pc('kicker', 6, 2, 0, 1, 1), pc('rail', 0, 6, 0, 2, 1, 0), pc('bank', 28.5, 4, 90, 2, 2, 1), pc('bank', -28.5, -10, 270, 1, 1, 0),
+    pc('hip', 16, 24, 0, 0, 0, 0), pc('rollers', 8, -4, 90, 1, 1, 0)] },
+  street: { name: 'Street course', pieces: () => [
+    pc('start', 0, -28), pc('stairs', 0, -18, 0, 2, 1, 0), pc('flatgap', -12, -18, 0, 1, 1, 1), pc('hubba', 12, -18, 0, 1, 2, 0),
+    pc('aframe', -8, -2, 0, 1, 1, 0, 3), pc('curve', 8, -2, 0, 1, 1, 1, 1), pc('pad', 0, 6, 90, 1, 1, 1), pc('pyrail', 0, 17, 0, 1, 1, 1, 2),
+    pc('hubba', -16, 12, 0, 1, 1, 1), pc('ledge', 16, 10, 0, 2, 1, 1), pc('rail', 19, 10, 0, 2, 2, 0), pc('wall', 29.5, 0, 180, 3, 2, 1, 6),
+    pc('picnic', -26, 20, 0, 0), pc('picnic', -22, 20, 0, 0, 0, 1), pc('pole', -24, 6, 0, 1, 1), pc('quarter', 0, 29.3, 0, 3, 1), pc('bank', -28.5, -6, 270, 2, 1, 0)] },
+  flow: { name: 'Flow bowl', pieces: () => [
+    pc('start', 0, -28), pc('bowl', 0, 4, 0, 0, 1, 2), pc('rollers', 0, -18, 0, 1, 1, 0), pc('hip', -18, -16, 0, 0, 1, 1), pc('hip', 18, -16, 0, 0, 1, 1),
+    pc('vertext', 0, 26, 0, 1, 0, 0), pc('pool', 22, 22, 0, 0, 0, 1, 1), pc('quarter', -22, 24, 0, 1, 1), pc('bank', 28.5, 2, 90, 2, 1, 0), pc('bank', -28.5, 2, 270, 2, 1, 0, 6)] },
+  diy: { name: 'Backyard DIY', pieces: () => [
+    pc('start', 0, -28), pc('miniramp', 0, -12, 90, 0, 0, 0, 5), pc('bank', -29.9, -8, 270, 1, 1, 1, 6), pc('wall', -26, 8, 0, 2, 2, 1, 6), pc('pole', -14, 4, 0, 1, 1),
+    pc('hubba', 14, 2, 0, 1, 1, 0, 6), pc('curve', 0, 6, 0, 1, 0, 2, 6), pc('funbox', 14, 18, 0, 1, 1, 1), pc('quarter', 0, 29.3, 0, 2, 1, 0, 5),
+    pc('picnic', -22, 24, 90, 1, 0, 0), pc('picnic', 24, -22, 30), pc('kicker', 20, -8, 0, 1, 1, 0, 5), pc('rail', 8, -20, 0, 2, 1, 1), pc('pyrail', -12, 20, 0, 0, 0, 0, 6), pc('pool', 22, 26, 0, 0, 0, 0, 6)] },
 };
+// starter thumbnails: each starter is built and rendered once, kept as a small JPEG data url (and in localStorage, keyed by the layouts)
+const PE_THUMBS = {}, PE_KEY_THUMBS = 'concrete-lines-park-thumbs';
+function peThumbs() {
+  const ver = (() => { let h = 7; const s = Object.keys(PE_STARTERS).map(k => k + peEncode('', PE_STARTERS[k].pieces())).join('|'); for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return 't2:' + h; })();
+  if (!PE.thumbsRead) { PE.thumbsRead = true; try { const c = JSON.parse(localStorage.getItem(PE_KEY_THUMBS) || 'null'); if (c && c.v === ver) Object.assign(PE_THUMBS, c.t); } catch (e) {} }
+  const need = Object.keys(PE_STARTERS).filter(k => !PE_THUMBS[k] && document.querySelector('#peDlg img[data-thumb="' + k + '"]'));
+  if (need.length) {
+    const keep = PE.pieces, cam = { ...PE.cam }, ed = LOT_EDIT.visible;
+    const cv = document.createElement('canvas'); cv.width = 240; cv.height = 150; const g = cv.getContext('2d');
+    LOT_EDIT.visible = false;
+    try {
+      for (const k of need) {
+        PE.pieces = PE_STARTERS[k].pieces(); lotRebuild(); peEditOnly(false);
+        Object.assign(PE.cam, { tx: 0, tz: 2, yaw: 0.55, pv: 0.95, dist: 66 }); peApplyCam();
+        renderer.render(scene, camera);
+        const src = renderer.domElement, sw = src.width, sh = src.height; let cw = sw, ch = sw / 1.6; if (ch > sh) { ch = sh; cw = sh * 1.6; }
+        g.drawImage(src, (sw - cw) / 2, (sh - ch) / 2, cw, ch, 0, 0, 240, 150);
+        PE_THUMBS[k] = cv.toDataURL('image/jpeg', 0.82);
+      }
+    } catch (e) { console.warn('park thumbnails', e); }
+    PE.pieces = keep; Object.assign(PE.cam, cam); lotRebuild(); LOT_EDIT.visible = ed; peEditOnly(PE.on); peApplyCam();
+    try { localStorage.setItem(PE_KEY_THUMBS, JSON.stringify({ v: ver, t: PE_THUMBS })); } catch (e) {}
+  }
+  document.querySelectorAll('#peDlg img[data-thumb]').forEach(im => { if (PE_THUMBS[im.dataset.thumb]) im.src = PE_THUMBS[im.dataset.thumb]; });
+}
 function peLoadPieces(pieces, name, keepUndo) {
   if (keepUndo) { PE.undo.push(JSON.stringify(PE.pieces)); PE.redo.length = 0; } else { PE.undo.length = 0; PE.redo.length = 0; }
   PE.pieces = pieces.map(p => ({ ...p })); PE.sel = -1; PE.place = null; if (name !== undefined) PE.name = name;
@@ -11931,7 +12234,7 @@ function peLoadPieces(pieces, name, keepUndo) {
 function peLoadWork() {
   let d = null; try { d = peDecode(localStorage.getItem(PE_KEY_WORK)); } catch (e) {}
   if (d && d.pieces.length) { PE.pieces = d.pieces; PE.name = d.name || 'My park'; }
-  else { PE.pieces = PE_STARTERS.plaza.pieces(); PE.name = 'Street plaza'; }
+  else { PE.pieces = PE_STARTERS.plaza.pieces(); PE.name = 'Plaza'; }
 }
 // ---- editing ----
 function peMsg(t) { const el = $('peMsg'); if (el) el.textContent = t || ''; PE.msgT = t ? 2.6 : 0; }
@@ -11951,19 +12254,29 @@ function peHistory(dir) {
 function peSelect(i) { PE.sel = i; if (i >= 0) PE.place = null; peUI(); }
 function peTarget() { return PE.place ? null : PE.pieces[PE.sel]; }
 // change one property of the selected piece (or of the piece about to be placed): refused if it would no longer fit
+const peArr = (T, key) => key === 'k' ? (T.unique ? null : LOOKS) : T[{ s: 'size', h: 'height', v: 'style' }[key]];
 function peTweak(key, d, wrap) {
   if (PE.place) {
-    const L = PE.last[PE.place] || (PE.last[PE.place] = { r: 0, s: 0, h: 0, v: 0 }), T = PT[PE.place];
+    const L = PE.last[PE.place] || (PE.last[PE.place] = { r: 0, s: 0, h: 0, v: 0, k: 0 }), T = PT[PE.place];
     if (key === 'r') L.r = (((L.r + d) % 360) + 360) % 360;
-    else { const arr = T[{ s: 'size', h: 'height', v: 'style' }[key]]; if (!arr) return; L[key] = wrap ? (L[key] + d + arr.length) % arr.length : clamp(L[key] + d, 0, arr.length - 1); }
+    else { const arr = peArr(T, key); if (!arr) return; L[key] = wrap ? ((L[key] | 0) + d + arr.length) % arr.length : clamp((L[key] | 0) + d, 0, arr.length - 1); }
     PE.ghostKey = ''; peUI(); return;
   }
   const p = PE.pieces[PE.sel]; if (!p) return;
   const T = PT[p.t], q = { ...p };
   if (key === 'r') q.r = (((q.r + d) % 360) + 360) % 360;
-  else { const arr = T[{ s: 'size', h: 'height', v: 'style' }[key]]; if (!arr) return; q[key] = wrap ? (q[key] + d + arr.length) % arr.length : clamp(q[key] + d, 0, arr.length - 1); if (q[key] === p[key]) return; }
+  else { const arr = peArr(T, key); if (!arr) return; q[key] = wrap ? ((q[key] | 0) + d + arr.length) % arr.length : clamp((q[key] | 0) + d, 0, arr.length - 1); if (q[key] === (p[key] | 0)) return; }
   const why = peCheck(q, PE.sel); if (why) { peMsg(why); return; }
   peCommit(() => { PE.pieces[PE.sel] = q; }); peMsg('');
+}
+// test a line: drop in where the pointer is (or the middle of the view), rolling the way the camera faces; Tab comes back
+function peTestLine(atView) {
+  if (!PE.on) return;
+  const g = (!atView && PE.cursor) || { x: PE.cam.tx, z: PE.cam.tz }, x = clamp(g.x, -LOT.half + 1, LOT.half - 1), z = clamp(g.z, -LOT.half + 1, LOT.half - 1), hd = PE.cam.yaw;
+  peRide(); if (!game.running) return;
+  P.pos.set(x, heightAt(x, z), z); P.vel.set(0, 0, 0); P.heading = hd; P.s = 4; P.state = 'ground'; P.air = null;
+  camYaw = hd; camera.position.set(x - Math.sin(hd) * 7, P.pos.y + 3, z - Math.cos(hd) * 7); camY = P.pos.y + 2.5;
+  PE.testAt = { x, z, hd };
 }
 function peDelete() { if (PE.sel < 0) return; const i = PE.sel; PE.sel = -1; peCommit(() => PE.pieces.splice(i, 1)); }
 function peDuplicate() {
@@ -11976,8 +12289,26 @@ function peDuplicate() {
   peMsg('No room next to it');
 }
 const peSnap = (v, fine) => { const f = fine ? 0.1 : 0.5; return Math.round(v / f) * f; };
+// a rail dropped within 1 m of a ledge, pad, wall or table edge (and roughly along it) lines up with it: parallel, 0.35 m outside the edge. Alt turns it off.
+function peSnapRail(q) {
+  PE.snapped = false;
+  if (q.t !== 'rail' || PE.alt) return q;
+  const a0 = q.r * D2R, fx = Math.sin(a0), fz = Math.cos(a0); let best = null;
+  for (const r of LOT_SET.rails) {
+    if (!r.ledge || r.lenH2 < 1) continue;
+    const u = ((q.x - r.a.x) * r.dx + (q.z - r.a.z) * r.dz) / r.lenH2; if (u < -0.15 || u > 1.15) continue;
+    const uc = clamp(u, 0, 1), cx = r.a.x + r.dx * uc, cz = r.a.z + r.dz * uc, d = Math.hypot(q.x - cx, q.z - cz);
+    if (d > 1.0 || Math.abs(fx * r.dh.x + fz * r.dh.y) < 0.8) continue;
+    if (!best || d < best.d) best = { r, cx, cz, d };
+  }
+  if (!best) return q;
+  const r = best.r, nX = -r.dh.y, nZ = r.dh.x, sd = heightAt(best.cx + nX * 0.25, best.cz + nZ * 0.25) <= heightAt(best.cx - nX * 0.25, best.cz - nZ * 0.25) ? 1 : -1;
+  let ang = Math.atan2(r.dh.x, r.dh.y) / D2R; if (Math.cos((ang - q.r) * D2R) < 0) ang += 180;
+  PE.snapped = true;
+  return { ...q, x: Math.round((best.cx + sd * nX * 0.35) * 10) / 10, z: Math.round((best.cz + sd * nZ * 0.35) * 10) / 10, r: ((Math.round(ang) % 360) + 360) % 360 };
+}
 function pePlaceAt(g, fine) {
-  const t = PE.place, L = PE.last[t] || { r: 0, s: 0, h: 0, v: 0 }, q = { t, x: peSnap(g.x, fine), z: peSnap(g.z, fine), r: L.r, s: L.s, h: L.h, v: L.v };
+  const t = PE.place, L = PE.last[t] || { r: 0, s: 0, h: 0, v: 0, k: 0 }, q = peSnapRail({ t, x: peSnap(g.x, fine), z: peSnap(g.z, fine), r: L.r, s: L.s, h: L.h, v: L.v, k: L.k | 0 }, fine);
   const ex = PT[t].unique ? PE.pieces.findIndex(p => p.t === t) : -1;
   const why = peCheck(q, ex); if (why) { peMsg(why); return; }
   peCommit(() => { if (ex >= 0) { PE.pieces[ex] = q; PE.sel = ex; } else { PE.pieces.push(q); PE.sel = PE.pieces.length - 1; } });
@@ -12022,7 +12353,7 @@ function peTick(dt) {
   // the ghost: the piece about to be placed, or the one being dragged, tinted by whether it fits
   let gp = null, gskip = -1;
   if (PE.drag && PE.drag.p) { gp = PE.drag.p; gskip = PE.drag.i; }
-  else if (PE.place && PE.hover) { const L = PE.last[PE.place] || { r: 0, s: 0, h: 0, v: 0 }; gp = { t: PE.place, x: peSnap(PE.hover.x, PE.shift), z: peSnap(PE.hover.z, PE.shift), r: L.r, s: L.s, h: L.h, v: L.v }; if (PT[PE.place].unique) gskip = PE.pieces.findIndex(p => p.t === PE.place); }
+  else if (PE.place && PE.hover) { const L = PE.last[PE.place] || { r: 0, s: 0, h: 0, v: 0, k: 0 }; gp = peSnapRail({ t: PE.place, x: peSnap(PE.hover.x, PE.shift), z: peSnap(PE.hover.z, PE.shift), r: L.r, s: L.s, h: L.h, v: L.v, k: L.k | 0 }, PE.shift); if (PT[PE.place].unique) gskip = PE.pieces.findIndex(p => p.t === PE.place); }
   if (gp) {
     const ok = !peCheck(gp, gskip), key = JSON.stringify(gp);
     if (key !== PE.ghostKey) {
@@ -12065,7 +12396,8 @@ function peTick(dt) {
   cv.addEventListener('pointermove', e => {
     if (!live()) return;
     const pt = PE.ptrs.get(e.pointerId);
-    PE.shift = e.shiftKey;
+    PE.shift = e.shiftKey; PE.alt = e.altKey;
+    if (e.pointerType === 'mouse') PE.cursor = peGround(e.clientX, e.clientY) || PE.cursor;
     if (!pt) { if (e.pointerType === 'mouse') PE.hover = peGround(e.clientX, e.clientY); return; }
     if (!pt.moved && Math.hypot(e.clientX - pt.x0, e.clientY - pt.y0) > 6) pt.moved = true;
     const C = PE.cam;
@@ -12078,7 +12410,7 @@ function peTick(dt) {
     else if (PE.mode === 'pan' || ((PE.mode === 'panTap' || PE.mode === 'placeTap') && pt.moved)) { if (PE.mode !== 'pan') PE.mode = 'pan'; pePan(pt.x, pt.y, e.clientX, e.clientY); }
     else if ((PE.mode === 'dragWait' && pt.moved) || PE.mode === 'drag') {
       PE.mode = 'drag'; const g = peGround(e.clientX, e.clientY), p = PE.pieces[PE.sel];
-      if (g && p) PE.drag = { i: PE.sel, p: { ...p, x: peSnap(clamp(g.x + PE.dragOff.x, -LOT.half, LOT.half), e.shiftKey), z: peSnap(clamp(g.z + PE.dragOff.z, -LOT.half, LOT.half), e.shiftKey) } };
+      if (g && p) PE.drag = { i: PE.sel, p: peSnapRail({ ...p, x: peSnap(clamp(g.x + PE.dragOff.x, -LOT.half, LOT.half), e.shiftKey), z: peSnap(clamp(g.z + PE.dragOff.z, -LOT.half, LOT.half), e.shiftKey) }, e.shiftKey) };
     }
     if (PE.place && e.pointerType === 'mouse') PE.hover = peGround(e.clientX, e.clientY);
     pt.x = e.clientX; pt.y = e.clientY;
@@ -12124,30 +12456,33 @@ window.addEventListener('keydown', e => {
     case 'Delete': case 'Backspace': e.preventDefault(); peDelete(); break;
     case 'Escape': if (PE.place) { PE.place = null; peUI(); } else peSelect(-1); break;
     case 'KeyV': PE.cam.top = !PE.cam.top; peUI(); break;
-    case 'Enter': peRide(); break;
+    case 'Enter': case 'NumpadEnter': if (e.shiftKey) peTestLine(); else peRide(); break;
+    case 'KeyP': peTweak('k', e.shiftKey ? -1 : 1, true); break;
     case 'Tab': e.preventDefault(); break;
   }
 });
 // ---- UI ----
 function pePieceLabel(p) {
   const T = PT[p.t], [S, H, Y] = pVals(p), bits = [];
-  if (T.size) bits.push(T.sl(S)); if (T.height) bits.push(T.hl(H)); if (T.style) bits.push(T.vl(Y)); bits.push(Math.round(p.r) + '°');
+  if (T.size) bits.push(T.sl(S)); if (T.height) bits.push(T.hl(H)); if (T.style) bits.push(T.vl(Y)); if (p.k) bits.push(LOOKS[p.k]); bits.push(Math.round(p.r) + '°');
   if (T.stack && !PE.place && (LOT_BASE.get(p) || 0) > 0.05) bits.push('on top of a piece, top at ' + (LOT_BASE.get(p) + H).toFixed(2) + ' m');
   return bits.join(' · ');
 }
 function peUI() {
   if (!$('pe')) return;
   document.querySelectorAll('#pePal .pe-piece').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.t === PE.place)));
-  const p = PE.place ? { t: PE.place, ...(PE.last[PE.place] || { r: 0, s: 0, h: 0, v: 0 }) } : PE.pieces[PE.sel];
+  const p = PE.place ? { t: PE.place, ...(PE.last[PE.place] || { r: 0, s: 0, h: 0, v: 0, k: 0 }) } : PE.pieces[PE.sel];
   const T = p && PT[p.t];
   $('peSelName').textContent = T ? (PE.place ? 'Placing: ' : '') + T.name : PE.pieces.length + ' pieces';
   $('peSelInfo').textContent = T ? pePieceLabel(p) : 'Pick a piece on the left, or click one in the lot';
+  { const d = T && !T.unique ? pDims(p) : null; $('peDims').textContent = d ? 'Footprint ' + (2 * d.hw).toFixed(1) + ' × ' + (2 * d.hl).toFixed(1) + ' m, ' + d.H.toFixed(2) + ' m tall' + (p.t === 'rail' && PE.snapped && PE.place ? ' · lined up with the edge' : '') : ''; }
   const has = !!T, sel = !PE.place && !!PE.pieces[PE.sel];
   const set = (id, on) => { const b = $(id); if (b) b.disabled = !on; };
   set('peRotL', has && p.t !== 'planter'); set('peRotR', has && p.t !== 'planter');
   set('peLower', has && !!T.height && p.h > 0); set('peRaise', has && !!T.height && p.h < T.height.length - 1);
   set('peSmaller', has && !!T.size && p.s > 0); set('peLarger', has && !!T.size && p.s < T.size.length - 1);
-  set('peStyle', has && !!T.style); set('peDup', sel && !T.unique); set('peDel', sel);
+  set('peStyle', has && !!T.style); set('peLook', has && !T.unique); set('peDup', sel && !T.unique); set('peDel', sel);
+  { const b = $('peLook'); if (b) b.textContent = has && !T.unique ? LOOKS[p.k | 0] : 'Look'; }
   set('peUndo', PE.undo.length > 0); set('peRedo', PE.redo.length > 0);
   $('peTop').textContent = PE.cam.top ? 'Angled view' : 'Top view';
   if (document.activeElement !== $('peName')) $('peName').value = PE.name;
@@ -12182,14 +12517,14 @@ function peRenderSlots() {
 function peDlgMsg(t) { $('peDlgMsg').textContent = t || ''; }
 function peDlg(open) {
   $('peDlg').hidden = !open;
-  if (open) { $('peSaveName').value = PE.name; $('peCode').value = peEncode(PE.name, PE.pieces); peRenderSlots(); peDlgMsg(''); }
+  if (open) { $('peSaveName').value = PE.name; $('peCode').value = peEncode(PE.name, PE.pieces); peRenderSlots(); peDlgMsg(''); peThumbs(); }
 }
 function peWireUI() {
   peBuildPalette();
   const on = (id, f) => { const b = $(id); if (b) b.addEventListener('click', f); };
   on('peRotL', () => peTweak('r', -15)); on('peRotR', () => peTweak('r', 15));
   on('peLower', () => peTweak('h', -1)); on('peRaise', () => peTweak('h', 1));
-  on('peSmaller', () => peTweak('s', -1)); on('peLarger', () => peTweak('s', 1)); on('peStyle', () => peTweak('v', 1, true));
+  on('peSmaller', () => peTweak('s', -1)); on('peLarger', () => peTweak('s', 1)); on('peStyle', () => peTweak('v', 1, true)); on('peLook', () => peTweak('k', 1, true)); on('peTest', () => peTestLine(true));
   on('peDup', peDuplicate); on('peDel', peDelete); on('peUndo', () => peHistory(-1)); on('peRedo', () => peHistory(1));
   on('peRide', () => peRide()); on('peMenu', () => peExit()); on('peParks', () => peDlg(true)); on('peDlgClose', () => peDlg(false));
   on('peTop', () => { PE.cam.top = !PE.cam.top; peUI(); });
@@ -12259,7 +12594,7 @@ function peBoot() {
   if (q.get('tgt')) { const [x, z] = q.get('tgt').split(',').map(Number); PE.cam.tx = x; PE.cam.tz = z; }
   if (q.get('cam') === 'top') { PE.cam.top = true; PE.cam.pv = 1.5; }
   if (q.get('sel') !== null) peSelect(+q.get('sel'));
-  if (q.get('place') && PT[q.get('place')]) { PE.place = q.get('place'); const [x, z] = (q.get('at') || '0,0').split(',').map(Number); PE.hover = { x, z }; if (q.get('rot')) PE.last[PE.place] = { r: +q.get('rot'), s: 0, h: 0, v: 0 }; peUI(); }
+  if (q.get('place') && PT[q.get('place')]) { PE.place = q.get('place'); const [x, z] = (q.get('at') || '0,0').split(',').map(Number); PE.hover = { x, z }; if (q.get('rot')) PE.last[PE.place] = { r: +q.get('rot'), s: 0, h: 0, v: 0, k: 0 }; peUI(); }
   if (q.get('dlg')) peDlg(true);
   if (mode === 'ride') {
     peRide();
@@ -12335,8 +12670,9 @@ function peSelfTest() {
     rec('Stair set: roll up the bank and drop the stairs', !r.bailed && r.maxY > 0.8 && P.pos.z > 4, 'max ' + r.maxY.toFixed(2) + ' m, end z ' + P.pos.z.toFixed(1) + ', state ' + P.state + (r.bailed ? ', BAILED' : ''));
     // 7) handrail: R hop onto the stair handrail from the deck
     //    The rail is kinked: level over the deck, down the steps, level at the bottom. It should hold to the bottom of the steps (z 3.27 here).
-    { const hits = []; let best = 0, bestEnd = -9; for (const z of [-1.6, -1.1, -0.6]) for (const sp of [5, 6.5, 8]) { go(1.78, z, 0, sp); let endZ = -9; r = run(2.5, t => { if (t === 0) press(K.grind); if (t > 0.1) rel(K.grind); if (P.state === 'grind') endZ = P.pos.z; });
-        if (r.gt > 0.05) hits.push(z + '@' + sp + '=' + r.gt.toFixed(2) + 's/z' + endZ.toFixed(1)); if (r.gt > best) { best = r.gt; bestEnd = endZ; } }
+    { const hits = [], starts = []; let best = 0, bestEnd = -9; for (const z of [-2.6, -2.1, -1.6, -1.1, -0.6]) for (const sp of [5, 6.5, 8]) { go(1.78, z, 0, sp); let endZ = -9, sz = null; r = run(2.5, t => { if (t === 0) press(K.grind); if (t > 0.1) rel(K.grind); if (P.state === 'grind') { if (sz === null) sz = P.pos.z; endZ = P.pos.z; } });
+        if (r.gt > 0.05) { hits.push(z + '@' + sp + '=' + r.gt.toFixed(2) + 's/z' + sz.toFixed(1) + '>' + endZ.toFixed(1)); starts.push(sz); } if (r.gt > best) { best = r.gt; bestEnd = endZ; } }
+      rec('Stair handrail: the R hop lands on the upper half (deck level 1.17, steps end 3.27)', starts.length > 0 && starts.filter(s => s < 2.2).length >= Math.ceil(starts.length / 2), 'catch points z ' + starts.map(s => s.toFixed(2)).join(' '));
       let air = []; for (const z of [-2.2, -1.6, -1.1]) { go(1.78, z, 0, 6.5); r = run(2.5, t => { if (t === 0) press(K.jump); if (t > 0.22 && t < 0.26) rel(K.jump); if (t > 0.3 && t < 0.33) press(K.grind); if (t > 0.4) rel(K.grind); }); if (r.gt > 0.05) air.push(z + '=' + r.gt.toFixed(2)); }
       rec('Stair handrail: R hop from the deck, held down the steps to the end of the rail', hits.length > 0 && bestEnd > 3.5, 'longest ' + best.toFixed(2) + ' s to z ' + bestEnd.toFixed(2) + '; R hop ' + (hits.join(' ') || 'none') + '; ollie+R ' + (air.join(' ') || 'none')); }
     // 8) kicker gap: clear it and score the gap
@@ -12364,9 +12700,85 @@ function peSelfTest() {
       const ok = !peCheck(PE.pieces[2], 2), clash = peCheck(L2, -1), top = heightAt(0, 0);
       let on = null, end = null; go(0.22, -2.95, 0, 6.5); r = run(2, t => { if (t === 0) press(K.grind); if (t > 0.1) rel(K.grind); if (P.state === 'grind') { if (on === null) on = P.pos.z; end = P.pos.z; } });
       rec('Stacking: ledge on a funbox top, R hop grinds it to the end', ok && clash && Math.abs(top - 1.0) < 0.02 && on !== null && end > 2.0, 'fits ' + ok + ', second ledge: ' + (clash || 'allowed') + ', top ' + top.toFixed(2) + ' m, grind ' + r.gt.toFixed(2) + ' s from z ' + (on === null ? '-' : on.toFixed(2)) + ' to ' + (end === null ? '-' : end.toFixed(2)) + ' (ledge -2.25..2.25)' + (r.bailed ? ', BAILED' : '')); }
+    // ---- the new pieces ----
+    // hip: ride straight up the ridge and up each face at an angle, come back down
+    layout([pc('start', 0, -20), pc('hip', 0, 0, 0, 1, 1, 0)]);
+    { const d = hipDims(4.5, 1.8, 90), res = []; let bad = false;
+      const fA = [Math.SQRT1_2 * (d.w0 + 2.25) + 4 * Math.SQRT1_2, -d.hl + Math.SQRT1_2 * (d.w0 + 2.25) - 4 * Math.SQRT1_2];
+      for (const [x, z, hd] of [[0, -d.hl - 3, 0], [fA[0], fA[1], -45], [-fA[0], fA[1], 45]]) { go(x, z, hd, 9); r = run(4); res.push(hd + '° max ' + r.maxY.toFixed(2) + (r.bailed ? ' BAILED' : '')); if (r.bailed || r.maxY < 1.2) bad = true; }
+      rec('Hip: ride up the ridge and both faces, come back down', !bad, res.join('; ')); }
+    // wallride wall: ollie into it at an angle and wallride; head-on it holds; the banked version carves straight up onto it
+    layout([pc('start', 0, -20), pc('wall', 0, 0, 0, 2, 2, 0)]);
+    { const got = []; for (const ot of [0.3, 0.4, 0.5, 0.6]) { go(-3.2, -3, 30, 7.5); let wt = 0; r = run(2.5, t => { if (Math.abs(t - ot) < 0.009) press(K.jump); if (t > ot + 0.15 && t < ot + 0.17) rel(K.jump); if (P.state === 'wall') wt += 1 / 60; }); if (wt > 0.15) got.push(ot + 's=' + wt.toFixed(2)); }
+      go(-4, 0, 90, 8); r = run(2); const held = P.pos.x < 0, hs = P.pos.x.toFixed(2) + ' ' + [...r.seen].join('/') + (r.bailed ? ' BAILED' : '');
+      layout([pc('start', 0, -20), pc('wall', 0, 0, 0, 2, 2, 1)]); const bk = []; for (const hd of [-50, -60, -70]) { go(3.5, -2.5, hd, 8.5); let wt = 0; r = run(2.5, () => { if (P.state === 'wall') wt += 1 / 60; }); if (wt > 0.15) bk.push(hd + '°=' + wt.toFixed(2)); }
+      rec('Wallride wall: ollie in and wallride, head-on it holds, carve up the foot bank onto it', got.length > 0 && held && bk.length > 0, 'ollie in ' + (got.join(' ') || 'none') + '; head-on end x ' + hs + '; bank carve ' + (bk.join(' ') || 'none')); }
+    // A-frame rail: R onto the low end beside the box, grind up, over and down; the box itself rides over
+    layout([pc('start', 0, -20), pc('aframe', 0, 0, 0, 1, 1, 1)]);
+    { const hl = 2.5 / 2 + 0.6 * 3; let endZ = -9; go(1.0, -hl - 2.4, 0, 6.5); r = run(3, t => { if (t === 0) press(K.grind); if (t > 0.1) rel(K.grind); if (P.state === 'grind') endZ = P.pos.z; });
+      const g1 = r.gt, b1 = r.bailed; go(0, -hl - 3, 0, 7); r = run(2.5);
+      rec('A-frame rail: R onto the low end, grind up, over and down; ride over the box', g1 > 0.4 && endZ > 1.2 && !r.bailed && P.pos.z > hl - 0.5, 'grind ' + g1.toFixed(2) + ' s to z ' + endZ.toFixed(2) + ' (rail ends ' + (hl - 0.35).toFixed(2) + ')' + (b1 ? ' BAILED' : '') + '; box ride end z ' + P.pos.z.toFixed(1) + (r.bailed ? ' BAILED' : '')); }
+    // kinked ledge: R onto the high end and grind down the kink; the up-and-down one from the low end
+    { const res = []; let ok = true; for (const v of [0, 1]) { layout([pc('start', 0, -20), pc('hubba', 0, 0, 0, 1, 1, v)]); let endZ = -9; go(0.32, -3.5 - 2.3, 0, 6.5); r = run(3, t => { if (t === 0) press(K.grind); if (t > 0.1) rel(K.grind); if (P.state === 'grind') endZ = P.pos.z; });
+        res.push((v ? 'up-down ' : 'kinked ') + r.gt.toFixed(2) + ' s to z ' + endZ.toFixed(2) + (r.bailed ? ' BAILED' : '')); if (r.gt < 0.4 || endZ < 2.5) ok = false; }
+      rec('Kinked ledge: R hop on, grind over the kink to the end (ends z 3.47)', ok, res.join('; ')); }
+    // pole jam: R onto the low end, grind up and launch off the top
+    layout([pc('start', 0, -20), pc('pole', 0, 0, 0, 1, 1)]);
+    { let gotG = false, after = false; go(0, -1.1 - 2.4, 0, 7); r = run(2.5, t => { if (t === 0) press(K.grind); if (t > 0.1) rel(K.grind); if (P.state === 'grind') gotG = true; else if (gotG && P.state === 'air') after = true; });
+      rec('Pole jam: R onto the low end, grind up it and launch', r.gt > 0.1 && after && !r.bailed, 'grind ' + r.gt.toFixed(2) + ' s, air after ' + after + ', max ' + r.maxY.toFixed(2) + (r.bailed ? ', BAILED' : '')); }
+    // pyramid rail: R onto the rail over the top; ride the pyramid beside it
+    layout([pc('start', 0, -20), pc('pyrail', 0, 0, 0, 1, 1, 1)]);
+    { const hl = 1 + 0.9 * 2.6; let endZ = -9; go(0, -hl - 2.2, 0, 7); r = run(3, t => { if (t === 0) press(K.grind); if (t > 0.1) rel(K.grind); if (P.state === 'grind') endZ = P.pos.z; });
+      const g1 = r.gt; go(1.6, -hl - 3, 0, 7.5); r = run(2.5);
+      rec('Pyramid rail: R onto it, grind up, over the top and down; ride the pyramid beside it', g1 > 0.4 && endZ > 1 && !r.bailed, 'grind ' + g1.toFixed(2) + ' s to z ' + endZ.toFixed(2) + '; pyramid ride max ' + r.maxY.toFixed(2) + (r.bailed ? ' BAILED' : '')); }
+    // pool section: ride up and back; carve up and grind the pool coping; the corner rides
+    layout([pc('start', 0, -20), pc('pool', 0, 6, 0, 1, 0, 0)]);
+    { const hl = qDims(1.8, 1.2).hl; go(0, 6 - hl - 4, 0, 11); r = run(4); const up = r.maxY, b1 = r.bailed; const cp = coping(-3, 6 - hl - 3);
+      layout([pc('start', 0, -20), pc('pool', 0, 0, 0, 1, 1, 1)]); go(-2, -2, 45, 9); r = run(4);
+      rec('Pool section: airs and comes back, pool coping grinds, the corner rides', !b1 && up > 2 && cp.length > 0 && !r.bailed, 'straight max ' + up.toFixed(2) + (b1 ? ' BAILED' : '') + '; coping ' + (cp.join(' ') || 'none') + '; corner max ' + r.maxY.toFixed(2) + (r.bailed ? ' BAILED' : '')); }
+    // flat gap: ollie off the first deck, clear the gap, the gap scores; R onto the rail beside it
+    layout([pc('start', 0, -20), pc('flatgap', 0, 0, 0, 1, 1, 1)]);
+    { const L1 = 0.6 * 2.6, hl = (2 * L1 + 3.6 + 2.5) / 2, g0 = -hl + L1 + 1.8, got = []; let tr = '';
+      for (const [lead, sp] of [[0.6, 5.5], [1.0, 6], [0.6, 6.5], [1.0, 7]]) { go(0, -hl - 2, 0, sp); let st = -1; r = run(3, t => { if (st < 0 && P.pos.z > g0 - lead) { press(K.jump); st = t; } if (st >= 0 && t > st + 0.15 && keys[K.jump]) rel(K.jump); });
+        tr = r.tricks + ' max ' + r.maxY.toFixed(2) + ' end z ' + P.pos.z.toFixed(1) + (r.bailed ? ' BAILED' : ''); if (/Flat Gap/.test(r.tricks) && !r.bailed) got.push(lead + '@' + sp); }
+      go(1.15, g0 - 3.4, 0, 6.5); r = run(2.5, t => { if (t === 0) press(K.grind); if (t > 0.1) rel(K.grind); });
+      rec('Flat gap: ollie it and the gap scores; R onto the gap rail', got.length > 0 && r.gt > 0.3, 'cleared with pop ' + (got.join(', ') || 'none') + ' m before the edge [' + tr + ']; rail grind ' + r.gt.toFixed(2) + ' s' + (r.bailed ? ', BAILED' : '')); }
+    // picnic table: R onto the table top's edge from the end
+    layout([pc('start', 0, -20), pc('picnic', 0, 0, 0, 1, 0, 0)]);
+    { go(0.37, -1.2 - 1.2, 0, 4.5); r = run(2.5, t => { if (t === 0) press(K.grind); if (t > 0.1) rel(K.grind); });
+      rec('Picnic table: R hop onto the table edge and grind it (a short table: short grind)', r.gt > 0.06 && !r.bailed, 'grind ' + r.gt.toFixed(2) + ' s, top ' + heightAt(0, 0).toFixed(2) + ' m, bench ' + heightAt(0.68, 0).toFixed(2) + ' m' + (r.bailed ? ', BAILED' : '')); }
+    // rollers: roll over four bumps without bailing
+    layout([pc('start', 0, -20), pc('rollers', 0, 0, 0, 2, 1, 0)]);
+    { const hl = 4 * 2.9 / 2; go(0, -hl - 2, 0, 6); r = run(4);
+      rec('Rollers: roll over all four', !r.bailed && P.pos.z > hl, 'end z ' + P.pos.z.toFixed(1) + ' (rollers end ' + hl.toFixed(1) + '), max ' + r.maxY.toFixed(2) + ', end v ' + P.s.toFixed(1) + (r.bailed ? ', BAILED' : '')); }
+    // curved ledge: R onto the outer edge along its first tangent and follow the curve
+    layout([pc('start', 0, -20), pc('curve', 0, 0, 0, 1, 1, 1)]);
+    { const d = curveDims(4.5, 90), rr = d.ro - 0.03, t0 = -d.th / 2, ex = Math.sin(t0) * rr, ez = Math.cos(t0) * rr + d.cz0, tx = Math.cos(t0), tz = -Math.sin(t0);
+      go(ex - tx * 2.4, ez - tz * 2.4, Math.atan2(tx, tz) / D2R, 6.5); let turn = 0, h0 = null; r = run(2.5, t => { if (t === 0) press(K.grind); if (t > 0.1) rel(K.grind); if (P.state === 'grind') { if (h0 === null) h0 = P.heading; turn = angDiff(h0, P.heading); } });
+      rec('Curved ledge: R onto the edge and grind round the curve', r.gt > 0.4 && Math.abs(turn) > 0.3, 'grind ' + r.gt.toFixed(2) + ' s, turned ' + (turn / D2R).toFixed(0) + '°' + (r.bailed ? ', BAILED' : '')); }
+    // vert extension: the middle is taller and rides like a quarter, higher
+    layout([pc('start', 0, -20), pc('vertext', 0, 4, 0, 1, 0, 1)]);
+    { const d = vxDims(8, 1.8, 1.6); let top0 = 0, top1 = 0; for (let z = -4; z < 10; z += 0.05) { top0 = Math.max(top0, heightAt(0, z)); top1 = Math.max(top1, heightAt(3.7, z)); }
+      go(0, 4 - d.hl - 4, 0, 12); r = run(4); const m0 = r.maxY, b0 = r.bailed; go(3.4, 4 - d.hl - 4, 0, 12); r = run(4);
+      rec('Vert extension: the middle stands taller and rides higher, the ends are the normal quarter', !b0 && !r.bailed && top0 > 3.2 && top1 < 2.0 && m0 > top0 - 0.4, 'lip ' + top0.toFixed(2) + ' m in the middle, ' + top1.toFixed(2) + ' m at the end; ride max ' + m0.toFixed(2) + ' vs ' + r.maxY.toFixed(2) + (b0 || r.bailed ? ', BAILED' : '')); }
+    // editor: rails snap to ledge edges; looks and their undo / redo; test-a-line drop-in
+    layout([pc('start', 0, -20), pc('ledge', 0, 0, 0, 2, 1, 0)]);
+    { const q = peSnapRail({ t: 'rail', x: 0.8, z: 0.5, r: 10, s: 2, h: 1, v: 0, k: 0 }), far = peSnapRail({ t: 'rail', x: 3, z: 0, r: 0, s: 2, h: 1, v: 0, k: 0 }), cross = peSnapRail({ t: 'rail', x: 0.8, z: 0, r: 90, s: 2, h: 1, v: 0, k: 0 });
+      rec('Rail snap: a rail dropped by a ledge lines up 0.35 m outside its edge', Math.abs(q.x - 0.57) < 0.06 && Math.abs(q.z - 0.5) < 0.06 && q.r === 0 && far.x === 3 && cross.r === 90, 'snapped to ' + q.x + ', ' + q.z + ' at ' + q.r + '°; 3 m away stays at x ' + far.x + '; across it stays ' + cross.r + '°');
+      PE.place = null; PE.sel = 1; peTweak('k', 1, true); peTweak('k', 1, true); const k2 = PE.pieces[1].k; peHistory(-1); const k1 = PE.pieces[1].k; peHistory(1); const k2b = PE.pieces[1].k;
+      const mats2 = new Set(); PE.holders[1].traverse(o => { if (o.isMesh) [].concat(o.material).forEach(m => mats2.add(m)); });
+      const code = peEncode('x', PE.pieces), back = peDecode(code);
+      rec('Looks: cycle, undo / redo, painted on the piece, kept in the share code', k2 === 2 && k1 === 1 && k2b === 2 && mats2.has(lookMats(2).top) && back.pieces[1].k === 2 && peDecode(peEncode('y', [pc('ledge', 0, 0)])).pieces[0].k === 0, 'looks ' + k1 + ' > ' + k2 + ', undo ' + k1 + ', redo ' + k2b + ', code look ' + back.pieces[1].k);
+      const all = [pc('start', 0, -28)]; LOOKS.forEach((n, k) => all.push(pc('ledge', -12 + k * 3.5, 0, 0, 1, 1, 1, k)));
+      layout(all); let painted = 0; for (let k = 1; k < LOOKS.length; k++) { let has = false; PE.holders[k + 1].traverse(o => { if (o.isMesh && [].concat(o.material).includes(lookMats(k).side)) has = true; }); if (has) painted++; }
+      rec('Looks: every look builds', painted === LOOKS.length - 1, painted + ' of ' + (LOOKS.length - 1) + ' looks on their ledges');
+      game.running = false; PE.on = true; PE.cursor = { x: 5, z: -5 }; PE.cam.yaw = Math.PI / 2; peTestLine(); const at = { x: P.pos.x, z: P.pos.z, hd: P.heading, run: game.running }; r = run(1);
+      rec('Test line: drops in at the pointer facing the view and rolls', at.run && Math.abs(at.x - 5) < 0.01 && Math.abs(at.z + 5) < 0.01 && Math.abs(at.hd - Math.PI / 2) < 0.01 && P.pos.x > 6, 'dropped at ' + at.x.toFixed(1) + ', ' + at.z.toFixed(1) + ' heading ' + (at.hd / D2R).toFixed(0) + '°, after 1 s x ' + P.pos.x.toFixed(1)); }
     // 13) starters fit, and share codes round-trip
     Object.entries(PE_STARTERS).forEach(([k, S]) => { PE.pieces = S.pieces(); const bad = PE.pieces.map((p, i) => [i, peCheck(p, i)]).filter(e => e[1]); rec('Starter "' + S.name + '" fits', !bad.length, bad.map(e => '#' + e[0] + ' ' + PE.pieces[e[0]].t + ': ' + e[1]).join('; ') || PE.pieces.length + ' pieces'); });
-    { const ps = PE_STARTERS.trans.pieces(), c = peEncode('Round trip', ps), d = peDecode(c); rec('Share code round-trip', d && JSON.stringify(d.pieces) === JSON.stringify(ps), c.length + ' chars'); }
+    { const ps = PE_STARTERS.street.pieces(), c = peEncode('Round trip', ps), d = peDecode(c); rec('Share code round-trip', d && JSON.stringify(d.pieces) === JSON.stringify(ps), c.length + ' chars'); }
+    { PE.on = true; const t0 = performance.now(); peThumbs(); const n = Object.values(PE_THUMBS).filter(u => /^data:image\/jpeg/.test(u) && u.length > 3000).length;
+      rec('Starter thumbnails render and cache', n === Object.keys(PE_STARTERS).length, n + ' thumbnails in ' + Math.round(performance.now() - t0) + ' ms, ' + Object.values(PE_THUMBS).map(u => Math.round(u.length / 1024) + 'k').join(' ')); }
   } catch (err) { out.push('ERROR ' + (err && err.stack || err)); }
   game.running = false; ['hud', 'touch', 'pause'].forEach(id => $(id).hidden = true);
   const pre = document.createElement('pre'); pre.id = 'peTest'; pre.textContent = out.join('\n');
@@ -13905,11 +14317,13 @@ function wallToGrind() {
 // Rails you're riding past (they end just in front of you) or have passed never count.
 function groundRailTarget() {
   if (P.grindCD > 0 || Math.abs(P.s) <= 2) return null;
-  const t = findRail(3.5, true, 1.6, 1.0);
-  if (!t) return null;
   const d = Math.sign(P.s) || 1, fx = Math.sin(P.heading) * d, fz = Math.cos(P.heading) * d;
+  let t = findRail(3.5, true, 1.6, 1.0), reach = 3.5;
+  // lined up along a rail: a little more reach (4.6 m), so you can pop for it from further back. Only when nothing nearer was found.
+  if (!t) { const t2 = findRail(4.6, true, 1.6, 0.7); if (t2 && Math.abs(fx * t2.r.dh.x + fz * t2.r.dh.y) > 0.95) { t = t2; reach = 4.6; } }
+  if (!t) return null;
   const ahead = (t.cx - P.pos.x) * fx + (t.cz - P.pos.z) * fz;
-  if (ahead <= 0.2 || ahead > 3.5) return null;
+  if (ahead <= 0.2 || ahead > reach) return null;
   if (Math.abs(fx * t.r.dh.x + fz * t.r.dh.y) < 0.7) return null;
   // passed: the rail (and the run of segments it belongs to) doesn't reach at least 1.5 m out in front of you
   let far = -1e9;
@@ -13919,12 +14333,33 @@ function groundRailTarget() {
   // a plain ballistic hop that comes down on the rail: keep your speed along it, pop just high enough, and cover the gap across it.
   // Pop higher if that's what it takes to reach the rail; ease off the speed a little only if you'd sail past its end.
   const sp = Math.abs(P.s), along0 = (fx * t.r.dh.x + fz * t.r.dh.y) * sp;
+  let pick = null;
   for (const [c, k] of [[0.3, 1], [0.5, 1], [0.75, 1], [0.3, 0.85], [0.3, 0.7]]) {
     const vy = Math.max(3.2, Math.sqrt(2 * AIR_G * (Math.max(0, t.ry - P.pos.y) + c)));
     const h = hopOnto(t, vy, along0 * k);
-    if (h) return Object.assign(t, { vy, along: along0 * k, hop: h });
+    if (h) { pick = { vy, along: along0 * k, hop: h }; break; }
   }
-  return null;
+  // lined up along a rail that drops away under the hop (a kinked stair handrail): if the plain hop would come down well down the slope,
+  // carry a little less speed into it so it lands up near the top. Level and rising rails are never touched.
+  if (pick && Math.abs(fx * t.r.dh.x + fz * t.r.dh.y) > 0.95) {
+    const s0 = railSpot(t.r, pick.hop.x, pick.hop.z);
+    if (s0 && t.ry - s0.ry > 0.25) {
+      // how far along the run the rail stays within 0.1 m of where you meet it, measured from straight ahead of you
+      const dsg = Math.sign(fx * t.r.dh.x + fz * t.r.dh.y) || 1, key = dsg > 0 ? 'next' : 'prev';
+      let reachTop = 0, acc = 0; const r0 = t.r, L0 = Math.sqrt(r0.lenH2), u0 = dsg > 0 ? (1 - t.u) * L0 : t.u * L0;
+      for (let r = r0, n = 0; r && n < 40; r = r[key], n++) {
+        const L = r === r0 ? u0 : Math.sqrt(r.lenH2), yEnd = dsg > 0 ? r.b.y : r.a.y;
+        if (t.ry - yEnd > 0.1) { const yS = r === r0 ? t.ry : (dsg > 0 ? r.a.y : r.b.y), f = clamp((yS - (t.ry - 0.1)) / Math.max(1e-3, yS - yEnd), 0, 1); reachTop = acc + L * f; break; }
+        acc += L; reachTop = acc;
+      }
+      const toTop = t.dh + reachTop - 0.35, T = pick.hop.T;
+      for (const k of [clamp(toTop / (Math.abs(along0) * T + 1e-3), 0.55, 0.97), 0.85, 0.72]) {
+        const h = hopOnto(t, pick.vy, along0 * k), s = h && railSpot(t.r, h.x, h.z);
+        if (s && s.ry > s0.ry + 0.15) { pick = { vy: pick.vy, along: along0 * k, hop: h }; break; }
+      }
+    }
+  }
+  return pick ? Object.assign(t, pick) : null;
 }
 // how long after a pop of vy he comes back down through dy above where he left (the same air gravity stepAir uses)
 function hopTime(vy, dy) {

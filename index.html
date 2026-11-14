@@ -338,7 +338,9 @@ body.touch .pe-help { display: none; }
   .pe-top { left: 12px; right: 12px; gap: 8px; }
   .pe-title { flex: 1 1 100%; }
   .pe-top .spacer { display: none; }
-  .pe-top .btn { flex: 1 1 auto; }
+  .pe-top { gap: 6px; }
+  .pe-top .btn { flex: 1 1 0; min-width: 0; padding: 8px 2px; font-size: 13px; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }   /* one row, so Ride it never wraps under the palette */
+  .pe-top .btn.pe-ride { flex-grow: 1.3; font-size: 16px; letter-spacing: .02em; padding: 6px 2px; }
   .pe-pal { top: calc(116px + env(safe-area-inset-top, 0px)); bottom: auto; left: 12px; right: 12px; width: auto; height: 46px; flex-direction: row; overflow-x: auto; overflow-y: hidden; padding: 6px; align-items: center; }
   .pe-grp { display: none; }
   .pe-piece { flex: 0 0 auto; font-size: 14px; padding: 5px 8px; }
@@ -349,6 +351,24 @@ body.touch .pe-help { display: none; }
   .pe-title .eyebrow { font-size: 12px; }
   .pe-help { display: none; }
   .pe-title .netin { width: 7.5em; }
+}
+/* phones on their side (and short windows): palette down the left, view buttons top right, a slimmer tool bar along the bottom */
+@media (max-height: 500px) and (min-width: 761px) {
+  .pe-top { top: calc(6px + env(safe-area-inset-top, 0px)); gap: 6px; }
+  .pe-title { padding: 4px 8px; }
+  .pe-top .btn { padding: 6px 11px; font-size: 14px; }
+  .pe-top .btn.pe-ride { font-size: 18px; padding: 4px 14px; }
+  .pe-pal { top: calc(52px + env(safe-area-inset-top, 0px)); bottom: calc(8px + env(safe-area-inset-bottom, 0px)); width: 150px; padding: 6px; gap: 4px; }
+  .pe-piece { font-size: 14px; padding: 4px 8px; }
+  .pe-bar { left: calc(max(16px, env(safe-area-inset-left, 0px)) + 160px); bottom: calc(8px + env(safe-area-inset-bottom, 0px)); padding: 5px 8px; gap: 4px 6px; }
+  .pe-sel { min-width: 10em; flex: 1 1 10em; }
+  .pe-sel b { font-size: 17px; } .pe-sel span, .pe-sel span#peDims { font-size: 12px; } .pe-sel em { font-size: 12px; }
+  .pe-tools { gap: 4px; }
+  .pe-tool { min-height: 32px; padding: 4px 7px; font-size: 12px; }
+  .pe-view { bottom: auto; top: calc(52px + env(safe-area-inset-top, 0px)); }
+  .pe-view .pe-tool { min-width: 40px; font-size: 17px; }
+  .pe-view .pe-wide { font-size: 12px; }
+  .pe-help { display: none; }
 }
 </style>
 
@@ -378,7 +398,7 @@ body.touch .pe-help { display: none; }
   <div class="splash-in">
     <h1>Concrete <span class="hz">Lines</span></h1>
     <p class="splash-by">Made by Jon Beam<br>with the use of Claude Code</p>
-    <p class="splash-date">Updated November 14, 2026 · Play-test 0.033</p>
+    <p class="splash-date">Updated November 14, 2026 · Play-test 0.034</p>
     <p class="splash-go">Click to play</p>
   </div>
 </div>
@@ -552,6 +572,7 @@ body.touch .pe-help { display: none; }
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>/* test hooks: ?lsblock=1 storage blocked, ?lsfull=1 storage full */ try { if (/[?&]lsblock=1/.test(location.search)) Object.defineProperty(window, 'localStorage', { get() { throw new DOMException('blocked', 'SecurityError'); } }); if (/[?&]lsfull=1/.test(location.search)) Storage.prototype.setItem = function () { throw new DOMException('full', 'QuotaExceededError'); }; } catch (e) {}</script>
 <script>
 /* board-maker.js - a small board customizer shared by Concrete Lines (skate) and Powder Lines (snow).
    Classic script, no modules, no network, no external assets. Defines one global: BoardMaker.
@@ -704,7 +725,7 @@ body.touch .pe-help { display: none; }
   }
 
   // ------------------------------------------------------------------ canvas helpers
-  const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+  const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d', { willReadFrequently: true }); return c; };   // 2D canvases that noise() reads back (no readback warning)
   const scratchC = {};
   const scratch = (k, w, h) => { let c = scratchC[k]; if (!c || c.width !== w || c.height !== h) c = scratchC[k] = mk(w, h); const g = c.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, w, h); return c; };
   function noise(c, amt, speck) {
@@ -6893,10 +6914,10 @@ function _grafLib() {
       wrap(() => { g.strokeStyle = 'rgba(20,18,16,' + al + ')'; g.lineWidth = rr(rng, 2, 4); for (const sd of [-1, 1]) { const px = -Math.sin(a) * sep / 2 * sd, py = Math.cos(a) * sep / 2 * sd; g.beginPath(); g.moveTo(x + px, y + py); g.quadraticCurveTo(x + px + Math.cos(a + bend) * L / 2, y + py + Math.sin(a + bend) * L / 2, x + px + Math.cos(a) * L, y + py + Math.sin(a) * L); g.stroke(); } });
     }
     const tl = canvas(S, S, true), tg = ctx(tl);   // sparse tags, mostly old
-    const nT = side ? ri(rng, 4, 6) : ri(rng, 0, 1);   // the tops tile every 8 m along long pours: keep them nearly clean, the decals carry the writing
+    const nT = o.dense ? ri(rng, 12, 16) : side ? ri(rng, 4, 6) : ri(rng, 0, 1);   // the tops tile every 8 m along long pours: keep them nearly clean, the decals carry the writing
     for (let k = 0; k < nT; k++) { const s1 = sub(rng), hh = ppm * rr(rng, 0.3, side ? 0.7 : 0.6), x = rr(rng, 0, S), y = rr(rng, 0, S), col = pick(rng, TAGC), w = rr(rng, 0.07, 0.14); for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]) { const r = makeRng(s1), T = tagGeom(r, pick(r, WORDS)), sc = hh / (T.y1 - T.y0 + 0.4); drawTag(tg, r, T, x + ox, y + oy, sc, col, { w, pad: 0.2 }); } }
-    for (let k = 0, nd = side ? 1 : 0; k < nd; k++) if (chance(rng, 0.75)) { const s1 = sub(rng), r0 = ppm * rr(rng, 0.2, 0.35), x = rr(rng, 0, S), y = rr(rng, 0, S); for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]) { const r = makeRng(s1); doodle(tg, r, pick(r, SMALL_DOODLES), x + ox, y + oy, r0); } }
-    weather(tl, { wear: side ? 0.62 : 0.85, seed: sub(rng), edge: 0 });
+    for (let k = 0, nd = o.dense ? 3 : side ? 1 : 0; k < nd; k++) if (chance(rng, 0.75)) { const s1 = sub(rng), r0 = ppm * rr(rng, 0.2, 0.35), x = rr(rng, 0, S), y = rr(rng, 0, S); for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]) { const r = makeRng(s1); doodle(tg, r, pick(r, SMALL_DOODLES), x + ox, y + oy, r0); } }
+    weather(tl, { wear: o.dense ? 0.35 : side ? 0.62 : 0.85, seed: sub(rng), edge: 0 });   // dense: the Create a Park graffiti look (the river's pours keep theirs nearly clean)
     g.drawImage(tl, 0, 0);
     return cv;
   }
@@ -11763,8 +11784,8 @@ function lookMats(k) {
   } else if (k === 5) L = { top: LOT_WOOD.top, side: LOT_WOOD.side };
   else if (k === 6) {
     // the game's own DIY graffiti: patchy concrete with real tags and pieces, tiling every 8 m (uvs are metres / 4)
-    const gt = makeGraffitiTexture(31, 1024, { kind: 'diy' }), gs = makeGraffitiTexture(37, 1024, { kind: 'diyside' });
-    gt.repeat.set(0.5, 0.5); gs.repeat.set(0.5, 0.5);
+    const gt = makeGraffitiTexture(31, 1024, { kind: 'diy', dense: true }), gs = makeGraffitiTexture(37, 1024, { kind: 'diyside', dense: true });   // dense: the plain diy pours carry 0-1 tags per 8 m, which read as bare concrete
+    gt.repeat.set(0.75, 0.75); gs.repeat.set(0.75, 0.75);
     L = { top: top({ map: gt }), side: side({ map: gs }) };
   } else L = null;
   if (L) [L.top, L.side, L.rail].forEach(m => { if (m) { m.userData.keep = true; LOT_SHARED.add(m); } });
@@ -12082,6 +12103,7 @@ const PE_ARROW_M = new THREE.MeshBasicMaterial({ color: 0xe88c6c, side: THREE.Do
 const pVals = p => { const T = PT[p.t]; return [T.size ? T.size[p.s] : 0, T.height ? T.height[p.h] : 0, T.style ? T.style[p.v] : 0]; };
 const pDims = p => PT[p.t].dims(...pVals(p));
 // ---- editor state ----
+const PE_MAX = 150;   // pieces in one park (placing, duplicating and loading codes stop there)
 const PE = { on: false, pieces: [], sel: -1, place: null, last: {}, undo: [], redo: [], name: 'My park', prevMap: 'river', loaded: false,
   cam: { tx: 0, tz: 0, yaw: 0.5, pitch: 0.86, pv: 0.86, dist: 60, top: false }, holders: [], ghostKey: '', drag: null, mode: null, ptrs: new Map(), hover: null, shift: false, msgT: 0, hook: null };
 const PE_GHOST = new THREE.Group(); LOT_EDIT.add(PE_GHOST);
@@ -12126,8 +12148,9 @@ function lotRebuild() {
   const built = lotBuild(LOT_PIECES, LOT_STATIC, () => {
     for (const i of order) {
       const p = PE.pieces[i], T = PT[p.t], hd = new THREE.Group(); hd.userData.pi = i; LOT_PIECES.add(hd); PE.holders[i] = hd;
-      captureInto(hd);
+      captureInto(hd); const ob0 = obstacles.length;
       try { T.build(p, ...pVals(p)); if (p.k) lotPaint(hd, p.k); } catch (err) { console.warn('park piece failed', p, err); }
+      for (let j = ob0; j < obstacles.length; j++) obstacles[j].pi = i;   // which piece each collider belongs to (the drag ghost leaves its own out)
       if (T.gaps) gaps.push(...T.gaps(p, ...pVals(p)));
       if (p.t === 'start') spawns.push({ name: 'Drop-in spot', x: p.x, z: p.z, heading: p.r * D2R });
     }
@@ -12158,19 +12181,20 @@ function peDecode(code) {
     const o = JSON.parse(decodeURIComponent(escape(atob(b))));
     if (!o || !Array.isArray(o.p)) return null;
     const pieces = [];
-    for (const e of o.p.slice(0, 400)) {
+    for (const e of o.p.slice(0, 4000)) {
       if (!Array.isArray(e)) continue;
       const t = PT_BY_CODE[e[0]], T = PT[t]; if (!T) continue;
       const num = (v, lo, hi) => Number.isFinite(+v) ? clamp(+v, lo, hi) : 0;
       const idx = (v, arr) => arr ? clamp(Math.round(num(v, 0, 99)), 0, arr.length - 1) : 0;
       if (T.unique && pieces.some(q => q.t === t)) continue;
-      pieces.push({ t, x: num(e[1], -400, 400) / 10, z: num(e[2], -400, 400) / 10, r: ((Math.round(num(e[3], -720, 720)) % 360) + 360) % 360, s: idx(e[4], T.size), h: idx(e[5], T.height), v: idx(e[6], T.style), k: T.unique ? 0 : idx(e[7], LOOKS) });
+      pieces.push({ t, x: num(e[1], -LOT.half * 10, LOT.half * 10) / 10, z: num(e[2], -LOT.half * 10, LOT.half * 10) / 10, r: ((Math.round(num(e[3], -720, 720)) % 360) + 360) % 360, s: idx(e[4], T.size), h: idx(e[5], T.height), v: idx(e[6], T.style), k: T.unique ? 0 : idx(e[7], LOOKS) });
     }
-    return { name: typeof o.n === 'string' ? o.n.slice(0, 24) : '', pieces };
+    const cut = Math.max(0, pieces.length - PE_MAX); pieces.length = Math.min(pieces.length, PE_MAX);
+    return { name: typeof o.n === 'string' ? o.n.slice(0, 24) : '', pieces, cut };
   } catch (e) { return null; }
 }
 const PE_KEY_SLOTS = 'concrete-lines-parks', PE_KEY_WORK = 'concrete-lines-park-work';
-const peSlots = () => { try { return JSON.parse(localStorage.getItem(PE_KEY_SLOTS) || '{}') || {}; } catch (e) { return {}; } };
+const peSlots = () => { try { const o = JSON.parse(localStorage.getItem(PE_KEY_SLOTS) || '{}'); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch (e) { return {}; } };
 function peSaveWork() { try { localStorage.setItem(PE_KEY_WORK, peEncode(PE.name, PE.pieces)); } catch (e) {} }
 // ---- starter layouts ----
 const pc = (t, x, z, r = 0, s = 0, h = 0, v = 0, k = 0) => ({ t, x, z, r, s, h, v, k });
@@ -12233,7 +12257,7 @@ function peLoadPieces(pieces, name, keepUndo) {
 }
 function peLoadWork() {
   let d = null; try { d = peDecode(localStorage.getItem(PE_KEY_WORK)); } catch (e) {}
-  if (d && d.pieces.length) { PE.pieces = d.pieces; PE.name = d.name || 'My park'; }
+  if (d) { PE.pieces = d.pieces; PE.name = d.name || 'My park'; }
   else { PE.pieces = PE_STARTERS.plaza.pieces(); PE.name = 'Plaza'; }
 }
 // ---- editing ----
@@ -12247,6 +12271,7 @@ function peCommit(fn) {
 function peHistory(dir) {
   const from = dir < 0 ? PE.undo : PE.redo, to = dir < 0 ? PE.redo : PE.undo;
   if (!from.length) return;
+  PE.drag = null; if (PE.mode === 'drag' || PE.mode === 'dragWait') PE.mode = null;
   to.push(JSON.stringify(PE.pieces)); PE.pieces = JSON.parse(from.pop());
   if (PE.sel >= PE.pieces.length) PE.sel = -1;
   lotRebuild(); peSaveWork(); peUI();
@@ -12278,9 +12303,10 @@ function peTestLine(atView) {
   camYaw = hd; camera.position.set(x - Math.sin(hd) * 7, P.pos.y + 3, z - Math.cos(hd) * 7); camY = P.pos.y + 2.5;
   PE.testAt = { x, z, hd };
 }
-function peDelete() { if (PE.sel < 0) return; const i = PE.sel; PE.sel = -1; peCommit(() => PE.pieces.splice(i, 1)); }
+function peDelete() { if (PE.sel < 0) return; const i = PE.sel; PE.sel = -1; PE.drag = null; if (PE.mode === 'drag' || PE.mode === 'dragWait') PE.mode = null; peCommit(() => PE.pieces.splice(i, 1)); }
 function peDuplicate() {
   const p = PE.pieces[PE.sel]; if (!p || PT[p.t].unique) return;
+  if (PE.pieces.length >= PE_MAX) { peMsg('The park is full: ' + PE_MAX + ' pieces'); return; }
   const d = pDims(p), a = p.r * D2R, steps = [[2 * d.hw + 0.5, 0], [-(2 * d.hw + 0.5), 0], [0, 2 * d.hl + 0.5], [0, -(2 * d.hl + 0.5)]];
   for (const [lx, lz] of steps) {
     const q = { ...p, x: Math.round((p.x + lx * Math.cos(a) + lz * Math.sin(a)) * 2) / 2, z: Math.round((p.z - lx * Math.sin(a) + lz * Math.cos(a)) * 2) / 2 };
@@ -12310,6 +12336,7 @@ function peSnapRail(q) {
 function pePlaceAt(g, fine) {
   const t = PE.place, L = PE.last[t] || { r: 0, s: 0, h: 0, v: 0, k: 0 }, q = peSnapRail({ t, x: peSnap(g.x, fine), z: peSnap(g.z, fine), r: L.r, s: L.s, h: L.h, v: L.v, k: L.k | 0 }, fine);
   const ex = PT[t].unique ? PE.pieces.findIndex(p => p.t === t) : -1;
+  if (ex < 0 && PE.pieces.length >= PE_MAX) { peMsg('The park is full: ' + PE_MAX + ' pieces'); return; }
   const why = peCheck(q, ex); if (why) { peMsg(why); return; }
   peCommit(() => { if (ex >= 0) { PE.pieces[ex] = q; PE.sel = ex; } else { PE.pieces.push(q); PE.sel = PE.pieces.length - 1; } });
   PE.place = null; peMsg(''); peUI();
@@ -12319,6 +12346,7 @@ const peRay = new THREE.Raycaster(), peNdc = new THREE.Vector2();
 function peRayAt(cx, cy) { const r = renderer.domElement.getBoundingClientRect(); peNdc.set((cx - r.left) / r.width * 2 - 1, -(cy - r.top) / r.height * 2 + 1); peApplyCam(); peRay.setFromCamera(peNdc, camera); return peRay; }
 function peGround(cx, cy) { const R = peRayAt(cx, cy).ray, o = R.origin, d = R.direction; if (d.y > -1e-4) return null; const t = -o.y / d.y; return { x: o.x + d.x * t, z: o.z + d.z * t }; }
 function pePick(cx, cy) {
+  LOT_PIECES.updateMatrixWorld(true);   // pieces rebuilt since the last frame still have no world matrix
   const R = peRayAt(cx, cy), hs = PE.holders.filter(Boolean), hit = R.intersectObjects(hs, true).find(h => h.object.visible !== false);
   if (hit) { let o = hit.object; while (o && o.userData.pi === undefined) o = o.parent; if (o) return o.userData.pi; }
   const g = peGround(cx, cy); if (!g) return -1;
@@ -12359,17 +12387,18 @@ function peTick(dt) {
     if (key !== PE.ghostKey) {
       while (PE_GHOST.children.length) { const c = PE_GHOST.children[0]; PE_GHOST.remove(c); lotDispose(c); }
       const hd = new THREE.Group(); PE_GHOST.add(hd);
-      lotBuild(hd, LOT_SET, () => { try { PT[gp.t].build(gp, ...pVals(gp)); } catch (e) {} });
+      lotBuild(hd, gskip >= 0 ? { obstacles: LOT_SET.obstacles.filter(o => o.pi !== gskip), rails: LOT_SET.rails } : LOT_SET, () => { try { PT[gp.t].build(gp, ...pVals(gp)); } catch (e) {} });
+      PE.ghostBase = LOT_BASE.get(gp) || 0;
       hd.traverse(o => { if (o.isMesh) { if (o.material && !LOT_SHARED.has(o.material) && o.material !== PE_ARROW_M) o.material.dispose(); o.castShadow = false; o.receiveShadow = false; o.userData.ghost = true; } });
       PE.ghostKey = key;
     }
     PE_GHOST.traverse(o => { if (o.userData.ghost) o.material = ok ? GHOST_OK : GHOST_BAD; });
     PE_GHOST.visible = true;
-    const col = ok ? 0x9fb866 : 0xff6a5c; peFrameBox(PE_GBOX, gp, col);
+    const col = ok ? 0x9fb866 : 0xff6a5c; peFrameBox(PE_GBOX, gp, col, PE.ghostBase || 0);
     const d = pDims(gp); PE_FOOT.visible = true; PE_FOOT.material.color.setHex(col); PE_FOOT.scale.set(2 * d.hw, 1, 2 * d.hl); PE_FOOT.position.set(gp.x, 0.025, gp.z); PE_FOOT.rotation.y = gp.r * D2R;
   } else { PE_GHOST.visible = false; PE_GBOX.visible = false; PE_FOOT.visible = false; }
   const sp = PE.pieces[PE.sel];
-  if (sp && !PE.drag) peFrameBox(PE_SELBOX, sp, 0xe88c6c); else PE_SELBOX.visible = false;
+  if (sp && !PE.drag) peFrameBox(PE_SELBOX, sp, 0xe88c6c, LOT_BASE.get(sp) || 0); else PE_SELBOX.visible = false;
   PE.holders.forEach((hd, i) => { if (hd) hd.visible = !(PE.drag && PE.drag.i === i && PE.drag.p); });
 }
 // ---- pointer: click / tap to place or select, drag a piece to move it, drag empty ground to pan, right-drag to orbit, wheel / pinch to zoom ----
@@ -12378,6 +12407,8 @@ function peTick(dt) {
   cv.addEventListener('pointerdown', e => {
     if (!live()) return;
     e.preventDefault(); try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+    { const ae = document.activeElement; if (ae && ae !== document.body && ae.blur) ae.blur(); }   // preventDefault keeps the focus where it was: let go of the name box so keys reach the editor
+    if (e.isPrimary) { PE.ptrs.clear(); PE.drag = null; PE.mode = null; }   // a new first pointer: nothing else is still down (clears a pointer whose up was lost)
     PE.ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, moved: false });
     PE.shift = e.shiftKey;
     if (PE.ptrs.size === 2) { if (PE.drag) PE.drag = null; PE.mode = 'pinch'; PE.pinch = null; return; }
@@ -12422,7 +12453,7 @@ function peTick(dt) {
     if (!cancel && live()) {
       if (PE.mode === 'placeTap' && !pt.moved) { const g = peGround(e.clientX, e.clientY); if (g) pePlaceAt(g, e.shiftKey); }
       else if (PE.mode === 'panTap' && !pt.moved) peSelect(-1);
-      else if (PE.mode === 'drag' && PE.drag && PE.drag.p) {
+      else if (PE.mode === 'drag' && PE.drag && PE.drag.p && PE.drag.i < PE.pieces.length) {
         const D = PE.drag, why = peCheck(D.p, D.i);
         if (why) peMsg(why + ', moved back'); else { peCommit(() => { PE.pieces[D.i] = D.p; }); peMsg(''); }
       }
@@ -12454,9 +12485,10 @@ window.addEventListener('keydown', e => {
     case 'Minus': case 'NumpadSubtract': peTweak('s', -1); break;
     case 'KeyT': peTweak('v', 1, true); break;
     case 'Delete': case 'Backspace': e.preventDefault(); peDelete(); break;
-    case 'Escape': if (PE.place) { PE.place = null; peUI(); } else peSelect(-1); break;
+    case 'Escape': if (PE.mode === 'drag' || PE.mode === 'dragWait') { PE.drag = null; PE.mode = null; } else if (PE.place) { PE.place = null; peUI(); } else peSelect(-1); break;
     case 'KeyV': PE.cam.top = !PE.cam.top; peUI(); break;
-    case 'Enter': case 'NumpadEnter': if (e.shiftKey) peTestLine(); else peRide(); break;
+    case 'Enter': case 'NumpadEnter': e.preventDefault(); if (e.shiftKey) peTestLine(); else peRide(); break;
+    case 'Space': e.preventDefault(); break;
     case 'KeyP': peTweak('k', e.shiftKey ? -1 : 1, true); break;
     case 'Tab': e.preventDefault(); break;
   }
@@ -12540,9 +12572,10 @@ function peWireUI() {
     const done = () => peDlgMsg('Code copied');
     try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(done, () => { document.execCommand('copy'); done(); }); else { document.execCommand('copy'); done(); } } catch (e) { peDlgMsg('Select the code and copy it'); }
   });
-  on('peLoadCode', () => { const d = peDecode($('peCode').value); if (!d) { peDlgMsg('That code could not be read'); return; } peLoadPieces(d.pieces, d.name || 'Shared park', true); peDlgMsg('Loaded ' + (d.name || 'shared park') + ', ' + d.pieces.length + ' pieces'); });
+  on('peLoadCode', () => { const d = peDecode($('peCode').value); if (!d) { peDlgMsg('That code could not be read'); return; } peLoadPieces(d.pieces, d.name || 'Shared park', true); peDlgMsg('Loaded ' + (d.name || 'shared park') + ', ' + d.pieces.length + ' pieces' + (d.cut ? '; ' + d.cut + ' more left out (' + PE_MAX + ' at most)' : '')); });
   document.querySelectorAll('#peDlg [data-start]').forEach(b => b.addEventListener('click', () => { const S = PE_STARTERS[b.dataset.start]; peLoadPieces(S.pieces(), S.name, true); peDlgMsg('Started from ' + S.name.toLowerCase()); }));
   const nm = $('peName'); if (nm) nm.addEventListener('input', () => { PE.name = nm.value.slice(0, 24); peSaveWork(); });
+  { const pe = $('pe'); if (pe) pe.addEventListener('click', e => { const b = e.target.closest && e.target.closest('button'); if (b && e.detail) b.blur(); }); }
   on('startPark', () => peOpen());
   on('editBtn', () => peEdit()); on('peBackBtn', () => peEdit());
 }
@@ -12587,7 +12620,9 @@ function peBoot() {
   if ($('splash')) $('splash').hidden = true;
   const lay = q.get('layout') || 'plaza', st = PE_STARTERS[lay], dec = st ? null : peDecode(lay);
   PE.loaded = true; PE.pieces = st ? st.pieces() : dec ? dec.pieces : PE_STARTERS.plaza.pieces(); PE.name = st ? st.name : dec ? dec.name : 'Test';
+  if (q.get('touch')) document.body.classList.add('touch');   // the touch layout on a desktop browser (shots)
   if (mode === 'test') { peOpen(); peSelfTest(); return; }
+  if (mode === 'soak' || mode === 'fuzz') { setTimeout(() => peQA(mode), 300); return; }
   peOpen();
   const num = k => q.get(k) !== null && Number.isFinite(+q.get(k)) ? +q.get(k) : null;
   if (num('yaw') !== null) PE.cam.yaw = num('yaw'); if (num('pitch') !== null) PE.cam.pitch = PE.cam.pv = num('pitch'); if (num('dist') !== null) PE.cam.dist = num('dist');
@@ -12630,6 +12665,217 @@ function peHookFrame(phase, dt) {
     let im = $('peShotImg'); if (!im) { im = document.createElement('img'); im.id = 'peShotImg'; im.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none'; $('stage').appendChild(im); }
     im.src = renderer.domElement.toDataURL('image/png'); H.done = true;
   }
+}
+// QA hooks (results in #peTest and the page title, sound stubbed):
+//   ?park=soak  20 ride / edit cycles with edits, undo and test lines (nothing leaks, nothing doubles, score / combo / camera reset),
+//               the board maker opened and closed 20 times (no stuck keys, no lost WebGL), then the hand-built maps exactly as before
+//   ?park=fuzz  corrupt / truncated / random / hostile share codes, the piece cap, storage full or blocked, autosave restore,
+//               mouse and touch input in the editor (focus, drag, Escape, undo mid-drag, pinch), the hip ridge grind
+function peQA(mode) {
+  const out = [], rec = (n, ok, info) => out.push((ok ? 'PASS ' : 'FAIL ') + n + (info ? ' :: ' + info : ''));
+  const errs = [], ow = console.warn, oe = console.error;
+  console.warn = (...a) => { errs.push('warn ' + a.map(String).join(' ').slice(0, 160)); ow.apply(console, a); };
+  console.error = (...a) => { errs.push('error ' + a.map(String).join(' ').slice(0, 160)); oe.apply(console, a); };
+  const onErr = e => errs.push('page ' + (e.message || (e.reason && e.reason.message) || e.reason || e));
+  window.addEventListener('error', onErr); window.addEventListener('unhandledrejection', onErr);
+  let lost = 0; renderer.domElement.addEventListener('webglcontextlost', () => lost++);
+  const sig = id => { setMap(id, { quiet: true }); let s = 0; obstacles.forEach(o => s += (o.cx || 0) * 3 + (o.cz || 0) + (o.hw || 0)); rails.forEach(r => s += r.a.x + r.b.z * 2 + r.a.y);
+    return [obstacles.length, rails.length, SPAWNS.length, GAPS.length, PITS.length, s.toFixed(2), heightAt(0, 0).toFixed(3), heightAt(10, -30).toFixed(3), heightAt(RV.xc, -60).toFixed(3)].join('/'); };
+  const step = n => { for (let i = 0; i < n; i++) { game.clock += 1 / 60; physics(1 / 60); animate(1 / 60); updateCamera(1 / 60); for (const k in pressed) delete pressed[k]; for (const k in released) delete released[k]; } };
+  const cv = renderer.domElement;
+  const scr = (x, y, z) => { peApplyCam(); const rc = cv.getBoundingClientRect(), v = new V3(x, y, z).project(camera); return [rc.left + (v.x + 1) / 2 * rc.width, rc.top + (1 - v.y) / 2 * rc.height]; };
+  const ptr = (type, id, xy, o = {}) => cv.dispatchEvent(new PointerEvent(type, Object.assign({ pointerId: id, isPrimary: true, button: 0, buttons: type === 'pointerup' ? 0 : 1, clientX: xy[0], clientY: xy[1], pointerType: 'mouse', bubbles: true, cancelable: true }, o)));
+  const keyAt = (el, code, o = {}) => { const ev = new KeyboardEvent('keydown', Object.assign({ code, key: code, bubbles: true, cancelable: true }, o)); el.dispatchEvent(ev); el.dispatchEvent(new KeyboardEvent('keyup', Object.assign({ code, key: code, bubbles: true, cancelable: true }, o))); return ev; };
+  try {
+    if (mode === 'soak') {
+      const saved = window.BoardMaker && BoardMaker.load('skate');
+      rec('Startup: a saved board design is on the deck', !saved || (DECK.grip.material.map !== DECK.stockMaps[0] && DECK.gfx.material.map !== DECK.stockMaps[1]), saved ? 'saved "' + saved.title + '"' : 'nothing saved yet (the end of this run saves one; run it again)');
+      const sPark = sig('park'), sRiver = sig('river'), kids = [PARK_ROOT.children.length, RIVER_ROOT.children.length].join('/');
+      peOpen(); const start = JSON.stringify(PE.pieces), n0 = PE.pieces.length;
+      const meas = () => { renderer.render(scene, camera); let objs = 0; scene.traverse(() => objs++); const m = renderer.info.memory; return { geo: m.geometries, tex: m.textures, objs, lot: LOT_PIECES.children.length, rails: LOT_SET.rails.length, obs: LOT_SET.obstacles.length, ghost: PE_GHOST.children.length }; };
+      const proto = EventTarget.prototype, add0 = proto.addEventListener; let added = 0; proto.addEventListener = function (...a) { added++; return add0.apply(this, a); };
+      let first = null, scoreOk = true, comboOk = true, camOk = true, rideOk = true, calls = 0; const t0 = performance.now();
+      for (let c = 0; c < 20; c++) {
+        if (c % 5 === 2) peTestLine(true); else peRide();
+        if (!game.running || MAPID !== 'lot') { rideOk = false; break; }
+        if (game.score !== 0 || combo.tricks.length) scoreOk = false;
+        keys[K.up] = true; step(30); keys[K.up] = false; addTrick('QA trick', 100); game.score += 500;
+        if (c === 0) { renderer.render(scene, camera); calls = renderer.info.render.calls; }
+        if (c % 3 === 1) { togglePause(); peEdit(); } else peEdit();
+        if (combo.tricks.length || game.running || game.paused || !PE.on || !$('pause').hidden || !$('hud').hidden || $('pe').hidden) comboOk = false;
+        peTick(1 / 60); if (Math.abs(camera.position.distanceTo(new V3(PE.cam.tx, 0, PE.cam.tz)) - PE.cam.dist) > 0.01 || camera.fov !== 50) camOk = false;
+        // edits each cycle, all undone again: rotate, look, style, duplicate + delete, undo / redo
+        const und = f => { const u = PE.undo.length; f(); if (PE.undo.length > u) peHistory(-1); };
+        peSelect(1); und(() => { peTweak('r', 15); if (PE.undo.length) { peHistory(-1); peHistory(1); } }); und(() => peTweak('k', 1, true)); und(() => peTweak('v', 1, true)); und(() => peTweak('s', 1));
+        const nb = PE.pieces.length; peSelect(6); peDuplicate(); if (PE.pieces.length > nb) peDelete();
+        peSelect(-1); PE.place = 'rail'; PE.hover = { x: 3, z: 3 }; peTick(1 / 60); PE.place = null; peTick(1 / 60);
+        if (c === 1) first = meas();
+      }
+      const last = meas(); proto.addEventListener = add0;
+      const keysOf = o => ['geo', 'tex', 'objs', 'lot', 'rails', 'obs', 'ghost'].map(k => k + ' ' + o[k]).join(', ');
+      rec('Ride / edit x20: nothing leaks (geometry, textures, scene objects, colliders, rails, listeners)', rideOk && first && ['geo', 'tex', 'objs', 'lot', 'rails', 'obs'].every(k => first[k] === last[k]) && !added,
+        'cycle 2: ' + keysOf(first || {}) + ' | cycle 20: ' + keysOf(last) + ' | listeners added ' + added + ' | ' + Math.round(performance.now() - t0) + ' ms, ride draw calls ' + calls);
+      rec('Ride / edit x20: no duplicate or changed pieces', JSON.stringify(PE.pieces) === start && PE.pieces.length === n0 && PE.holders.filter(Boolean).length === n0, n0 + ' -> ' + PE.pieces.length + ' pieces, ' + PE.holders.filter(Boolean).length + ' built');
+      rec('Ride / edit x20: every ride starts at 0 points, back in the editor the combo is clear', rideOk && scoreOk && comboOk, 'ride ' + rideOk + ', score ' + scoreOk + ', combo / panels ' + comboOk);
+      rec('Ride / edit x20: the editor camera comes back whole (orbit distance, 50 deg lens)', camOk, 'dist ' + PE.cam.dist.toFixed(1));
+      // the board maker: keys held when it opens don't stay stuck; 20 opens leave no WebGL context or DOM behind
+      if (window.BoardMaker) {
+        keys.KeyW = true; keys.KeyD = true; $('peBoard').click(); window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyW', bubbles: true })); const open1 = BoardMaker.isOpen(); keyAt(document.body, 'Escape');
+        const ed = !keys.KeyW && !keys.KeyD && !BoardMaker.isOpen() && PE.on;
+        peRide(); keys[K.up] = true; togglePause(); $('boardBtn2').click(); window.dispatchEvent(new KeyboardEvent('keyup', { code: K.up, bubbles: true })); keyAt(document.body, 'Escape'); const still = game.paused && !$('pause').hidden; togglePause();
+        const rd = !keys[K.up] && still && game.running && !game.paused; peEdit();
+        rec('Board maker: keys held when it opens are not stuck after (editor and pause)', open1 && ed && rd, 'editor ' + ed + ', pause ' + rd);
+        const t1 = performance.now(); for (let i = 0; i < 20; i++) { $('peBoard').click(); BoardMaker.close(); }
+        const gl = renderer.getContext();
+        rec('Board maker: 20 opens and closes leave no WebGL context or editor behind', !lost && !gl.isContextLost() && !document.querySelector('.bm-root') && !BoardMaker.isOpen(), 'game context lost ' + lost + ', ' + Math.round(performance.now() - t1) + ' ms');
+      }
+      // back to the hand-built maps: exactly as before
+      peExit();
+      const aPark = sig('park'), aRiver = sig('river'), kids2 = [PARK_ROOT.children.length, RIVER_ROOT.children.length].join('/');
+      rec('Hand-built maps afterwards: same colliders, rails, spawns, gaps and ground', aPark === sPark && aRiver === sRiver && kids === kids2 && !LOT_ROOT.visible && $('editBtn').hidden && !Object.prototype.hasOwnProperty.call(scene, 'add'),
+        'park ' + (aPark === sPark ? 'same' : sPark + ' -> ' + aPark) + ', river ' + (aRiver === sRiver ? 'same' : sRiver + ' -> ' + aRiver) + ', roots ' + kids + ' -> ' + kids2);
+      setMap('park', { quiet: true }); startGame(); keys[K.up] = true; step(90); keys[K.up] = false; const pk = [P.pos.x, P.pos.y, P.pos.z].every(Number.isFinite) && P.s > 1;
+      toMenu(); setMap('river', { quiet: true }); startGame(); keys[K.up] = true; step(90); keys[K.up] = false; const rv = [P.pos.x, P.pos.y, P.pos.z].every(Number.isFinite) && P.s > 1; toMenu();
+      rec('Hand-built maps afterwards: both ride', pk && rv, 'park ' + pk + ', river ' + rv);
+      if (window.BoardMaker) { BoardMaker.open({ kind: 'skate', THREE, onSave: applyBoardDesign, design: BoardMaker.presets('skate')[3] }); document.querySelector('.bm-root [data-act="save"]').click(); }   // for the next run's startup check
+    } else {
+      peOpen();
+      // ---- share codes ----
+      const good = peEncode('Fuzz', PE_STARTERS.street.pieces());
+      const enc = o => 'CLP1.' + btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      let seed = 12345; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+      const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+      const cases = ['', ' ', 'CLP1.', 'CLP1.=', 'CLP1.!!!!', 'CLP2.' + good.slice(5), good.toLowerCase(), good + good, '  ' + good + '\n', null, undefined, 12345, {}, [], 'CLP1.' + 'A'.repeat(100000), 'CLP1.' + btoa('ÿþý'), 'CLP1.' + btoa('{"p":[')];
+      for (let n = 1; n < good.length; n += 3) cases.push(good.slice(0, n));
+      for (let i = 0; i < 400; i++) { const a = good.split(''); for (let k = 0; k < 1 + (rnd() * 4 | 0); k++) a[5 + (rnd() * (a.length - 5) | 0)] = B64[rnd() * 64 | 0]; cases.push(a.join('')); }
+      for (let i = 0; i < 150; i++) { let s = 'CLP1.'; const L = rnd() * 400 | 0; for (let k = 0; k < L; k++) s += B64[rnd() * 64 | 0]; cases.push(s); }
+      const hostile = [null, 1, 'x', [], {}, { p: null }, { p: {} }, { p: 'qp' }, { p: [null, 1, 'x', [], {}] }, { p: [['qp', 'a', 'b', 'c', 'd', 'e', 'f', 'g']] },
+        { p: [['qp', 1e308, -1e308, null, 'Infinity', -5, 99, 1e9, -3]] }, { p: [['__proto__', 0, 0], ['constructor', 0, 0], ['toString', 0, 0], ['hasOwnProperty', 0, 0], ['valueOf', 0, 0]] },
+        { n: { a: 1 }, p: [['rl', 0, 0]] }, { n: 'x'.repeat(5000), p: [] }, { p: [['ss', 0, 0], ['ss', 100, 100], ['ss', 200, 200]] }, { p: [[['qp'], 0, 0]] }, { p: [[{}, 0, 0]] },
+        { p: [['rl', 999999, -999999, 7777, 1, 1, 1, 1]] }];
+      hostile.forEach(o => cases.push(enc(o)));
+      const huge = enc({ n: 'Huge', p: Array.from({ length: 5000 }, (_, i) => ['rl', (i % 60) * 10 - 300, ((i / 60) | 0) * 7 - 300, i % 360, 2, 1, 0]) }); cases.push(huge);
+      const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k), okIdx = (v, arr) => arr ? Number.isInteger(v) && v >= 0 && v < arr.length : v === 0;
+      let threw = 0, bad = 0, read = 0, maxN = 0, why = ''; const t0 = performance.now();
+      for (const c of cases) {
+        try { const d = peDecode(c); if (!d) continue; read++; maxN = Math.max(maxN, d.pieces.length);
+          const wrong = d.pieces.find(p => !own(PT, p.t) || ![p.x, p.z, p.r].every(Number.isFinite) || Math.abs(p.x) > LOT.half || Math.abs(p.z) > LOT.half || p.r < 0 || p.r >= 360 || !okIdx(p.s, PT[p.t].size) || !okIdx(p.h, PT[p.t].height) || !okIdx(p.v, PT[p.t].style) || !okIdx(p.k, PT[p.t].unique ? null : LOOKS));
+          if (wrong || typeof d.name !== 'string' || d.name.length > 24 || d.pieces.filter(p => p.t === 'start').length > 1) { bad++; why = why || JSON.stringify(wrong || d.name).slice(0, 120); }
+        } catch (e) { threw++; why = why || String(e); }
+      }
+      rec('Share codes: ' + cases.length + ' corrupt, truncated, random and hostile codes read cleanly or are refused', !threw && !bad, read + ' read, ' + (cases.length - read - threw) + ' refused, threw ' + threw + ', bad pieces ' + bad + (why ? ' (' + why + ')' : '') + ', ' + Math.round(performance.now() - t0) + ' ms');
+      const hd = peDecode(huge); rec('Share codes: a 5000-piece code loads its first ' + PE_MAX + ' and says so', hd && hd.pieces.length === PE_MAX && hd.cut > 0 && maxN <= PE_MAX, hd ? hd.pieces.length + ' kept, ' + hd.cut + ' left out' : 'not read');
+      // the dialog path: bad codes give a message, a huge one loads capped
+      peDlg(true); let dlgOk = true, msgs = new Set();
+      for (const c of cases.slice(0, 40).concat(cases.slice(-25))) { $('peCode').value = c == null ? '' : String(c); try { $('peLoadCode').click(); } catch (e) { dlgOk = false; } msgs.add($('peDlgMsg').textContent.replace(/[0-9]+/g, 'N').slice(0, 60)); }
+      const t2 = performance.now(); $('peCode').value = huge; $('peLoadCode').click(); const hugeMs = Math.round(performance.now() - t2), hugeMsg = $('peDlgMsg').textContent;
+      renderer.render(scene, camera); const hugeCalls = renderer.info.render.calls;
+      rec('Load code: bad codes give a message, a huge code loads capped with a note', dlgOk && msgs.has('That code could not be read') && PE.pieces.length === PE_MAX && /left out/.test(hugeMsg), hugeMsg + ' (' + hugeMs + ' ms to build, ' + hugeCalls + ' draw calls) | messages: ' + [...msgs].slice(0, 4).join(' / '));
+      peHistory(-1); peDlg(false);
+      // the cap while editing
+      PE.pieces = Array.from({ length: PE_MAX }, (_, i) => pc('rail', -28 + (i % 15) * 4, -28 + ((i / 15) | 0) * 5.5, 0, 0, 0, 0)); lotRebuild(); peUI();
+      PE.place = 'pad'; pePlaceAt({ x: 1, z: 1 }); const capMsg = $('peMsg').textContent, nCap = PE.pieces.length; PE.place = null; peSelect(3); peDuplicate();
+      rec('Piece cap: placing or duplicating past ' + PE_MAX + ' is refused with a message', nCap === PE_MAX && PE.pieces.length === PE_MAX && /full/.test(capMsg) && /full/.test($('peMsg').textContent), capMsg);
+      // ---- storage ----
+      const SP = Storage.prototype, g0 = SP.getItem, s0 = SP.setItem, r0 = SP.removeItem;
+      PE.pieces = PE_STARTERS.plaza.pieces(); PE.name = 'Plaza'; lotRebuild(); peUI();
+      let e1 = '', m1 = '';
+      SP.setItem = function () { throw new DOMException('full', 'QuotaExceededError'); };
+      try { peSelect(1); peTweak('r', 15); peHistory(-1); peDlg(true); $('peSaveName').value = 'Full'; $('peSaveBtn').click(); m1 = $('peDlgMsg').textContent; peDlg(false);
+        PE.thumbsRead = false; peThumbs(); setMap('lot', { quiet: true });
+        if (window.BoardMaker) { BoardMaker.open({ kind: 'skate', THREE, onSave: applyBoardDesign }); document.querySelector('.bm-root [data-act="save"]').click(); } saveBest();
+      } catch (e) { e1 = String(e && e.stack || e); }
+      SP.setItem = s0;
+      rec('Storage full: edits, Save, thumbnails, board maker and settings carry on', !e1 && /Could not save/.test(m1), (e1 || m1).slice(0, 160));
+      let e2 = '';
+      SP.getItem = SP.setItem = SP.removeItem = function () { throw new DOMException('blocked', 'SecurityError'); };
+      try { peSlots(); PE.loaded = false; peLoadWork(); peDlg(true); $('peSaveBtn').click(); m1 = $('peDlgMsg').textContent; peDlg(false); peSelect(1); peTweak('r', 15); peHistory(-1);
+        if (window.BoardMaker) { BoardMaker.load('skate'); BoardMaker.open({ kind: 'skate', THREE }); BoardMaker.close(); }
+      } catch (e) { e2 = String(e && e.stack || e); }
+      SP.getItem = g0; SP.setItem = s0; SP.removeItem = r0;
+      rec('Storage blocked: the editor opens (on the plaza), saves say so, nothing throws', !e2 && PE.name === 'Plaza' && /Could not save/.test(m1), (e2 || m1 + ', park ' + PE.name).slice(0, 160));
+      // corrupt stores
+      let e3 = '';
+      try { for (const bad of ['"str"', '[1,2]', '5', 'null', '{"a":5,"b":null,"c":"CLP1.zz","d":{"x":1}}', '{oops']) { localStorage.setItem(PE_KEY_SLOTS, bad); peDlg(true); $('peSaveName').value = 'QA'; $('peSaveBtn').click(); peDlg(false); }
+        localStorage.setItem(PE_KEY_WORK, 'garbage'); PE.loaded = false; peLoadWork(); localStorage.setItem(PE_KEY_THUMBS, '{"v":1,"t":"zz"}'); PE.thumbsRead = false;
+      } catch (e) { e3 = String(e && e.stack || e); }
+      const slotsNow = peSlots(); localStorage.removeItem(PE_KEY_SLOTS);
+      rec('Corrupt saves: slot list, autosave and thumbnail cache that are not what they should be', !e3 && PE.name === 'Plaza' && typeof slotsNow.QA === 'string', (e3 || 'slots after ' + Object.keys(slotsNow).join(',')).slice(0, 160));
+      // autosave restore
+      PE.pieces = PE_STARTERS.flow.pieces(); PE.name = 'Auto save'; peSelect(2); peTweak('k', 1, true); const want = JSON.stringify(PE.pieces); PE.pieces = []; PE.name = ''; PE.loaded = false; peLoadWork();
+      const restored = JSON.stringify(PE.pieces) === want && PE.name === 'Auto save';
+      PE.pieces = []; peSaveWork(); peLoadWork(); const empty = PE.pieces.length === 0;
+      PE.pieces = PE_STARTERS.plaza.pieces(); PE.name = 'Plaza'; peSaveWork(); lotRebuild(); peUI();
+      rec('Autosave: the last edit comes back after a reload, an emptied park comes back empty', restored && empty, 'restored ' + restored + ', empty ' + empty);
+      // ---- editor input: mouse ----
+      PE.cam = Object.assign(PE.cam, { tx: 0, tz: 0, yaw: 0.5, pitch: 0.86, pv: 0.86, dist: 60, top: false }); peTick(0.016); peSelect(-1);
+      const nm = $('peName'); nm.focus(); peSelect(1); const r1 = PE.pieces[1].r, n1 = PE.pieces.length;
+      keyAt(nm, 'KeyR'); keyAt(nm, 'Delete'); keyAt(nm, 'KeyW');
+      const typed = PE.pieces[1].r === r1 && PE.pieces.length === n1 && !keys.KeyW;
+      const pad = PE.pieces.findIndex(p => p.t === 'pad'), pp = PE.pieces[pad], at = scr(pp.x, 0.35, pp.z); ptr('pointerdown', 1, at); ptr('pointerup', 1, at);
+      const top0 = PE.cam.top; keyAt(document.body, 'KeyV'); const freed = document.activeElement !== nm && PE.cam.top !== top0; keyAt(document.body, 'KeyV');
+      rec('Name box: typing R / Del / W there never reaches the editor; a click on the lot hands the keys back', typed && freed && PE.sel === pad, 'typed ' + typed + ', freed ' + freed + ', picked ' + PE.sel + ' (pad ' + pad + ')');
+      // Enter / Space on a focused button
+      const dup = $('peDup'); dup.focus(); const ev = new KeyboardEvent('keydown', { code: 'Space', key: ' ', bubbles: true, cancelable: true }); dup.dispatchEvent(ev); dup.blur();
+      rec('Space on a focused editor button is held back (it would press the button again)', ev.defaultPrevented);
+      // drag a piece, Escape cancels it
+      const x0 = pp.x, z0 = pp.z; ptr('pointerdown', 2, at); ptr('pointermove', 2, [at[0] + 80, at[1] + 30]); const dragging = PE.mode === 'drag' && !!PE.drag; keyAt(document.body, 'Escape'); ptr('pointerup', 2, [at[0] + 80, at[1] + 30]);
+      rec('Drag a piece, Escape: the drag is dropped, the piece stays', dragging && PE.pieces[pad].x === x0 && PE.pieces[pad].z === z0 && !PE.drag && !PE.mode, 'was dragging ' + dragging);
+      // drag it off the lot: moved back with a message
+      ptr('pointerdown', 3, at); const far = scr(LOT.half + 20, 0, pp.z); ptr('pointermove', 3, [at[0] + 10, at[1]]); ptr('pointermove', 3, far); ptr('pointerup', 3, far);
+      rec('Drag a piece off the lot: refused and moved back', PE.pieces[pad].x === x0 && /Outside the lot/.test($('peMsg').textContent), $('peMsg').textContent);
+      // drag, then undo the piece away mid-drag
+      peCommit(() => PE.pieces.push(pc('rail', -2, 24, 0, 1, 1, 0))); const nr = PE.pieces.length; const ra = scr(-2, 0, 24);
+      ptr('pointerdown', 4, ra); const pickedRail = PE.sel === nr - 1; ptr('pointermove', 4, [ra[0] + 40, ra[1]]); keyAt(document.body, 'KeyZ', { ctrlKey: true }); ptr('pointermove', 4, [ra[0] + 60, ra[1]]); ptr('pointerup', 4, [ra[0] + 60, ra[1]]);
+      rec('Undo while dragging: the drag ends, no ghost piece comes back', pickedRail && PE.pieces.length === nr - 1 && PE.pieces.every(Boolean), 'picked ' + pickedRail + ', pieces ' + nr + ' -> ' + PE.pieces.length);
+      // a pointer whose up was lost doesn't leave the next click in pinch mode; right-drag orbits and lets go
+      ptr('pointerdown', 5, at, { pointerType: 'touch' }); ptr('pointerdown', 6, scr(10, 0, 10)); const notPinch = PE.mode !== 'pinch' && PE.ptrs.size === 1; ptr('pointerup', 6, scr(10, 0, 10));
+      const yaw0 = PE.cam.yaw; ptr('pointerdown', 7, [400, 300], { button: 2, buttons: 2 }); ptr('pointermove', 7, [470, 280], { buttons: 2 }); const orb = PE.mode === 'orbit' && PE.cam.yaw !== yaw0; ptr('pointerup', 7, [470, 280], { button: 2 });
+      rec('Lost pointer-up and right-drag: no stuck pinch or orbit', notPinch && orb && !PE.mode && !PE.ptrs.size, 'notPinch ' + notPinch + ', orbit ' + orb + ', mode ' + PE.mode);
+      // wheel limits
+      cv.dispatchEvent(new WheelEvent('wheel', { deltaY: 100000, bubbles: true, cancelable: true })); const dMax = PE.cam.dist; cv.dispatchEvent(new WheelEvent('wheel', { deltaY: -100000, bubbles: true, cancelable: true })); const dMin = PE.cam.dist; PE.cam.dist = 60;
+      rec('Wheel zoom stops at 10 and 110 m', dMax === 110 && dMin === 10, dMin + '..' + dMax);
+      // touch: pinch-zoom and twist with two fingers, then one-finger pan
+      const tz = { pointerType: 'touch' }, d0 = PE.cam.dist, y0 = PE.cam.yaw;
+      ptr('pointerdown', 11, [500, 360], tz); ptr('pointerdown', 12, [700, 360], Object.assign({ isPrimary: false }, tz)); ptr('pointermove', 12, [700, 360], Object.assign({ isPrimary: false }, tz));
+      ptr('pointermove', 12, [820, 440], Object.assign({ isPrimary: false }, tz)); const pz = PE.cam.dist < d0 && PE.cam.yaw !== y0; ptr('pointerup', 12, [820, 440], Object.assign({ isPrimary: false }, tz)); ptr('pointerup', 11, [500, 360], tz);
+      const tx0 = PE.cam.tx, e0 = scr(-25, 0, -26); ptr('pointerdown', 13, e0, tz); const panTap = PE.mode; ptr('pointermove', 13, [e0[0] + 30, e0[1] - 20], tz); ptr('pointermove', 13, [e0[0] + 120, e0[1] - 60], tz); ptr('pointerup', 13, [e0[0] + 120, e0[1] - 60], tz);
+      rec('Touch: pinch zooms, twist turns, one finger pans', pz && PE.cam.tx !== tx0 && !PE.ptrs.size && !PE.mode, 'dist ' + d0 + ' -> ' + PE.cam.dist.toFixed(1) + ', first touch ' + panTap + ', pan ' + (PE.cam.tx - tx0).toFixed(1) + ' m');
+      PE.cam.dist = 60;
+      // stacked: the outline box starts at the piece's base
+      peCommit(() => { PE.pieces = [pc('start', 0, -28), pc('funbox', 0, 0, 90, 1, 1, 0), pc('ledge', 0, 0, 0, 0, 0, 0)]; }); peSelect(2); peTick(0.016);
+      const base = LOT_BASE.get(PE.pieces[2]) || 0, bx = PE_SELBOX.position.y - PE_SELBOX.scale.y / 2;
+      PE.drag = { i: 2, p: { ...PE.pieces[2], z: 0.5 } }; PE.ghostKey = ''; peTick(0.016); const gb = PE.ghostBase; PE.drag = null; peTick(0.016);
+      rec('Stacked ledge: outline from its base, drag ghost sits on the funbox (not on its own old spot)', base > 0.3 && Math.abs(bx - base) < 0.01 && Math.abs(gb - base) < 0.01, 'base ' + base.toFixed(2) + ', box from ' + bx.toFixed(2) + ', ghost base ' + (gb || 0).toFixed(2));
+      // ---- hip: carve up a face by the ridge, catch the coping, grind across the ridge onto the other lip ----
+      const hipRes = [];
+      for (const Y of [0, 1, 2]) {
+        PE.pieces = [pc('start', 0, -28), pc('hip', 0, 0, 0, 2, 1, Y)]; lotRebuild(); setMap('lot', { quiet: true }); if (!game.running) startGame();
+        const d = hipDims(6, 1.8, PT.hip.style[Y]), cop = rails.filter(r => !r.ledge && r.a.y > 1 && Math.hypot((r.a.x + r.b.x) / 2, (r.a.z + r.b.z) / 2) < 12); let across = 0, caught = 0, best = 0;
+        for (const sd of [-1, 1]) for (const al of [25, 35, 45]) for (const sp of [7.5, 9]) {
+          const ca = Math.cos(al * D2R), sa = Math.sin(al * D2R), dX = -d.sn * ca - d.cs * sa, dZ = d.cs * ca - d.sn * sa, L = (d.Rl + 2) / ca, w = d.w0 + 1.2 + L * sa;
+          const X = -(-2) * d.sn + w * d.cs, Z = -2 * d.cs + w * d.sn;
+          respawn(); P.pos.set(sd * X, heightAt(sd * X, Z - d.oz), Z - d.oz); P.heading = Math.atan2(sd * dX, dZ); P.s = sp; P.state = 'ground'; P.air = null; P.grindCD = 0; resetCombo(); for (const k in keys) keys[k] = false;
+          const seen = new Set(); let armed = false, gt = 0;
+          for (let i = 0; i < 240; i++) { if (P.state === 'air' && !armed) { keys[K.grind] = true; pressed[K.grind] = true; armed = true; } else if (armed && keys[K.grind]) { keys[K.grind] = false; released[K.grind] = true; }
+            game.clock += 1 / 60; physics(1 / 60); for (const k in pressed) delete pressed[k]; for (const k in released) delete released[k];
+            if (P.state === 'grind' && P.grind) { gt += 1 / 60; const ix = cop.indexOf(P.grind.r); if (ix >= 0) seen.add(ix); } }
+          if (seen.size) caught++; if (seen.size > 1) across++; best = Math.max(best, gt);
+        }
+        hipRes.push(PT.hip.style[Y] + '°: caught ' + caught + '/12, across the ridge ' + across + ', longest ' + best.toFixed(2) + ' s');
+      }
+      game.running = false;
+      rec('Hip: grind the coping across the ridge (info)', true, hipRes.join('; '));
+    }
+  } catch (err) { out.push('ERROR ' + (err && err.stack || err)); }
+  console.warn = ow; console.error = oe;
+  rec('No console warnings or page errors during the run', !errs.length, errs.slice(0, 6).join(' | ') || 'none');
+  for (const k in keys) keys[k] = false;
+  game.running = false; ['hud', 'touch', 'pause'].forEach(id => $(id).hidden = true);
+  const pre = document.createElement('pre'); pre.id = 'peTest'; pre.textContent = out.join('\n');
+  pre.style.cssText = 'position:fixed;left:12px;top:12px;right:12px;z-index:2147483600;background:rgba(12,10,9,.92);color:#f1e9dc;font:13px/1.4 monospace;padding:12px;white-space:pre-wrap';
+  document.body.appendChild(pre);
+  document.title = (mode === 'soak' ? 'PARKSOAK ' : 'PARKFUZZ ') + out.filter(l => l.startsWith('PASS')).length + '/' + out.length;
 }
 // scripted checks: a rider sent at each piece, stepping the real physics
 function peSelfTest() {
@@ -15924,7 +16170,8 @@ if (location.hash === '#debug') {
 // ---------- Main loop ----------
 let last = performance.now();
 {
-  const openBoard = () => { if (window.BoardMaker) BoardMaker.open({ kind: 'skate', THREE, onSave: applyBoardDesign }); };
+  const dropKeys = () => { for (const k in keys) keys[k] = false; };   // the board maker swallows key-ups while it is open: nothing held before stays stuck after
+  const openBoard = () => { if (!window.BoardMaker) return; dropKeys(); BoardMaker.open({ kind: 'skate', THREE, onSave: applyBoardDesign, onClose: dropKeys }); };
   ['boardBtn', 'boardBtn2', 'peBoard'].forEach(id => { const b = $(id); if (b) b.addEventListener('click', e => { e.stopPropagation(); b.blur(); openBoard(); }); });
   const pick = $('shirtPick');
   if (pick) Object.entries(SHIRT_COLORS).forEach(([name, hex]) => {

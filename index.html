@@ -263,6 +263,85 @@ body.touch .readout { padding: 3px 8px 4px 7px; }
   #mbalance { left: auto; right: max(16px, env(safe-area-inset-right, 0px)); }
 }
 @media (prefers-reduced-motion: reduce) { .toast { animation-duration: 2s; animation-timing-function: steps(2); } .meter.full #specialFill { animation: none; } }
+
+/* Create a Park editor: same plates, borders and fonts as the HUD and menu */
+#pe { position: fixed; inset: 0; pointer-events: none; z-index: 20; }
+#pe .pe-top, #pe .pe-pal, #pe .pe-bar, #pe .pe-view, #pe .pe-help { pointer-events: auto; }
+.pe-top { position: absolute; top: calc(10px + env(safe-area-inset-top, 0px)); left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.pe-title { display: flex; align-items: center; gap: 10px; background: var(--plate); border-left: 3px solid var(--hazard); padding: 6px 10px; border-radius: 2px; }
+.pe-title .eyebrow { border: 0; padding: 0; }
+.pe-top .btn { padding: 9px 15px; font-size: 16px; }
+.pe-top .btn.pe-ride { font-family: var(--font-display); font-weight: 400; font-size: 21px; letter-spacing: .06em; padding: 7px 20px; }
+.pe-pal { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); top: calc(70px + env(safe-area-inset-top, 0px)); bottom: calc(92px + env(safe-area-inset-bottom, 0px)); width: 176px;
+  overflow-y: auto; display: flex; flex-direction: column; gap: 5px; padding: 10px; border-radius: 3px;
+  background: var(--panel); border: 2px solid var(--line-strong); box-shadow: 4px 4px 0 rgba(18,16,15,.7); }
+.pe-grp { font-size: 12px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--hazard-hi); margin: 6px 0 1px; }
+.pe-grp:first-child { margin-top: 0; }
+.pe-piece { text-align: left; background: rgba(18,16,15,.55); color: var(--chalk); border: 2px solid var(--line-strong); border-radius: 3px; padding: 6px 9px;
+  font-size: 16px; font-weight: 600; letter-spacing: .03em; }
+.pe-piece:hover { border-color: var(--hazard); }
+.pe-piece[aria-pressed="true"] { background: var(--hazard); color: var(--ink); border-color: var(--ink); }
+.pe-bar { position: absolute; left: calc(max(16px, env(safe-area-inset-left, 0px)) + 190px); right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; padding: 8px 10px; border-radius: 3px;
+  background: var(--panel); border: 2px solid var(--line-strong); box-shadow: 4px 4px 0 rgba(18,16,15,.7); }
+.pe-sel { display: flex; flex-direction: column; min-width: 13em; flex: 1 1 13em; margin-right: 6px; }
+.pe-sel b { font-family: var(--font-display); font-weight: 400; font-size: 20px; line-height: 1.05; }
+.pe-sel span { font-size: 15px; color: var(--muted); }
+.pe-sel em { font-style: normal; font-size: 14px; font-weight: 700; color: var(--bail); min-height: 1.1em; }
+.pe-tools { display: flex; flex-wrap: wrap; gap: 6px; }
+.pe-tool { background: #34302b; color: var(--chalk); border: 2px solid var(--line-strong); border-bottom-width: 3px; border-radius: 3px; padding: 6px 10px;
+  font-size: 15px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; box-shadow: 2px 2px 0 var(--ink); min-height: 36px; }
+.pe-tool:hover:not(:disabled) { border-color: var(--hazard); }
+.pe-tool:disabled { opacity: .38; cursor: default; }
+.pe-tool.warn:hover:not(:disabled) { border-color: var(--bail); color: var(--bail); }
+.pe-sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 2px; }
+.pe-view { position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(96px + env(safe-area-inset-bottom, 0px)); display: grid; grid-template-columns: repeat(2, auto); gap: 6px; }
+.pe-view .pe-tool { min-width: 46px; font-size: 20px; line-height: 1; }
+.pe-view .pe-wide { font-size: 15px; }
+.pe-view .pe-wide { grid-column: span 2; }
+.pe-help { position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); top: calc(70px + env(safe-area-inset-top, 0px)); max-width: 280px; font-size: 13px !important;
+  background: var(--plate); border-left: 3px solid var(--rail); border-radius: 2px; padding: 7px 11px; font-size: 14px; line-height: 1.4; color: var(--muted); }
+.pe-help b { color: var(--chalk); font-weight: 700; }
+.pe-help summary { cursor: pointer; font-size: 12px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--chalk); }
+.pe-slots { display: flex; flex-direction: column; gap: 6px; max-height: 210px; overflow-y: auto; }
+.pe-slot { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+.pe-slot span { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.pe-slot span b { font-size: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pe-slot span small { font-size: 13px; color: var(--muted); }
+.btn.pe-sm { font-size: 14px; padding: 6px 11px; }
+.btn.sm { font-size: 14px; padding: 6px 12px; }
+.sib { margin-left: auto; display: inline-flex; align-items: center; gap: 11px; padding: 7px 12px 7px 10px; border: 2px solid var(--line-strong); border-radius: 3px; background: rgba(18,16,15,.45); color: #a9d2ef; text-decoration: none; box-shadow: 3px 3px 0 rgba(18,16,15,.85); transition: border-color .12s, background .12s; }
+.sib:hover, .sib:focus-visible { border-color: #8cc3ea; background: rgba(18,16,15,.7); outline: none; }
+.sib svg { width: 30px; height: 30px; flex: none; }
+.sib-t { display: flex; flex-direction: column; gap: 2px; line-height: 1; }
+.sib-t b { font-family: var(--font-display); font-weight: 400; font-size: 20px; letter-spacing: .04em; color: var(--chalk); }
+.sib-t span { font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.sib-go { font-size: 18px; font-weight: 700; color: var(--muted); }
+.sib:hover .sib-go { color: var(--chalk); }
+.pe-empty { margin: 0; color: var(--muted); font-size: 16px; }
+.pe-code { width: 100%; box-sizing: border-box; min-height: 74px; resize: vertical; background: rgba(14,12,11,.7); color: var(--chalk); border: 2px solid var(--line-strong); border-radius: 3px;
+  padding: 8px 9px; font: 13px/1.35 ui-monospace, Consolas, monospace; word-break: break-all; box-shadow: inset 2px 2px 0 rgba(0,0,0,.35); }
+.pe-code:focus { outline: 2px solid var(--hazard); outline-offset: 1px; }
+#peDlg { z-index: 30; }
+#peDlg .lede { font-size: 16px; }
+body.touch .pe-help { display: none; }
+@media (max-width: 760px) {
+  .pe-top { left: 12px; right: 12px; gap: 8px; }
+  .pe-title { flex: 1 1 100%; }
+  .pe-top .spacer { display: none; }
+  .pe-top .btn { flex: 1 1 auto; }
+  .pe-pal { top: calc(116px + env(safe-area-inset-top, 0px)); bottom: auto; left: 12px; right: 12px; width: auto; height: 46px; flex-direction: row; overflow-x: auto; overflow-y: hidden; padding: 6px; align-items: center; }
+  .pe-grp { display: none; }
+  .pe-piece { flex: 0 0 auto; font-size: 14px; padding: 5px 8px; }
+  .pe-bar { left: 12px; right: 12px; }
+  .pe-sel { min-width: 100%; }
+  .pe-tool { padding: 5px 8px; font-size: 13px; }
+  .pe-view { bottom: auto; top: calc(174px + env(safe-area-inset-top, 0px)); right: 12px; }
+  .pe-title .eyebrow { font-size: 12px; }
+  .pe-help { display: none; }
+  .pe-title .netin { width: 7.5em; }
+}
 </style>
 
 <div id="stage"></div>
@@ -277,6 +356,7 @@ body.touch .readout { padding: 3px 8px 4px 7px; }
     <div class="spacer"></div>
     <div class="readout"><span class="lbl">Best</span><b id="best">0</b></div>
     <button class="hud-btn" id="muteBtn" type="button">Sound on</button>
+    <button class="hud-btn" id="editBtn" type="button" hidden>Edit park</button>
     <button class="hud-btn" id="pauseBtn" type="button">Pause</button>
   </div>
   <div id="gbalance" class="balance" hidden><div class="track"><div class="zone"></div><div class="needle"></div></div><span>Lean with A / D</span></div>
@@ -290,7 +370,7 @@ body.touch .readout { padding: 3px 8px 4px 7px; }
   <div class="splash-in">
     <h1>Concrete <span class="hz">Lines</span></h1>
     <p class="splash-by">Made by Jon Beam<br>with the use of Claude Code</p>
-    <p class="splash-date">Updated October 26, 2026 · Play-test 0.031</p>
+    <p class="splash-date">Updated November 14, 2026 · Play-test 0.032</p>
     <p class="splash-go">Click to play</p>
   </div>
 </div>
@@ -323,10 +403,13 @@ body.touch .readout { padding: 3px 8px 4px 7px; }
       </div>
       <span class="stance-lbl">Shirt</span>
       <div class="swatches" id="shirtPick" role="group" aria-label="Shirt colour"></div>
+      <span class="stance-lbl">Board</span>
+      <button class="btn ghost sm" id="boardBtn" type="button">Customize</button>
     </div>
     <p class="menu-go">Press <kbd class="kspace">Space</kbd> to start skating</p>
     <div class="row">
       <button class="btn big" id="startFree" type="button">Free skate</button>
+      <button class="btn ghost" id="startPark" type="button">Create a Park</button>
     </div>
     <div class="row" id="netRow">
       <span class="stance-lbl">Online</span>
@@ -338,7 +421,12 @@ body.touch .readout { padding: 3px 8px 4px 7px; }
     </div>
     <label class="vol" for="spdMenu">Game speed <input type="range" id="spdMenu" min="50" max="150" step="5" value="100"> <span class="volpct" id="spdMenuPct">100%</span></label>
     <label class="vol" for="volMenu">Volume <input type="range" id="volMenu" min="0" max="100" value="50"> <span class="volpct" id="volMenuPct">50%</span></label>
-    <div class="row"><button class="btn ghost" id="keysMenu" type="button">Change keys</button></div>
+    <div class="row"><button class="btn ghost" id="keysMenu" type="button">Change keys</button>
+      <a class="sib" id="snowLink" href="https://jonbeam1-netizen.github.io/concrete-lines/snow/" aria-label="Play Powder Lines, the snowboarding game">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M2 27 L12 11 L17 18 L21 13 L30 27 Z" fill="currentColor" opacity=".35"/><path d="M12 11 L9.6 14.8 L12 14 L14 16 Z M21 13 L19.4 15.2 L21 14.8 L22.6 15.6 Z" fill="#f4f8fc"/><path d="M2 27 L12 11 L17 18 L21 13 L30 27" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><g stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M25 2.5 V9.5 M21.97 4.25 L28.03 7.75 M21.97 7.75 L28.03 4.25"/></g></svg>
+        <span class="sib-t"><b>Powder Lines</b><span>Snowboarding</span></span><span class="sib-go" aria-hidden="true">&rarr;</span>
+      </a>
+    </div>
     <div id="menuControls"></div>
   </div>
 </div>
@@ -351,6 +439,8 @@ body.touch .readout { padding: 3px 8px 4px 7px; }
     <div class="row">
       <button class="btn" id="resumeBtn" type="button">Resume</button>
       <button class="btn ghost" id="keysPause" type="button">Change keys</button>
+      <button class="btn ghost" id="boardBtn2" type="button">Board</button>
+      <button class="btn ghost" id="peBackBtn" type="button" hidden>Back to editor</button>
       <button class="btn ghost" id="quitBtn" type="button">Back to menu</button>
     </div>
     <div id="pauseControls"></div>
@@ -380,7 +470,921 @@ body.touch .readout { padding: 3px 8px 4px 7px; }
   </div>
 </div>
 
+<div id="pe" hidden>
+  <div class="pe-top">
+    <div class="pe-title"><span class="eyebrow">Create a Park</span><input class="netin" id="peName" maxlength="24" placeholder="Park name" autocomplete="off" spellcheck="false" aria-label="Park name"></div>
+    <div class="spacer"></div>
+    <button class="btn ghost" id="peBoard" type="button">Board</button>
+    <button class="btn ghost" id="peParks" type="button">Parks</button>
+    <button class="btn ghost" id="peMenu" type="button">Menu</button>
+    <button class="btn pe-ride" id="peRide" type="button">Ride it</button>
+  </div>
+  <div class="pe-pal" id="pePal" role="group" aria-label="Pieces"></div>
+  <details class="pe-help" open><summary>Controls</summary>
+    <b>Click</b> a piece on the left, then click the lot to place it. <b>Drag</b> a piece to move it, drag empty ground to pan.<br>
+    <b>R</b> / <b>Shift+R</b> rotate 15&deg; &middot; <b>[ ]</b> lower / raise (the piece's height) &middot; <b>- =</b> smaller / larger &middot; <b>T</b> style<br>
+    Ledges, manual pads and rails sit on top of whatever is under them: place one on a funbox, a table top or a bank deck to stack it.<br>
+    <b>Shift</b> while dragging: fine snap &middot; <b>Ctrl+D</b> duplicate &middot; <b>Del</b> delete &middot; <b>Ctrl+Z / Ctrl+Y</b> undo / redo<br>
+    <b>Right-drag</b> orbit &middot; <b>Wheel</b> zoom &middot; <b>WASD</b> pan &middot; <b>Q / E</b> turn &middot; <b>V</b> top view &middot; <b>Enter</b> ride
+  </details>
+  <div class="pe-view">
+    <button class="pe-tool" id="peOrbL" type="button" aria-label="Turn view left">&#8630;</button>
+    <button class="pe-tool" id="peOrbR" type="button" aria-label="Turn view right">&#8631;</button>
+    <button class="pe-tool" id="peZoomIn" type="button" aria-label="Zoom in">+</button>
+    <button class="pe-tool" id="peZoomOut" type="button" aria-label="Zoom out">&minus;</button>
+    <button class="pe-tool pe-wide" id="peTop" type="button">Top view</button>
+  </div>
+  <div class="pe-bar">
+    <div class="pe-sel"><b id="peSelName">0 pieces</b><span id="peSelInfo"></span><em id="peMsg" aria-live="polite"></em></div>
+    <div class="pe-tools">
+      <button class="pe-tool" id="peRotL" type="button" title="Rotate left (Shift+R)">&#8634; 15&deg;</button>
+      <button class="pe-tool" id="peRotR" type="button" title="Rotate right (R)">&#8635; 15&deg;</button>
+      <button class="pe-tool" id="peLower" type="button" title="Lower: a shorter height option ([)">Lower</button>
+      <button class="pe-tool" id="peRaise" type="button" title="Raise: a taller height option (]). Ledges, pads and rails also sit on top of pieces under them.">Raise</button>
+      <button class="pe-tool" id="peSmaller" type="button" title="Smaller (-)">Smaller</button>
+      <button class="pe-tool" id="peLarger" type="button" title="Larger (=)">Larger</button>
+      <button class="pe-tool" id="peStyle" type="button" title="Style (T)">Style</button>
+      <span class="pe-sep"></span>
+      <button class="pe-tool" id="peDup" type="button" title="Duplicate (Ctrl+D)">Duplicate</button>
+      <button class="pe-tool warn" id="peDel" type="button" title="Delete (Del)">Delete</button>
+      <span class="pe-sep"></span>
+      <button class="pe-tool" id="peUndo" type="button" title="Undo (Ctrl+Z)">Undo</button>
+      <button class="pe-tool" id="peRedo" type="button" title="Redo (Ctrl+Y)">Redo</button>
+    </div>
+  </div>
+</div>
+<div id="peDlg" class="overlay" hidden>
+  <div class="card">
+    <h2>Parks</h2>
+    <div class="section-lbl">Saved in this browser</div>
+    <div id="peSlots" class="pe-slots"></div>
+    <div class="row"><input class="netin" id="peSaveName" maxlength="24" placeholder="Park name" autocomplete="off" spellcheck="false" aria-label="Save as"><button class="btn" id="peSaveBtn" type="button">Save</button></div>
+    <div class="section-lbl">Start from</div>
+    <div class="row">
+      <button class="btn ghost" type="button" data-start="blank">Empty lot</button>
+      <button class="btn ghost" type="button" data-start="plaza">Street plaza</button>
+      <button class="btn ghost" type="button" data-start="trans">Transition park</button>
+    </div>
+    <div class="section-lbl">Share code</div>
+    <p class="lede">Copy the code to share this park. To open a shared park, paste its code here and press Load code. Undo brings back the park you had.</p>
+    <textarea class="pe-code" id="peCode" spellcheck="false" aria-label="Park code"></textarea>
+    <div class="row">
+      <button class="btn ghost" id="peCopy" type="button">Copy code</button>
+      <button class="btn ghost" id="peLoadCode" type="button">Load code</button>
+      <span class="netstatus" id="peDlgMsg"></span>
+    </div>
+    <div class="row"><button class="btn" id="peDlgClose" type="button">Done</button></div>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* board-maker.js - a small board customizer shared by Concrete Lines (skate) and Powder Lines (snow).
+   Classic script, no modules, no network, no external assets. Defines one global: BoardMaker.
+   Works with three.js r128 (passed in as THREE). See boardmaker/INTEGRATION.md.
+
+   BoardMaker.open({ kind: 'skate'|'snow', THREE, onSave(design), onClose() })   full-screen editor
+   BoardMaker.load(kind)                       equipped design, or null when the player never saved one
+   BoardMaker.makeTextures(THREE, design, kind [, {srgb}])
+        -> { top, base, grip (skate only, same texture as top), colors: { wheels, cores, trucks, bushings, edges, stomp }, dispose() }
+        (snow has no bindings any more; the stomp pad is painted into the top texture, colors.stomp is informational)
+   BoardMaker.setColor(material, hex, linear)  colour helper (linear = true for an sRGB-output renderer, i.e. Powder Lines)
+
+   Texture layout (both kinds): 256 x 1024 portrait canvases, u across the board, v along it, pre-oriented to the
+   UVs each game already uses (skate: planar uvFromPos(); snow: rider.js surf(), warped to the sidecut). */
+(function (root) {
+  'use strict';
+  const TAU = Math.PI * 2, PI = Math.PI;
+  const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
+  const STORE = kind => 'boardmaker.' + kind + '.v1';
+
+  // ------------------------------------------------------------------ kinds
+  const SNOW_L = 1.55, SNOW_HWMAX = 0.137;
+  const snowHalfW = z => {   // copied from snow/parts/rider.js (halfW)
+    const a = Math.abs(z), c = 0.585, end = SNOW_L / 2;
+    if (a <= c) return 0.124 + 0.013 * Math.pow(a / c, 2);
+    const u = (a - c) / (end - c); return 0.137 * Math.sqrt(Math.max(0, 1 - u * u * u * 0.98 - u * 0.02));
+  };
+  const KINDS = {
+    skate: { L: 0.81, W: 0.21, ow: 256, oh: 1024, label: 'Deck' },
+    snow: { L: SNOW_L, W: 2 * SNOW_HWMAX, ow: 256, oh: 1024, label: 'Snowboard' },
+  };
+  // how a design canvas (portrait, nose at the top, viewed from outside the surface) is laid onto each game's UVs
+  const ORIENT = {
+    skate: { top: { mx: true, fy: false }, base: { mx: false, fy: false } },
+    snow: { top: { mx: false, fy: false }, base: { mx: true, fy: true } },
+  };
+
+  // ------------------------------------------------------------------ colour helpers
+  const hexRgb = h => { h = String(h || '#000').replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join(''); const n = parseInt(h, 16) || 0; return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
+  const rgbHex = c => '#' + c.map(v => clamp(Math.round(v), 0, 255).toString(16).padStart(2, '0')).join('');
+  const mix = (a, b, t) => { const A = hexRgb(a), B = hexRgb(b); return rgbHex(A.map((v, i) => v + (B[i] - v) * t)); };
+  const shade = (a, t) => t < 0 ? mix(a, '#000000', -t) : mix(a, '#ffffff', t);
+  const lum = h => { const [r, g, b] = hexRgb(h); return (0.299 * r + 0.587 * g + 0.114 * b) / 255; };
+  const rgba = (h, a) => { const [r, g, b] = hexRgb(h); return `rgba(${r},${g},${b},${a})`; };
+  const ink = h => lum(h) > 0.56 ? '#121316' : '#f4f1e8';
+  const rng = seed => { let s = (Math.abs(seed | 0) % 2147483646) + 1; return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; }; };
+
+  // ------------------------------------------------------------------ catalogue
+  const PALETTE = ['#f4f1e8', '#c3b9aa', '#9aa0a8', '#3d3a36', '#121316', '#c4202b', '#ff3d5a', '#d97757', '#ef7a1a', '#ffb000', '#e8c21a',
+    '#93a35c', '#2f9e44', '#17a99c', '#8fbfce', '#3a8fd0', '#2a62d4', '#1b2d48', '#7b3fc4', '#f06aa8', '#d9b88a', '#8a5a32'];
+  const PARTS = {
+    wheels: ['#f4efe6', '#e9dcb8', '#121316', '#c4202b', '#ef7a1a', '#e8c21a', '#2f9e44', '#17a99c', '#2ad6e8', '#3a8fd0', '#7b3fc4', '#f06aa8'],
+    cores: ['#2ad6e8', '#ffb000', '#c4202b', '#f4f1e8', '#121316', '#2f9e44', '#7b3fc4', '#f06aa8'],
+    trucks: ['#b9bec4', '#8d9298', '#1d1e22', '#f4f1e8', '#c9a13b', '#c4202b', '#2a62d4', '#2f9e44', '#7b3fc4'],
+    bushings: ['#ffb000', '#c4202b', '#f4f1e8', '#121316', '#2a62d4', '#2f9e44', '#f06aa8'],
+    edges: { skate: ['#d9b88a', '#c49a64', '#8a5a32', '#3d3a36', '#121316', '#c4202b', '#2a62d4', '#2f9e44', '#f06aa8', '#e8c21a'],
+      snow: ['#9aa0a8', '#d8dce2', '#f4f1e8', '#121316', '#c9a13b', '#c4202b', '#ef7a1a', '#2a62d4', '#17a99c', '#f06aa8'] },
+    bindings: ['#17181b', '#f4f1e8', '#9aa0a8', '#c4202b', '#ef7a1a', '#e8c21a', '#2f9e44', '#17a99c', '#3a8fd0', '#1b2d48', '#7b3fc4', '#f06aa8'],
+    straps: ['#e8701a', '#17181b', '#f4f1e8', '#c4202b', '#e8c21a', '#2f9e44', '#17a99c', '#3a8fd0', '#7b3fc4', '#f06aa8'],
+    stomp: ['#121316', '#3d3a36', '#f4f1e8', '#9aa0a8', '#c4202b', '#ef7a1a', '#e8c21a', '#2f9e44', '#17a99c', '#3a8fd0', '#7b3fc4', '#f06aa8'],
+    grip: ['#17181c', '#2b2c30', '#4a4b50', '#f4f1e8', '#c4202b', '#d97757', '#e8c21a', '#2f9e44', '#3a8fd0', '#1b2d48', '#7b3fc4', '#f06aa8'],
+  };
+  const PATTERNS = [
+    ['solid', 'Solid'], ['stripes', 'Stripes'], ['racing', 'Racing'], ['chevron', 'Chevron'], ['fade', 'Fade'], ['glow', 'Centre fade'],
+    ['split', 'Split'], ['checker', 'Checker'], ['diamonds', 'Diamonds'], ['camo', 'Camo'], ['topo', 'Topo lines'], ['waves', 'Waves'],
+    ['stars', 'Stars'], ['flames', 'Flames'], ['halftone', 'Halftone'], ['sunburst', 'Sunburst'], ['splatter', 'Splatter'], ['wood', 'Wood grain', 'skate'],
+  ];
+  const EMBLEMS = [['none', 'None'], ['mountain', 'Mountain'], ['wave', 'Wave'], ['skull', 'Skull'], ['bolt', 'Lightning'], ['star', 'Star'], ['eye', 'Eye'],
+    ['flame', 'Flame'], ['snowflake', 'Snowflake'], ['sun', 'Sun'], ['moon', 'Moon'], ['pine', 'Pine'], ['heart', 'Heart'], ['gem', 'Gem'], ['crown', 'Crown']];
+  const FONTS = {
+    block: { label: 'Block', css: px => `900 ${px}px "Arial Black", "Arial Bold", Arial, sans-serif` },
+    condensed: { label: 'Condensed', css: px => `${px}px Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif` },
+    script: { label: 'Script', css: px => `italic 700 ${px}px "Segoe Script", "Brush Script MT", "Lucida Handwriting", cursive`, k: 0.9 },
+    mono: { label: 'Mono', css: px => `700 ${px}px "Courier New", Courier, monospace` },
+    rounded: { label: 'Rounded', css: px => `700 ${px}px "Arial Rounded MT Bold", "Trebuchet MS", "Verdana", sans-serif` },
+    outline: { label: 'Outline', css: px => `900 ${px}px "Arial Black", "Arial Bold", Arial, sans-serif`, outline: true },
+  };
+  const POS = { nose: 0.24, center: 0.5, tail: 0.76 };
+
+  // ------------------------------------------------------------------ design model
+  const layer = o => Object.assign({ c1: '#121316', c2: '#f4f1e8', pattern: 'solid', scale: 1, angle: 0, seed: 1,
+    emblem: 'none', ec: '#f4f1e8', ed: '#121316', esize: 1, epos: 'center', text: '', font: 'block', tc: '#f4f1e8', tsize: 1, tpos: 'tail' }, o || {});
+  function blank(kind) {
+    return { v: 1, kind, id: '', title: 'My board', base: layer(), top: layer(), grip: { color: '#17181c', style: 'solid' },
+      wheels: '#f4efe6', cores: '#2ad6e8', trucks: '#b9bec4', bushings: '#ffb000', edges: kind === 'snow' ? '#9aa0a8' : '#d9b88a',
+      stomp: '#e8701a', stomp: '#121316', stompStyle: 'pad' };
+  }
+  function normalize(d, kind) {
+    kind = kind === 'snow' ? 'snow' : 'skate';
+    const b = blank(kind); if (!d || typeof d !== 'object') return b;
+    const out = Object.assign(b, JSON.parse(JSON.stringify(d)));
+    out.kind = kind; out.base = layer(out.base); out.top = layer(out.top); out.grip = Object.assign({ color: '#17181c', style: 'solid' }, out.grip || {});
+    return out;
+  }
+  const clone = d => JSON.parse(JSON.stringify(d));
+
+  const PRESETS = {
+    skate: [
+      { title: 'Original', base: { pattern: 'glow', c1: '#ff3d5a', c2: '#ffb000', text: 'CONCRETE', font: 'block', tc: '#141416', tpos: 'center', tsize: 1.05 },
+        top: { c1: '#17181c' }, grip: { color: '#17181c', style: 'solid' } },
+      { title: 'Topo', base: { pattern: 'topo', c1: '#1e1c19', c2: '#d97757', scale: 1, seed: 7, emblem: 'mountain', ec: '#f1e9dc', ed: '#1e1c19', esize: 1.15, epos: 'nose', text: 'CONCRETE LINES', font: 'condensed', tc: '#f1e9dc', tpos: 'tail', tsize: 1 },
+        top: { pattern: 'solid', c1: '#d97757', emblem: 'mountain', ec: '#d97757', ed: '#d97757', esize: 1.25, epos: 'nose' }, grip: { color: '#1b1a19', style: 'cutout' },
+        wheels: '#f1e9dc', cores: '#d97757', trucks: '#1d1e22', bushings: '#d97757', edges: '#3d3a36' },
+      { title: 'Checker', base: { pattern: 'checker', c1: '#121316', c2: '#f4f1e8', scale: 1, angle: 0, emblem: 'skull', ec: '#f4f1e8', ed: '#121316', esize: 1.35, epos: 'center' },
+        top: { c1: '#121316' }, grip: { color: '#17181c', style: 'solid' }, wheels: '#c4202b', cores: '#f4f1e8', trucks: '#1d1e22', bushings: '#c4202b', edges: '#121316' },
+      { title: 'Flames', base: { pattern: 'flames', c1: '#121316', c2: '#ef7a1a', scale: 1, seed: 3, text: 'LOT 9', font: 'outline', tc: '#f4f1e8', tpos: 'nose', tsize: 1.1 },
+        top: { c1: '#121316' }, grip: { color: '#17181c', style: 'solid' }, wheels: '#e8c21a', cores: '#c4202b', trucks: '#b9bec4', bushings: '#ef7a1a', edges: '#3d3a36' },
+      { title: 'Wood', base: { pattern: 'wood', c1: '#d9b88a', c2: '#8a5a32', seed: 11, emblem: 'wave', ec: '#17a99c', ed: '#1b2d48', esize: 1.3, epos: 'center', text: 'LA RIVER', font: 'mono', tc: '#1b2d48', tpos: 'tail', tsize: 0.9 },
+        top: { pattern: 'wood', c1: '#d9b88a', c2: '#8a5a32', seed: 5 }, grip: { color: '#17181c', style: 'clear' }, wheels: '#17a99c', cores: '#f4f1e8', trucks: '#8d9298', bushings: '#f4f1e8', edges: '#d9b88a' },
+      { title: 'Halftone', base: { pattern: 'halftone', c1: '#f06aa8', c2: '#1b2d48', scale: 1, angle: 30, emblem: 'eye', ec: '#f4f1e8', ed: '#1b2d48', esize: 1.25, epos: 'nose', text: 'CONCRETE', font: 'rounded', tc: '#f4f1e8', tpos: 'tail', tsize: 1 },
+        top: { pattern: 'stripes', c1: '#f06aa8', c2: '#1b2d48', angle: 45 }, grip: { color: '#1b2d48', style: 'stripes' }, wheels: '#f06aa8', cores: '#1b2d48', trucks: '#f4f1e8', bushings: '#1b2d48', edges: '#f06aa8' },
+    ],
+    snow: [
+      { title: 'Original', top: { pattern: 'topo', c1: '#1b2d48', c2: '#78c8dc', seed: 4, scale: 1.2 }, base: { pattern: 'chevron', c1: '#17a99c', c2: '#f4f1e8', angle: 0, scale: 1.2 } },
+      { title: 'Alpine', top: { pattern: 'fade', c1: '#1f5f99', c2: '#e9f4fd', angle: 0, scale: 1, emblem: 'mountain', ec: '#ffffff', ed: '#1f5f99', esize: 1.3, epos: 'nose', text: 'POWDER LINES', font: 'condensed', tc: '#1f5f99', tpos: 'tail', tsize: 1 },
+        base: { pattern: 'fade', c1: '#e9f4fd', c2: '#3a8fd0', angle: 0, emblem: 'snowflake', ec: '#1f5f99', ed: '#e9f4fd', esize: 1.2, epos: 'nose', text: 'POWDER LINES', font: 'condensed', tc: '#10243a', tpos: 'tail', tsize: 1.1 },
+        stomp: '#3a8fd0', edges: '#d8dce2' },
+      { title: 'Night', top: { pattern: 'stars', c1: '#10182e', c2: '#f4e9c8', seed: 9, emblem: 'moon', ec: '#f4e9c8', ed: '#10182e', esize: 1.2, epos: 'nose' },
+        base: { pattern: 'stars', c1: '#151c3a', c2: '#f4e9c8', seed: 2, emblem: 'moon', ec: '#ffb000', ed: '#151c3a', esize: 1.4, epos: 'center', text: 'POWDER', font: 'script', tc: '#f4e9c8', tpos: 'tail', tsize: 1.2 },
+        stomp: '#ffb000', edges: '#121316' },
+      { title: 'Camo', top: { pattern: 'camo', c1: '#4a5a3a', c2: '#c8c2a0', seed: 5, scale: 1, emblem: 'pine', ec: '#f4f1e8', ed: '#2a3220', esize: 1.1, epos: 'tail' },
+        base: { pattern: 'camo', c1: '#e8e6dc', c2: '#8a93a0', seed: 8, emblem: 'pine', ec: '#2f3a28', ed: '#e8e6dc', esize: 1.2, epos: 'nose', text: 'POWDER LINES', font: 'mono', tc: '#2f3a28', tpos: 'tail' },
+        stomp: '#ef7a1a', edges: '#121316' },
+      { title: 'Racing', top: { pattern: 'racing', c1: '#f4f1e8', c2: '#c4202b', angle: 0, emblem: 'bolt', ec: '#c4202b', ed: '#121316', esize: 1.1, epos: 'nose', text: '07', font: 'block', tc: '#121316', tpos: 'tail', tsize: 1.3 },
+        base: { pattern: 'split', c1: '#c4202b', c2: '#121316', angle: 68, emblem: 'star', ec: '#f4f1e8', ed: '#121316', esize: 1.2, epos: 'nose', text: 'POWDER', font: 'outline', tc: '#f4f1e8', tpos: 'tail', tsize: 1.2 },
+        stomp: '#c4202b', edges: '#f4f1e8' },
+      { title: 'Sunburst', top: { pattern: 'sunburst', c1: '#ef7a1a', c2: '#e8c21a', scale: 1, emblem: 'sun', ec: '#fff4d6', ed: '#c4202b', esize: 1.3, epos: 'nose' },
+        base: { pattern: 'waves', c1: '#1b2d48', c2: '#3a8fd0', scale: 1, emblem: 'wave', ec: '#f4f1e8', ed: '#1b2d48', esize: 1.4, epos: 'center', text: 'POWDER LINES', font: 'block', tc: '#e8c21a', tpos: 'tail', tsize: 0.9 },
+        stomp: '#ef7a1a', edges: '#c9a13b' },
+    ],
+  };
+  const presets = kind => PRESETS[kind === 'snow' ? 'snow' : 'skate'].map((p, i) => { const d = normalize(p, kind); d.id = 'preset-' + (i + 1); return d; });
+
+  // ------------------------------------------------------------------ storage
+  function readStore(kind) {
+    try { const s = JSON.parse(localStorage.getItem(STORE(kind)) || 'null'); if (s && Array.isArray(s.saved)) return s; } catch (e) {}
+    return { equipped: null, saved: [] };
+  }
+  function writeStore(kind, s) { try { localStorage.setItem(STORE(kind), JSON.stringify(s)); return true; } catch (e) { return false; } }
+  function load(kind, opt) {
+    kind = kind === 'snow' ? 'snow' : 'skate';
+    const s = readStore(kind), d = s.saved.find(x => x.id === s.equipped) || s.saved[0];
+    if (d) return normalize(d, kind);
+    return opt && opt.fallback ? presets(kind)[0] : null;
+  }
+  function saveDesign(kind, d) {
+    const s = readStore(kind); d = normalize(d, kind);
+    if (!d.id || /^preset-/.test(d.id)) d.id = 'b' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
+    s.saved = [d].concat(s.saved.filter(x => x.id !== d.id)).slice(0, 8); s.equipped = d.id; writeStore(kind, s); return d;
+  }
+
+  // ------------------------------------------------------------------ canvas helpers
+  const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+  const scratchC = {};
+  const scratch = (k, w, h) => { let c = scratchC[k]; if (!c || c.width !== w || c.height !== h) c = scratchC[k] = mk(w, h); const g = c.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, w, h); return c; };
+  function noise(c, amt, speck) {
+    if (amt <= 0) return; const g = c.getContext('2d'), img = g.getImageData(0, 0, c.width, c.height), d = img.data; let s = 12345;
+    for (let i = 0; i < d.length; i += 4) {
+      s = (s * 1103515245 + 12345) & 0x7fffffff; let n = ((s >> 8) / 8388608 - 0.5) * amt;
+      if (speck && (s & 1023) < speck) n += amt * 1.4;
+      d[i] += n; d[i + 1] += n; d[i + 2] += n;
+    }
+    g.putImageData(img, 0, 0);
+  }
+  // a smooth blob through jittered points
+  function blob(g, x, y, r, rnd, n) {
+    n = n || 9; const pts = [];
+    for (let i = 0; i < n; i++) { const a = i / n * TAU + rnd() * 0.4, rr = r * (0.62 + rnd() * 0.55); pts.push([x + Math.cos(a) * rr, y + Math.sin(a) * rr * 0.8]); }
+    g.beginPath(); const m0 = [(pts[0][0] + pts[n - 1][0]) / 2, (pts[0][1] + pts[n - 1][1]) / 2]; g.moveTo(m0[0], m0[1]);
+    for (let i = 0; i < n; i++) { const p = pts[i], q = pts[(i + 1) % n]; g.quadraticCurveTo(p[0], p[1], (p[0] + q[0]) / 2, (p[1] + q[1]) / 2); }
+    g.closePath(); g.fill();
+  }
+  const star5 = (g, x, y, r, rot, inner) => { g.beginPath(); for (let i = 0; i < 10; i++) { const a = rot - PI / 2 + i * PI / 5, rr = i % 2 ? r * (inner || 0.42) : r; g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); } g.closePath(); };
+
+  // ------------------------------------------------------------------ patterns (landscape frame: X along the board from the nose, Y across, LL x WW)
+  function inRot(g, LL, WW, deg, fn) { g.save(); g.translate(LL / 2, WW / 2); g.rotate(deg * PI / 180); fn(Math.hypot(LL, WW) / 2 + 4); g.restore(); }
+  function drawPattern(g, LL, WW, L) {
+    const c1 = L.c1, c2 = L.c2, s = clamp(+L.scale || 1, 0.3, 3), ang = +L.angle || 0, u = WW / 256, rnd = rng(L.seed * 7919 + 13);
+    g.fillStyle = c1; g.fillRect(-2, -2, LL + 4, WW + 4);
+    switch (L.pattern) {
+      case 'stripes': inRot(g, LL, WW, ang, R => { const P = WW * 0.5 * s; g.fillStyle = c2; for (let x = -R - P * 0.21; x < R; x += P) g.fillRect(x, -R, P * 0.42, 2 * R); }); break;
+      case 'racing': inRot(g, LL, WW, ang, R => {
+        const w = WW * 0.13 * s, gap = WW * 0.05 * s; g.fillStyle = c2; g.fillRect(-R, -gap / 2 - w, 2 * R, w); g.fillRect(-R, gap / 2, 2 * R, w);
+        g.fillStyle = mix(c2, c1, 0.5); const p = Math.max(1.5, 3 * u); g.fillRect(-R, -gap / 2 - w - p * 3.2, 2 * R, p); g.fillRect(-R, gap / 2 + w + p * 2.2, 2 * R, p); }); break;
+      case 'chevron': inRot(g, LL, WW, ang, R => {
+        const Z = WW * 0.5 * s, P = WW * 0.42 * s, A = Z * 0.75; g.strokeStyle = c2; g.lineWidth = P * 0.48; g.lineJoin = 'miter'; g.miterLimit = 10;
+        for (let x0 = -R - A; x0 < R + A; x0 += P) { g.beginPath(); for (let y = -R, k = 0; y <= R + Z; y += Z, k++) g.lineTo(x0 + (k % 2 ? A : 0) - A / 2 + (Math.floor((R + 1e-3) / Z) % 2 ? A : 0) * 0, y - (R % Z)); g.stroke(); } }); break;
+      case 'fade': inRot(g, LL, WW, ang, R => { const H = R * 0.85 / s; const gr = g.createLinearGradient(-H, 0, H, 0); gr.addColorStop(0, c1); gr.addColorStop(1, c2); g.fillStyle = gr; g.fillRect(-R, -R, 2 * R, 2 * R); }); break;
+      case 'glow': inRot(g, LL, WW, ang, R => { const H = R * 0.85 / s; const gr = g.createLinearGradient(-H, 0, H, 0); gr.addColorStop(0, c1); gr.addColorStop(0.5, c2); gr.addColorStop(1, c1); g.fillStyle = gr; g.fillRect(-R, -R, 2 * R, 2 * R); }); break;
+      case 'split': inRot(g, LL, WW, ang, R => { g.fillStyle = c2; g.fillRect(0, -R, R, 2 * R); g.fillStyle = mix(c1, c2, 0.5); g.fillRect(-WW * 0.06 * s, -R, WW * 0.025 * s, 2 * R); }); break;
+      case 'checker': inRot(g, LL, WW, ang, R => { const q = WW * 0.25 * s; g.fillStyle = c2; const n = Math.ceil(R / q) + 1; for (let i = -n; i < n; i++) for (let j = -n; j < n; j++) if ((i + j) & 1) g.fillRect(i * q, j * q, q + 0.5, q + 0.5); }); break;
+      case 'diamonds': inRot(g, LL, WW, ang, R => {
+        const q = WW * 0.25 * s, h = q * 1.6, n = Math.ceil(R / q) + 2; const cA = c2, cB = mix(c1, c2, 0.45);
+        for (let i = -n; i < n; i++) for (let j = -n; j < n; j++) { const x = i * q + (j & 1 ? q / 2 : 0), y = j * h / 2; g.fillStyle = (i + j) & 1 ? cA : cB; g.beginPath(); g.moveTo(x, y - h / 2); g.lineTo(x + q / 2, y); g.lineTo(x, y + h / 2); g.lineTo(x - q / 2, y); g.closePath(); g.fill(); }
+        g.strokeStyle = rgba(ink(c1), 0.45); g.lineWidth = Math.max(1, 1.6 * u); g.setLineDash([5 * u, 4 * u]);
+        for (let k = -2 * n; k < 2 * n; k++) { g.beginPath(); g.moveTo(k * q - R, -R * h / q * 0 - R); g.lineTo(k * q + R * q / h * 2, R); g.stroke(); g.beginPath(); g.moveTo(k * q + R, -R); g.lineTo(k * q - R * q / h * 2, R); g.stroke(); }
+        g.setLineDash([]); }); break;
+      case 'camo': inRot(g, LL, WW, ang, R => {
+        const r0 = WW * 0.32 * s, tones = [mix(c1, c2, 0.45), c2, shade(c1, -0.45), shade(c2, 0.25)];
+        tones.forEach((t, k) => { g.fillStyle = t; const rr = r0 * (1 - k * 0.18), n = Math.ceil((4 * R * R) / (rr * rr) * 0.22); for (let i = 0; i < n; i++) blob(g, -R + rnd() * 2 * R, -R + rnd() * 2 * R, rr, rnd, 10); }); }); break;
+      case 'topo': drawTopo(g, LL, WW, L, s, ang, u, rnd); break;
+      case 'waves': inRot(g, LL, WW, ang, R => {
+        const P = WW * 0.36 * s, A = P * 0.32, f = TAU / (P * 2.6); g.fillStyle = c2;
+        for (let y0 = -R - P; y0 < R + P; y0 += P) { g.beginPath(); for (let x = -R; x <= R; x += 4 * u) g.lineTo(x, y0 + A * Math.sin(x * f + y0 * 0.01)); for (let x = R; x >= -R; x -= 4 * u) g.lineTo(x, y0 + P * 0.45 + A * Math.sin(x * f + y0 * 0.01 + 0.5)); g.closePath(); g.fill(); } }); break;
+      case 'stars': {
+        const q = WW * 0.34 * s, n = Math.ceil(LL * WW / (q * q) * 1.3);
+        for (let i = 0; i < n; i++) { const x = rnd() * LL, y = rnd() * WW, r = q * (0.1 + rnd() * rnd() * 0.32); g.fillStyle = rnd() < 0.25 ? mix(c2, c1, 0.4) : c2; star5(g, x, y, r, rnd() * TAU); g.fill(); }
+        g.fillStyle = rgba(c2, 0.7); for (let i = 0; i < n * 3; i++) { g.beginPath(); g.arc(rnd() * LL, rnd() * WW, (0.8 + rnd() * 1.6) * u, 0, TAU); g.fill(); }
+        break; }
+      case 'flames': drawFlames(g, LL, WW, L, s, ang, u, rnd); break;
+      case 'halftone': inRot(g, LL, WW, ang, R => { const q = WW * 0.075 * s; g.fillStyle = c2; for (let x = -R; x < R; x += q) for (let y = -R; y < R; y += q) { const t = clamp((x + R * 0.7) / (R * 1.4), 0, 1), r = q * 0.52 * Math.pow(t, 0.8); if (r > 0.4) { g.beginPath(); g.arc(x, y + ((x / q) & 1 ? q / 2 : 0), r, 0, TAU); g.fill(); } } }); break;
+      case 'sunburst': { g.save(); g.translate(L.emblem && L.emblem !== 'none' ? emblemX(LL, WW, L) : LL * 0.5, WW * 0.5); g.rotate(ang * PI / 180); const n = Math.max(6, Math.round(26 / s)), R = LL; g.fillStyle = c2;
+        for (let i = 0; i < n; i++) { const a = i / n * TAU; g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, R, a, a + TAU / n / 2); g.closePath(); g.fill(); }
+        const gr = g.createRadialGradient(0, 0, 0, 0, 0, WW * 0.9); gr.addColorStop(0, rgba(c2, 0.9)); gr.addColorStop(1, rgba(c2, 0)); g.fillStyle = gr; g.fillRect(-R, -R, 2 * R, 2 * R); g.restore(); break; }
+      case 'splatter': {
+        const n = Math.round(14 / s); g.fillStyle = c2; g.strokeStyle = c2; g.lineCap = 'round';
+        for (let i = 0; i < n; i++) { const x = rnd() * LL, y = rnd() * WW, r = WW * (0.06 + rnd() * 0.12) * s; blob(g, x, y, r, rnd, 11);
+          for (let k = 0; k < 12; k++) { const a = rnd() * TAU, d = r * (1.1 + rnd() * 1.6); g.beginPath(); g.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, r * (0.04 + rnd() * 0.16), 0, TAU); g.fill(); }
+          for (let k = 0; k < 3; k++) { const a = rnd() * TAU, d = r * (1.4 + rnd() * 2); g.lineWidth = r * 0.12; g.beginPath(); g.moveTo(x + Math.cos(a) * r * 0.6, y + Math.sin(a) * r * 0.6); g.lineTo(x + Math.cos(a) * d, y + Math.sin(a) * d); g.stroke(); } }
+        break; }
+      case 'wood': drawWood(g, LL, WW, L, s, u, rnd); break;
+      default: break;
+    }
+  }
+  function drawTopo(g, LL, WW, L, s, ang, u, rnd) {
+    const bumps = []; for (let i = 0; i < 9; i++) bumps.push([(-0.3 + rnd() * 1.6) * LL / WW, -0.4 + rnd() * 1.8, 0.35 + rnd() * 0.9, (rnd() < 0.5 ? -1 : 1) * (0.5 + rnd() * 0.6)]);
+    const ca = Math.cos(ang * PI / 180), sa = Math.sin(ang * PI / 180), cx = LL / WW / 2;
+    const f = (X, Y) => { let x = X / WW, y = Y / WW; const dx = x - cx, dy = y - 0.5; x = cx + dx * ca - dy * sa; y = 0.5 + dx * sa + dy * ca; let v = 0.12 * Math.sin(x * 2.1 + y * 1.3);
+      for (const b of bumps) { const ex = x - b[0], ey = y - b[1]; v += b[3] * Math.exp(-(ex * ex + ey * ey) / (b[2] * b[2])); } return v; };
+    const st = Math.max(3, Math.round(4 * u)), nx = Math.ceil(LL / st) + 1, ny = Math.ceil(WW / st) + 1, F = new Float32Array(nx * ny);
+    let lo = 1e9, hi = -1e9; for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const v = F[j * nx + i] = f(i * st, j * st); if (v < lo) lo = v; if (v > hi) hi = v; }
+    const step = 0.075 * s; g.strokeStyle = L.c2; g.lineCap = 'round';
+    let k = 0;
+    for (let lev = Math.ceil(lo / step) * step; lev < hi; lev += step, k++) {
+      g.lineWidth = (k % 5 === 0 ? 3.2 : 1.7) * u; g.globalAlpha = k % 5 === 0 ? 1 : 0.8; g.beginPath();
+      for (let j = 0; j < ny - 1; j++) for (let i = 0; i < nx - 1; i++) {
+        const a = F[j * nx + i], b = F[j * nx + i + 1], c = F[(j + 1) * nx + i + 1], d = F[(j + 1) * nx + i], p = [];
+        const x = i * st, y = j * st;
+        if ((a - lev) * (b - lev) < 0) p.push(x + st * (lev - a) / (b - a), y);
+        if ((b - lev) * (c - lev) < 0) p.push(x + st, y + st * (lev - b) / (c - b));
+        if ((d - lev) * (c - lev) < 0) p.push(x + st * (lev - d) / (c - d), y + st);
+        if ((a - lev) * (d - lev) < 0) p.push(x, y + st * (lev - a) / (d - a));
+        if (p.length >= 4) { g.moveTo(p[0], p[1]); g.lineTo(p[2], p[3]); }
+        if (p.length === 8) { g.moveTo(p[4], p[5]); g.lineTo(p[6], p[7]); }
+      }
+      g.stroke();
+    }
+    g.globalAlpha = 1;
+  }
+  function drawFlames(g, LL, WW, L, s, ang, u, rnd) {
+    g.save(); if (Math.cos(ang * PI / 180) < 0) { g.translate(LL, 0); g.scale(-1, 1); }
+    const n = 5, tongues = [];
+    for (let i = 0; i < n; i++) { const y0 = WW * (0.1 + 0.8 * (i + 0.5) / n) + (rnd() - 0.5) * WW * 0.06, dir = i % 2 ? 1 : -1;
+      tongues.push({ y0, len: LL * clamp((0.36 + rnd() * 0.22 + (i === 2 ? 0.14 : 0)) * s, 0.15, 0.95), bw: WW * (0.34 + rnd() * 0.12), sw: dir * WW * (0.1 + rnd() * 0.12) }); }
+    const shape = (t, k) => { const len = t.len * k, bw = t.bw * Math.sqrt(k), x0 = LL + 6, yT = t.y0 - bw / 2, yB = t.y0 + bw / 2, tipY = t.y0 + t.sw * 1.6;
+      g.moveTo(x0, yT);
+      g.bezierCurveTo(x0 - len * 0.35, yT - t.sw * 0.4, x0 - len * 0.7, tipY - bw * 0.35, x0 - len, tipY);
+      g.bezierCurveTo(x0 - len * 0.82, tipY + bw * 0.12, x0 - len * 0.62, tipY + bw * 0.2, x0 - len * 0.5, t.y0 + t.sw * 0.5 + bw * 0.1);
+      g.bezierCurveTo(x0 - len * 0.32, yB - t.sw * 0.2, x0 - len * 0.12, yB, x0, yB); g.closePath(); };
+    const lt = mix(L.c2, '#fff1a8', 0.55);
+    g.beginPath(); tongues.forEach(t => shape(t, 1)); g.lineWidth = 10 * u; g.lineJoin = 'round'; g.strokeStyle = lt; g.stroke(); g.fillStyle = L.c2; g.fill();
+    g.beginPath(); tongues.forEach(t => shape(t, 0.6)); g.fillStyle = mix(L.c2, '#fff1a8', 0.35); g.fill();
+    g.beginPath(); tongues.forEach(t => shape(t, 0.3)); g.fillStyle = lt; g.fill();
+    g.restore();
+  }
+  function drawWood(g, LL, WW, L, s, u, rnd) {
+    const knots = []; for (let i = 0; i < 3; i++) knots.push([LL * (0.15 + rnd() * 0.7), WW * (0.15 + rnd() * 0.7), WW * (0.05 + rnd() * 0.07)]);
+    const n = Math.round(46 / s); g.lineCap = 'round';
+    for (let i = 0; i < n; i++) {
+      const y0 = (i + rnd() * 0.6) / n * WW * 1.2 - WW * 0.1, ph = rnd() * TAU, am = WW * (0.006 + rnd() * 0.012);
+      g.strokeStyle = rgba(L.c2, 0.18 + rnd() * 0.45); g.lineWidth = (0.6 + rnd() * 2.2) * u; g.beginPath();
+      for (let x = -4; x <= LL + 4; x += 6 * u) { let y = y0 + am * Math.sin(x / LL * 9 + ph) + WW * 0.02 * Math.sin(x / LL * 2.3 + ph * 0.5);
+        for (const k of knots) { const dx = (x - k[0]) / (k[2] * 4.5), dy = y - k[1]; y += Math.sign(dy || 1) * k[2] * 1.3 * Math.exp(-dx * dx) * Math.exp(-Math.abs(dy) / (k[2] * 2.5)); }
+        g.lineTo(x, y); }
+      g.stroke();
+    }
+    knots.forEach(k => { for (let r = 1; r <= 4; r++) { g.strokeStyle = rgba(L.c2, 0.55 - r * 0.1); g.lineWidth = 1.6 * u; g.beginPath(); g.ellipse(k[0], k[1], k[2] * r * 0.7, k[2] * r * 0.32, 0, 0, TAU); g.stroke(); } g.fillStyle = rgba(L.c2, 0.6); g.beginPath(); g.ellipse(k[0], k[1], k[2] * 0.45, k[2] * 0.2, 0, 0, TAU); g.fill(); });
+    const sh = g.createLinearGradient(0, 0, 0, WW); sh.addColorStop(0, 'rgba(0,0,0,0.08)'); sh.addColorStop(0.5, 'rgba(255,255,255,0.05)'); sh.addColorStop(1, 'rgba(0,0,0,0.08)'); g.fillStyle = sh; g.fillRect(0, 0, LL, WW);
+  }
+
+  // ------------------------------------------------------------------ emblems (unit size, radius ~1, up = -y)
+  function emblem(g, name, f, d, mask) {
+    const out = () => { g.lineWidth = 0.13; g.lineJoin = 'round'; g.strokeStyle = d; g.stroke(); g.fillStyle = f; g.fill(); };
+    const det = () => { g.fillStyle = d; g.fill(); };
+    if (mask) { f = d = '#000'; }
+    g.beginPath();
+    switch (name) {
+      case 'mountain':
+        g.moveTo(-1.05, 0.72); g.lineTo(-0.4, -0.38); g.lineTo(-0.16, -0.02); g.lineTo(0.25, -0.78); g.lineTo(1.05, 0.72); g.closePath(); out();
+        g.beginPath(); g.moveTo(0.25, -0.78); g.lineTo(0.48, -0.36); g.lineTo(0.37, -0.4); g.lineTo(0.27, -0.28); g.lineTo(0.16, -0.43); g.lineTo(0.06, -0.37); g.closePath(); det();
+        g.beginPath(); g.moveTo(-0.4, -0.38); g.lineTo(-0.25, -0.12); g.lineTo(-0.33, -0.15); g.lineTo(-0.41, -0.07); g.lineTo(-0.5, -0.17); g.closePath(); det();
+        g.beginPath(); g.arc(-0.55, -0.72, 0.17, 0, TAU); det(); break;
+      case 'wave':
+        g.moveTo(-1.05, 0.78); g.bezierCurveTo(-0.95, 0.0, -0.45, -0.78, 0.22, -0.8); g.bezierCurveTo(0.78, -0.8, 1.02, -0.36, 0.86, -0.04);
+        g.bezierCurveTo(0.74, 0.2, 0.42, 0.2, 0.38, -0.02); g.bezierCurveTo(0.35, -0.2, 0.56, -0.26, 0.62, -0.12); g.bezierCurveTo(0.52, -0.48, 0.08, -0.46, -0.08, -0.12);
+        g.bezierCurveTo(-0.24, 0.24, -0.05, 0.58, 0.4, 0.6); g.lineTo(1.05, 0.6); g.lineTo(1.05, 0.78); g.closePath(); out();
+        g.lineWidth = 0.08; g.strokeStyle = d; g.lineCap = 'round';
+        [[-0.75, 0.42, 0.3], [-0.55, 0.05, 0.22], [-0.25, -0.38, 0.18]].forEach(([x, y, r]) => { g.beginPath(); g.arc(x + r, y, r, PI, PI * 1.6); g.stroke(); }); break;
+      case 'skull':
+        g.ellipse(0, -0.22, 0.8, 0.72, 0, 0, TAU); g.moveTo(-0.46, 0.2); g.lineTo(-0.46, 0.68); g.quadraticCurveTo(-0.46, 0.84, -0.3, 0.84); g.lineTo(0.3, 0.84); g.quadraticCurveTo(0.46, 0.84, 0.46, 0.68); g.lineTo(0.46, 0.2); g.closePath();
+        g.lineWidth = 0.13; g.lineJoin = 'round'; g.strokeStyle = d; g.stroke(); g.fillStyle = f; g.fill();
+        g.beginPath(); g.ellipse(-0.3, -0.1, 0.21, 0.24, 0.2, 0, TAU); g.ellipse(0.3, -0.1, 0.21, 0.24, -0.2, 0, TAU); det();
+        g.beginPath(); g.moveTo(0, 0.16); g.lineTo(-0.1, 0.36); g.lineTo(0.1, 0.36); g.closePath(); det();
+        g.strokeStyle = d; g.lineWidth = 0.07; g.beginPath(); for (let x = -0.27; x <= 0.28; x += 0.135) { g.moveTo(x, 0.52); g.lineTo(x, 0.8); } g.stroke(); break;
+      case 'bolt': [[0.32, -1.02], [-0.52, 0.12], [-0.04, 0.12], [-0.3, 1.02], [0.56, -0.2], [0.07, -0.2], [0.46, -1.02]].forEach(p => g.lineTo(p[0], p[1])); g.closePath(); out(); break;
+      case 'star': star5(g, 0, 0.06, 1.02, 0, 0.44); out(); g.beginPath(); star5(g, 0, 0.06, 0.4, 0, 0.44); det(); break;
+      case 'eye':
+        g.moveTo(-1.05, 0); g.quadraticCurveTo(0, -0.95, 1.05, 0); g.quadraticCurveTo(0, 0.95, -1.05, 0); g.closePath(); out();
+        g.beginPath(); g.arc(0, 0, 0.42, 0, TAU); det(); g.beginPath(); g.arc(0, 0, 0.18, 0, TAU); g.fillStyle = f; g.fill(); g.beginPath(); g.arc(0.14, -0.14, 0.08, 0, TAU); g.fill();
+        g.strokeStyle = d; g.lineWidth = 0.08; g.lineCap = 'round'; for (let i = -2; i <= 2; i++) { const a = -PI / 2 + i * 0.36, x = Math.sin(i * 0.36) * 0.62, y = -0.46 + Math.abs(i) * 0.06; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * 0.22, y + Math.sin(a) * 0.22); g.stroke(); } break;
+      case 'flame':
+        g.moveTo(0, 1); g.bezierCurveTo(-0.78, 1, -0.86, 0.18, -0.36, -0.26); g.bezierCurveTo(-0.22, -0.4, -0.26, -0.72, 0.04, -1.02); g.bezierCurveTo(0.12, -0.6, 0.58, -0.5, 0.62, 0.04); g.bezierCurveTo(0.76, 0.5, 0.56, 1, 0, 1); g.closePath(); out();
+        g.beginPath(); g.moveTo(0, 0.86); g.bezierCurveTo(-0.38, 0.86, -0.42, 0.42, -0.14, 0.12); g.bezierCurveTo(-0.05, 0.02, -0.05, -0.2, 0.06, -0.34); g.bezierCurveTo(0.14, -0.06, 0.38, 0.04, 0.36, 0.36); g.bezierCurveTo(0.36, 0.66, 0.24, 0.86, 0, 0.86); det(); break;
+      case 'snowflake': {
+        const arms = () => { g.beginPath(); for (let i = 0; i < 6; i++) { const a = i * PI / 3, c = Math.cos(a), s = Math.sin(a), P = (r, o) => [c * r - s * o, s * r + c * o];
+          let p = P(0, 0); g.moveTo(p[0], p[1]); p = P(1, 0); g.lineTo(p[0], p[1]);
+          [[0.45, 0.24], [0.7, 0.2]].forEach(([r, l]) => { let q = P(r, 0); g.moveTo(q[0], q[1]); q = P(r + l, l); g.lineTo(q[0], q[1]); q = P(r, 0); g.moveTo(q[0], q[1]); q = P(r + l, -l); g.lineTo(q[0], q[1]); }); } };
+        g.lineCap = 'round'; arms(); g.strokeStyle = d; g.lineWidth = 0.3; g.stroke(); g.strokeStyle = f; g.lineWidth = 0.14; g.stroke();
+        g.beginPath(); for (let i = 0; i < 6; i++) { const a = i * PI / 3 + PI / 6; g.lineTo(Math.cos(a) * 0.2, Math.sin(a) * 0.2); } g.closePath(); g.fillStyle = f; g.fill(); break; }
+      case 'sun':
+        for (let i = 0; i < 12; i++) { const a = i / 12 * TAU, b = 0.15; g.moveTo(Math.cos(a - b) * 0.62, Math.sin(a - b) * 0.62); g.lineTo(Math.cos(a) * 1.04, Math.sin(a) * 1.04); g.lineTo(Math.cos(a + b) * 0.62, Math.sin(a + b) * 0.62); g.closePath(); }
+        out(); g.beginPath(); g.arc(0, 0, 0.55, 0, TAU); g.lineWidth = 0.13; g.strokeStyle = d; g.stroke(); g.fillStyle = f; g.fill();
+        g.beginPath(); g.arc(0, 0, 0.36, 0, TAU); g.lineWidth = 0.07; g.strokeStyle = d; g.stroke(); break;
+      case 'moon': {
+        const rA = 0.92, bx = 0.42, by = -0.3, rB = 0.76, dd = Math.hypot(bx, by), phi = Math.atan2(by, bx), a = (rA * rA - rB * rB + dd * dd) / (2 * dd), dA = Math.acos(clamp(a / rA, -1, 1)), dB = Math.acos(clamp((dd - a) / rB, -1, 1));
+        g.arc(0, 0, rA, phi + dA, phi - dA + TAU, false); g.arc(bx, by, rB, phi + PI + dB, phi + PI - dB, true); g.closePath(); out();
+        g.beginPath(); star5(g, 0.55, -0.15, 0.17, 0.2); det(); g.beginPath(); star5(g, 0.25, -0.62, 0.1, 0.5); det(); break; }
+      case 'pine':
+        g.moveTo(0, -1.05); g.lineTo(0.42, -0.45); g.lineTo(0.24, -0.45); g.lineTo(0.64, 0.08); g.lineTo(0.4, 0.08); g.lineTo(0.84, 0.62); g.lineTo(0.12, 0.62); g.lineTo(0.12, 0.98); g.lineTo(-0.12, 0.98); g.lineTo(-0.12, 0.62);
+        g.lineTo(-0.84, 0.62); g.lineTo(-0.4, 0.08); g.lineTo(-0.64, 0.08); g.lineTo(-0.24, -0.45); g.lineTo(-0.42, -0.45); g.closePath(); out();
+        g.beginPath(); g.moveTo(0, -1.05); g.lineTo(0.2, -0.76); g.lineTo(0.06, -0.8); g.lineTo(-0.04, -0.7); g.lineTo(-0.2, -0.76); g.closePath(); det(); break;
+      case 'heart': g.moveTo(0, 0.95); g.bezierCurveTo(-1.25, 0.1, -0.85, -1.0, 0, -0.42); g.bezierCurveTo(0.85, -1.0, 1.25, 0.1, 0, 0.95); g.closePath(); out();
+        g.beginPath(); g.ellipse(-0.42, -0.32, 0.16, 0.09, -0.6, 0, TAU); g.fillStyle = rgba(ink(f), 0.35); g.fill(); break;
+      case 'gem':
+        [[-0.6, -0.62], [0.6, -0.62], [1.02, -0.16], [0, 0.98], [-1.02, -0.16]].forEach(p => g.lineTo(p[0], p[1])); g.closePath(); out();
+        g.strokeStyle = d; g.lineWidth = 0.07; g.beginPath(); g.moveTo(-1.02, -0.16); g.lineTo(1.02, -0.16); g.moveTo(-0.6, -0.62); g.lineTo(-0.3, -0.16); g.lineTo(0, -0.62); g.lineTo(0.3, -0.16); g.lineTo(0.6, -0.62);
+        g.moveTo(-0.3, -0.16); g.lineTo(0, 0.98); g.lineTo(0.3, -0.16); g.stroke(); break;
+      case 'crown':
+        [[-0.9, 0.5], [-1.02, -0.5], [-0.5, -0.02], [0, -0.78], [0.5, -0.02], [1.02, -0.5], [0.9, 0.5]].forEach(p => g.lineTo(p[0], p[1])); g.closePath(); out();
+        g.beginPath(); g.rect(-0.92, 0.5, 1.84, 0.3); out();
+        g.beginPath(); [[-1.02, -0.5], [0, -0.78], [1.02, -0.5]].forEach(p => { g.moveTo(p[0] + 0.13, p[1]); g.arc(p[0], p[1], 0.13, 0, TAU); }); det();
+        g.beginPath(); [-0.5, 0, 0.5].forEach(x => { g.moveTo(x + 0.08, 0.65); g.arc(x, 0.65, 0.08, 0, TAU); }); det(); break;
+      default: break;
+    }
+  }
+  function emblemX(LL, WW, L) { return LL * ((LL / WW < 4.6 && L.epos !== 'center') ? (L.epos === 'nose' ? 0.34 : 0.66) : (POS[L.epos] || 0.5)); }
+  function drawEmblemAt(g, LL, WW, L, mask) {
+    if (!L.emblem || L.emblem === 'none') return;
+    const r = WW * 0.4 * clamp(+L.esize || 1, 0.4, 2.2);
+    g.save(); g.translate(emblemX(LL, WW, L), WW / 2); g.rotate(-PI / 2); g.scale(r, r);
+    if (!mask) { g.save(); g.translate(0.035, 0.05); g.globalAlpha = 0.22; emblem(g, L.emblem, '#000', '#000'); g.restore(); }
+    emblem(g, L.emblem, L.ec, L.ed, mask); g.restore();
+  }
+  function drawText(g, LL, WW, L, mask) {
+    const t = String(L.text || '').slice(0, 24); if (!t.trim()) return;
+    const F = FONTS[L.font] || FONTS.block, wide = LL / WW > 4.6, x = LL * (L.tpos === 'center' ? 0.5 : wide ? (L.tpos === 'nose' ? 0.21 : 0.79) : (L.tpos === 'nose' ? 0.36 : 0.64)), maxW = LL * (L.tpos === 'center' ? 0.74 : wide ? 0.3 : 0.27);
+    let px = WW * 0.46 * clamp(+L.tsize || 1, 0.4, 2) * (F.k || 1); g.font = F.css(Math.round(px)); const w = g.measureText(t).width;
+    if (w > maxW) { px *= maxW / w; g.font = F.css(Math.round(px)); }
+    g.save(); g.translate(x, WW / 2 + px * 0.04); g.textAlign = 'center'; g.textBaseline = 'middle';
+    const col = mask ? '#000' : L.tc;
+    if (F.outline) { g.lineJoin = 'round'; g.lineWidth = Math.max(2, px * 0.075); g.strokeStyle = col; g.strokeText(t, 0, 0); }
+    else { if (!mask) { g.fillStyle = 'rgba(0,0,0,0.26)'; g.fillText(t, px * 0.035, px * 0.05); } g.fillStyle = col; g.fillText(t, 0, 0); }
+    g.restore();
+  }
+
+  // ------------------------------------------------------------------ surfaces
+  // draw one surface into a portrait canvas D (across x along, nose at the top) through a landscape frame
+  function drawDesign(D, L, kind, parts) {
+    const K = KINDS[kind], LL = D.height, WW = Math.round(LL * K.W / K.L), s = D.width / WW, g = D.getContext('2d');
+    g.setTransform(0, 1, -s, 0, s * WW, 0);
+    parts = parts || { pattern: 1, emblem: 1, text: 1 };
+    if (parts.pattern) drawPattern(g, LL, WW, L);
+    if (parts.emblem) drawEmblemAt(g, LL, WW, L, parts.mask);
+    if (parts.text) drawText(g, LL, WW, L, parts.mask);
+    g.setTransform(1, 0, 0, 1, 0, 0);
+  }
+  // skate top = grip tape, with the top sheet showing through where the style allows
+  function applyGrip(D, design) {
+    const gp = design.grip || {}, st = gp.style || 'solid', g = D.getContext('2d'), w = D.width, h = D.height;
+    if (st === 'clear') { g.fillStyle = 'rgba(16,16,18,0.34)'; g.fillRect(0, 0, w, h); noise(D, 40, 30); return; }
+    const G = scratch('grip', w, h), gg = G.getContext('2d');
+    gg.fillStyle = gp.color || '#17181c'; gg.fillRect(0, 0, w, h); noise(G, 46, 26);
+    if (st === 'cutout') { gg.globalCompositeOperation = 'destination-out'; drawDesign(G, design.top, 'skate', { emblem: 1, text: 1, mask: 1 }); gg.globalCompositeOperation = 'source-over'; }
+    if (st === 'stripes') { gg.globalCompositeOperation = 'destination-out'; gg.save(); gg.translate(w / 2, h / 2); gg.rotate(-0.7); gg.fillStyle = '#000'; const P = w * 0.62; for (let x = -h; x < h; x += P) gg.fillRect(x, -h, P * 0.2, 2 * h); gg.restore(); gg.globalCompositeOperation = 'source-over'; }
+    if (st === 'solid') { g.drawImage(G, 0, 0); return; }
+    g.fillStyle = 'rgba(0,0,0,0.12)'; g.fillRect(0, 0, w, h); noise(D, 22, 10);   // the exposed top sheet still has a bit of grit on it
+    g.drawImage(G, 0, 0);
+  }
+  // snow top: a stomp pad just ahead of the back foot (rider.js stance +-0.27 m, nose toward -Z)
+  function drawStomp(D, design) {
+    const st = design.stompStyle || 'pad'; if (st === 'none') return;
+    const K = KINDS.snow, LL = D.height, WW = Math.round(LL * K.W / K.L), s = D.width / WW, g = D.getContext('2d'), c = design.stomp || '#121316', u = WW / 256;
+    g.setTransform(0, 1, -s, 0, s * WW, 0); g.save(); g.translate(LL * (0.775 + 0.12) / 1.55, WW / 2);
+    const w = WW * 0.2, h = WW * 0.31, r = WW * 0.07, path = () => { g.beginPath(); g.moveTo(-w + r, -h); g.lineTo(w - r, -h); g.quadraticCurveTo(w, -h, w, -h + r); g.lineTo(w, h - r); g.quadraticCurveTo(w, h, w - r, h); g.lineTo(-w + r, h); g.quadraticCurveTo(-w, h, -w, h - r); g.lineTo(-w, -h + r); g.quadraticCurveTo(-w, -h, -w + r, -h); g.closePath(); };
+    g.shadowColor = 'rgba(0,0,0,0.45)'; g.shadowBlur = 6 * u; g.shadowOffsetY = 2 * u; path(); g.fillStyle = c; g.fill(); g.shadowColor = 'transparent';
+    g.save(); path(); g.clip(); const hi = shade(c, lum(c) > 0.5 ? -0.28 : 0.3), q = WW * 0.055;
+    if (st === 'pad') { g.fillStyle = hi; for (let x = -w; x < w + q; x += q) for (let y = -h; y < h + q; y += q) { g.beginPath(); g.moveTo(x, y - q * 0.32); g.lineTo(x + q * 0.32, y); g.lineTo(x, y + q * 0.32); g.lineTo(x - q * 0.32, y); g.closePath(); g.fill(); } }
+    else { g.strokeStyle = hi; g.lineWidth = q * 0.32; g.lineCap = 'round'; for (let y = -h + q * 0.8; y < h; y += q * 1.1) { g.beginPath(); g.moveTo(-w * 0.7, y); g.lineTo(w * 0.7, y); g.stroke(); } }
+    g.restore(); path(); g.lineWidth = 2 * u; g.strokeStyle = shade(c, -0.35); g.stroke(); g.restore(); g.setTransform(1, 0, 0, 1, 0, 0);
+  }
+  // design canvas -> game UV layout
+  function mapOut(D, O, kind, surface) {
+    const f = ORIENT[kind][surface], g = O.getContext('2d'), W = O.width, H = O.height;
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H); g.save();
+    if (f.mx) { g.translate(W, 0); g.scale(-1, 1); }
+    if (f.fy) { g.translate(0, H); g.scale(1, -1); }
+    if (kind === 'snow') {   // rider.js stretches u across the local width at every station: warp so the art keeps its true shape
+      const rows = D.height / H;
+      for (let r = 0; r < H; r++) { const z = -SNOW_L / 2 + SNOW_L * (r + 0.5) / H, k = snowHalfW(z) / SNOW_HWMAX, sw = Math.max(1, D.width * k); g.drawImage(D, (D.width - sw) / 2, r * rows, sw, rows, 0, r, W, 1); }
+    } else g.drawImage(D, 0, 0, W, H);
+    g.restore();
+  }
+  function paintSurface(design, kind, surface, out) {
+    const K = KINDS[kind]; out = out || mk(K.ow, K.oh);
+    const D = scratch('design', K.ow, K.oh), L = design[surface];
+    drawDesign(D, L, kind);
+    if (kind === 'skate' && surface === 'top') applyGrip(D, design);
+    else { if (kind === 'snow' && surface === 'top') drawStomp(D, design); noise(D, 7, 0); }
+    mapOut(D, out, kind, surface);
+    return out;
+  }
+  function colorsOf(d) { return { wheels: d.wheels, cores: d.cores, trucks: d.trucks, bushings: d.bushings, edges: d.edges, bindings: d.bindings, straps: d.straps, stomp: d.stomp }; }
+  function texOf(THREE, c, srgb) {
+    const t = new THREE.CanvasTexture(c); t.anisotropy = 8; t.userData = { boardMaker: true };
+    if (srgb) { if ('colorSpace' in t) t.colorSpace = 'srgb'; else if (THREE.sRGBEncoding !== undefined) t.encoding = THREE.sRGBEncoding; }
+    t.needsUpdate = true; return t;
+  }
+  function makeTextures(THREE, design, kind, opt) {
+    kind = kind === 'snow' ? 'snow' : 'skate'; opt = opt || {};
+    const d = normalize(design, kind), srgb = opt.srgb !== undefined ? !!opt.srgb : kind === 'snow';
+    const top = texOf(THREE, paintSurface(d, kind, 'top'), srgb), base = texOf(THREE, paintSurface(d, kind, 'base'), srgb);
+    const r = { top, base, colors: colorsOf(d), dispose() { top.dispose(); base.dispose(); } };
+    if (kind === 'skate') r.grip = top;
+    return r;
+  }
+  function setColor(mat, hex, linear) { if (!mat || !mat.color) return; mat.color.set(hex); if (linear && mat.color.convertSRGBToLinear) mat.color.convertSRGBToLinear(); }
+
+  // 2D thumbnail: the board outline, nose to the left
+  function thumb(design, kind, surface, w, h) {
+    const K = KINDS[kind], c = mk(w, h), g = c.getContext('2d'), D = mk(Math.round(h * 1.0), Math.round(w * 1.0));
+    drawDesign(D, design[surface], kind);
+    if (kind === 'skate' && surface === 'top') applyGrip(D, design);
+    if (kind === 'snow' && surface === 'top') drawStomp(D, design);
+    const bl = w * 0.96, bw = Math.min(h * 0.9, bl * K.W / K.L * (kind === 'snow' ? 1.25 : 1.15)), x0 = (w - bl) / 2, y0 = (h - bw) / 2;
+    g.save(); g.beginPath();
+    if (kind === 'skate') { const r = bw / 2; g.moveTo(x0 + r, y0); g.lineTo(x0 + bl - r, y0); g.arc(x0 + bl - r, y0 + r, r, -PI / 2, PI / 2); g.lineTo(x0 + r, y0 + bw); g.arc(x0 + r, y0 + r, r, PI / 2, PI * 1.5); }
+    else { const N = 40; for (let i = 0; i <= N; i++) { const z = -SNOW_L / 2 + SNOW_L * i / N; g.lineTo(x0 + bl * i / N, h / 2 - bw / 2 * snowHalfW(z) / SNOW_HWMAX); } for (let i = N; i >= 0; i--) { const z = -SNOW_L / 2 + SNOW_L * i / N; g.lineTo(x0 + bl * i / N, h / 2 + bw / 2 * snowHalfW(z) / SNOW_HWMAX); } }
+    g.closePath(); g.shadowColor = 'rgba(0,0,0,0.45)'; g.shadowBlur = 6; g.shadowOffsetY = 2; g.fillStyle = '#000'; g.fill(); g.shadowColor = 'transparent'; g.clip();
+    g.translate(x0, y0 + bw); g.rotate(-PI / 2); g.drawImage(D, 0, 0, bw, bl); g.restore();
+    return c;
+  }
+
+  // ------------------------------------------------------------------ 3D stand-ins (same geometry + UVs as each game)
+  function buildBoard(THREE, kind, opt) {
+    opt = opt || {}; const G = new THREE.Group(), mats = {}, M = p => new THREE.MeshStandardMaterial(p), add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x || 0, y || 0, z || 0); G.add(m); return m; };
+    if (kind === 'skate') {   // concrete-lines.html "---------- Board ----------"
+      const HW = 0.105, HL = 0.405, T = 0.022, KICK = 0.35;
+      const shape = new THREE.Shape(); shape.moveTo(-HW, -(HL - HW)); shape.lineTo(-HW, HL - HW); shape.absarc(0, HL - HW, HW, PI, 0, true); shape.lineTo(HW, -(HL - HW)); shape.absarc(0, -(HL - HW), HW, 0, PI, true);
+      const kickAt = a => a < 0.24 ? 0 : a < 0.31 ? (a - 0.24) * (a - 0.24) / (2 * 0.07) * Math.tan(KICK) : (0.035 + (a - 0.31)) * Math.tan(KICK);
+      const bend = g => { const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i); p.setY(i, p.getY(i) + kickAt(Math.abs(z)) + 0.008 * Math.pow(x / HW, 2)); } g.computeVertexNormals(); return g; };
+      const flat = (g, y) => { g.rotateX(-PI / 2); g.translate(0, y, 0); return g; };
+      const uvFromPos = g => { const p = g.attributes.position, uv = g.attributes.uv; for (let i = 0; i < p.count; i++) uv.setXY(i, (p.getX(i) + HW) / (2 * HW), (p.getZ(i) + HL) / (2 * HL)); };
+      const body = new THREE.ExtrudeGeometry(shape, { depth: T, bevelEnabled: true, bevelThickness: 0.003, bevelSize: 0.003, bevelSegments: 2, curveSegments: 16, steps: 1 }); body.translate(0, 0, -T / 2); flat(body, 0);
+      mats.edges = M({ color: 0xd9b88a, roughness: 0.7 }); add(bend(body), mats.edges);
+      const top = new THREE.ShapeGeometry(shape, 16); flat(top, T / 2 + 0.0035); uvFromPos(top); mats.top = M({ roughness: 1 }); add(bend(top), mats.top);
+      const bot = new THREE.ShapeGeometry(shape, 16);
+      if (opt.legacyBottom) { flat(bot, -T / 2 - 0.0035); bot.rotateZ(PI); }   // the game's current line (graphic ends up inside the deck)
+      else { flat(bot, -T / 2 - 0.0035); const ix = bot.index.array; for (let i = 0; i < ix.length; i += 3) { const t = ix[i + 1]; ix[i + 1] = ix[i + 2]; ix[i + 2] = t; } }   // same triangles as the deck's bottom cap, wound to face down
+      uvFromPos(bot); mats.base = M({ roughness: 0.5 }); add(bend(bot), mats.base);
+      mats.trucks = M({ color: 0xb9bec4, roughness: 0.35, metalness: 0.85 }); mats.bushings = M({ color: 0xffb000, roughness: 0.6 });
+      mats.wheels = M({ color: 0xf4efe6, roughness: 0.45 }); mats.cores = M({ color: 0x2ad6e8, roughness: 0.4 });
+      const wheelG = new THREE.CylinderGeometry(0.031, 0.031, 0.032, 24); wheelG.rotateZ(PI / 2); const coreG = new THREE.CylinderGeometry(0.015, 0.015, 0.034, 12); coreG.rotateZ(PI / 2);
+      [-0.24, 0.24].forEach(z => {
+        const by = -T / 2 - 0.004 + kickAt(Math.abs(z));
+        add(new THREE.BoxGeometry(0.06, 0.008, 0.075), mats.trucks, 0, by - 0.004, z);
+        add(new THREE.CylinderGeometry(0.006, 0.006, 0.04, 8), mats.trucks, 0, by - 0.024, z - Math.sign(z) * 0.012);
+        add(new THREE.CylinderGeometry(0.012, 0.012, 0.022, 10), mats.bushings, 0, by - 0.024, z - Math.sign(z) * 0.012);
+        add(new THREE.BoxGeometry(0.15, 0.022, 0.028), mats.trucks, 0, -0.066, z);
+        const ax = add(new THREE.CylinderGeometry(0.004, 0.004, 0.22, 6), mats.trucks, 0, -0.078, z); ax.rotation.z = PI / 2;
+        [-0.092, 0.092].forEach(x => { add(wheelG, mats.wheels, x, -0.078, z); add(coreG, mats.cores, x, -0.078, z); });
+      });
+      return { group: G, mats, length: 0.81, faces: { top: PI, base: 0 }, flipX: -PI / 2 };
+    }
+    // snow: snow/parts/rider.js "board" block (B space: nose toward -Z)
+    const BT = 0.013, NV = 64, NU = 6, STANCE = 0.27, L = SNOW_L;
+    const kick = z => { const a = Math.abs(z); return a > 0.56 ? 0.075 * Math.pow((a - 0.56) / (L / 2 - 0.56), 1.8) : 0.004 * (1 - Math.pow(a / 0.56, 2)); };
+    const zAt = i => -L / 2 + L * i / NV;
+    const surf = top => { const pos = [], uv = [], idx = [];
+      for (let i = 0; i <= NV; i++) for (let j = 0; j <= NU; j++) { const z = zAt(i), w = snowHalfW(z), x = -w + 2 * w * j / NU; pos.push(x, kick(z) + (top ? BT : 0), z); uv.push(j / NU, top ? 1 - i / NV : i / NV); }
+      for (let i = 0; i < NV; i++) for (let j = 0; j < NU; j++) { const a = i * (NU + 1) + j, b = a + 1, c = a + NU + 1, d = c + 1; if (top) idx.push(a, c, b, b, c, d); else idx.push(a, b, c, b, d, c); }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals(); return g; };
+    const edge = () => { const ring = []; for (let i = 0; i <= NV; i++) ring.push([snowHalfW(zAt(i)), zAt(i)]); for (let i = NV - 1; i >= 1; i--) ring.push([-snowHalfW(zAt(i)), zAt(i)]);
+      const pos = [], idx = []; ring.forEach(([x, z]) => pos.push(x, kick(z), z, x, kick(z) + BT, z)); const n = ring.length;
+      for (let k = 0; k < n; k++) { const a = 2 * k, b = 2 * ((k + 1) % n); idx.push(a, b, a + 1, b, b + 1, a + 1); }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals(); return g; };
+    mats.top = M({ roughness: 0.35, metalness: 0.05 }); mats.base = M({ roughness: 0.45 }); mats.edges = M({ color: 0x9aa0a8, roughness: 0.3, metalness: 0.8, side: THREE.DoubleSide });
+    add(surf(true), mats.top); add(surf(false), mats.base); add(edge(), mats.edges);
+    // no bindings: the boots sit straight on the board (user, 2026-11-14)
+    return { group: G, mats, length: L, faces: { top: 0, base: PI }, flipX: PI / 2 };
+  }
+  function applyToBoard(B, design, kind, srgbColors) {
+    const d = normalize(design, kind);
+    ['wheels', 'cores', 'trucks', 'bushings', 'edges', 'bindings', 'straps'].forEach(k => { if (B.mats[k]) setColor(B.mats[k], d[k], srgbColors); });
+  }
+  function makeEnv(THREE, renderer) {
+    const c = mk(256, 128), g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 128);
+    gr.addColorStop(0, '#f6f2ea'); gr.addColorStop(0.42, '#8e8a84'); gr.addColorStop(0.55, '#3b3936'); gr.addColorStop(1, '#151413'); g.fillStyle = gr; g.fillRect(0, 0, 256, 128);
+    g.fillStyle = '#ffffff'; g.fillRect(30, 22, 54, 26); g.fillRect(160, 30, 36, 18); g.fillStyle = 'rgba(255,214,170,.8)'; g.fillRect(100, 56, 60, 8);
+    const t = new THREE.CanvasTexture(c); t.mapping = THREE.EquirectangularReflectionMapping; if (THREE.sRGBEncoding !== undefined) t.encoding = THREE.sRGBEncoding;
+    const pm = new THREE.PMREMGenerator(renderer), env = pm.fromEquirectangular(t).texture; pm.dispose(); t.dispose(); return env;
+  }
+  function makeStage(THREE, canvas, opt) {
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: !!(opt && opt.keep) });
+    renderer.setClearColor(0x000000, 0); renderer.outputEncoding = THREE.sRGBEncoding;
+    const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(28, 1, 0.05, 50);
+    const env = makeEnv(THREE, renderer); scene.environment = env;
+    scene.add(new THREE.HemisphereLight(0xfff4e6, 0x2a2622, 0.45));
+    const key = new THREE.DirectionalLight(0xffffff, 1.35); key.position.set(-1.4, 2.2, 3); scene.add(key);
+    const rim = new THREE.DirectionalLight(0xbfd8ff, 0.7); rim.position.set(2, 1, -2.5); scene.add(rim);
+    const tilt = new THREE.Group(), spin = new THREE.Group(); scene.add(tilt); tilt.add(spin);
+    return { renderer, scene, camera, tilt, spin, env };
+  }
+  function disposeTree(o) { o.traverse(m => { if (m.geometry) m.geometry.dispose(); if (m.material) [].concat(m.material).forEach(x => { if (x.map) x.map.dispose(); x.dispose(); }); }); }
+  function fitCamera(st, w, h, tiltZ) {
+    const a = w / Math.max(1, h), half = 0.82, wd = 0.22, sz = Math.abs(Math.sin(tiltZ)), cz = Math.abs(Math.cos(tiltZ));
+    const needH = half * cz + wd * sz + 0.06, needW = half * sz + wd * cz + 0.06, t = Math.tan(st.camera.fov * PI / 360);
+    const dist = Math.max(needH / t, needW / (t * a)); st.camera.aspect = a; st.camera.position.set(0, 0, dist); st.camera.lookAt(0, 0, 0); st.camera.updateProjectionMatrix();
+  }
+  let shotStage = null;
+  // render a board to an image (for sheets / thumbnails): opt {w, h, face:'top'|'base', spin (extra rad), tilt (rad)}
+  function snapshot(THREE, design, kind, opt) {
+    opt = opt || {}; const w = opt.w || 360, h = opt.h || 640;
+    if (!shotStage) { const c = mk(w, h); shotStage = makeStage(THREE, c, { keep: true }); }
+    const st = shotStage; st.renderer.setPixelRatio(1); st.renderer.setSize(w, h, false);
+    const B = buildBoard(THREE, kind, opt), d = normalize(design, kind), tx = makeTextures(THREE, d, kind, { srgb: true });
+    B.mats.top.map = tx.top; B.mats.base.map = tx.base; applyToBoard(B, d, kind, true);
+    B.group.rotation.x = B.flipX; B.group.scale.setScalar(1.6 / B.length); st.spin.add(B.group);
+    st.spin.rotation.y = B.faces[opt.face || 'base'] + (opt.spin !== undefined ? opt.spin : 0.5); st.tilt.rotation.z = opt.tilt !== undefined ? opt.tilt : 0;
+    st.tilt.rotation.x = 0.18; fitCamera(st, w, h, st.tilt.rotation.z);
+    st.renderer.render(st.scene, st.camera); const url = st.renderer.domElement.toDataURL('image/png');
+    st.spin.remove(B.group); disposeTree(B.group); return url;
+  }
+
+  // ------------------------------------------------------------------ editor UI
+  const CSS = `
+.bm-root{position:fixed;inset:0;z-index:2147483000;display:flex;background:rgba(10,10,12,.66);-webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px);
+ font-family:var(--font-body,var(--font,"Segoe UI",system-ui,-apple-system,sans-serif));color:#efeae2;-webkit-user-select:none;user-select:none;touch-action:manipulation;
+ --acc:#d97757;--acc-hi:#e88c6c;--acc-ink:#1b120e;--pan:#1d1c1a;--pan2:#252321;--line:rgba(255,255,255,.09);--line2:rgba(255,255,255,.18);--dim:#a8a197;font-size:15px;line-height:1.3}
+.bm-root.bm-snow{--acc:#3a8fd0;--acc-hi:#5aa7e2;--acc-ink:#fff;--pan:#15202c;--pan2:#1c2a38;--dim:#9fb1c3}
+.bm-root *{box-sizing:border-box}
+.bm-shell{display:grid;grid-template-columns:minmax(0,1fr) 410px;width:min(1280px,100%);height:min(100%,860px);margin:auto;background:var(--pan);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.55)}
+.bm-stage{position:relative;min-height:0;background:radial-gradient(ellipse at 50% 42%,rgba(255,255,255,.13),rgba(255,255,255,0) 62%),linear-gradient(180deg,var(--pan2),var(--pan))}
+.bm-gl{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+.bm-gl:active{cursor:grabbing}
+.bm-stage-top{position:absolute;left:18px;top:14px;right:18px;display:flex;align-items:baseline;gap:10px;pointer-events:none}
+.bm-title{font-weight:700;font-size:20px;letter-spacing:.02em}
+.bm-kind{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+.bm-stage-bot{position:absolute;left:0;right:0;bottom:14px;display:flex;justify-content:center;align-items:center;gap:12px;pointer-events:none}
+.bm-stage-bot>*{pointer-events:auto}
+.bm-hint{font-size:12px;color:var(--dim)}
+.bm-seg{display:inline-flex;background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px}
+.bm-seg button{appearance:none;border:0;background:transparent;color:var(--dim);font:inherit;font-size:13px;font-weight:600;padding:7px 14px;border-radius:7px;cursor:pointer;min-height:34px}
+.bm-seg button[aria-pressed=true]{background:var(--acc);color:var(--acc-ink)}
+.bm-panel{display:flex;flex-direction:column;min-height:0;border-left:1px solid var(--line);background:var(--pan)}
+.bm-head{display:flex;align-items:center;gap:8px;padding:12px 12px 10px 16px}
+.bm-name{flex:1;min-width:0;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:9px;color:inherit;font:inherit;font-size:16px;font-weight:600;padding:8px 11px;-webkit-user-select:text;user-select:text}
+.bm-name:focus{outline:none;border-color:var(--acc)}
+.bm-x{appearance:none;width:38px;height:38px;flex:none;border-radius:9px;border:1px solid var(--line);background:transparent;color:inherit;font-size:22px;line-height:1;cursor:pointer}
+.bm-x:hover{background:rgba(255,255,255,.08)}
+.bm-tabs{display:flex;gap:4px;padding:0 12px 10px;border-bottom:1px solid var(--line)}
+.bm-tabs button{flex:1;appearance:none;border:0;background:transparent;color:var(--dim);font:inherit;font-size:14px;font-weight:600;padding:9px 4px;border-radius:8px;cursor:pointer;min-height:38px}
+.bm-tabs button[aria-selected=true]{background:rgba(255,255,255,.08);color:#fff;box-shadow:inset 0 -2px 0 var(--acc)}
+.bm-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:6px 16px 18px;touch-action:pan-y;-webkit-overflow-scrolling:touch}
+.bm-sec{padding:12px 0 4px}
+.bm-sec+.bm-sec{border-top:1px solid var(--line)}
+.bm-lbl{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin:0 0 8px}
+.bm-lbl b{font-weight:600;color:#efeae2;letter-spacing:.02em;text-transform:none;font-size:13px}
+.bm-sw{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.bm-sw button,.bm-sw label{position:relative;appearance:none;width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,.14);background:var(--c);cursor:pointer;padding:0;flex:none}
+.bm-sw button[aria-pressed=true]{border-color:#fff;box-shadow:0 0 0 2px var(--acc)}
+.bm-sw label{background:conic-gradient(#f33,#fd3,#3d5,#3cf,#36f,#c3f,#f33);overflow:hidden}
+.bm-sw label.on{border-color:#fff;box-shadow:0 0 0 2px var(--acc)}
+.bm-sw label i{position:absolute;inset:6px;border-radius:50%;background:var(--c)}
+.bm-sw input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;border:0;padding:0}
+.bm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px;margin-bottom:6px}
+.bm-grid.e{grid-template-columns:repeat(auto-fill,minmax(52px,1fr))}
+.bm-chip{appearance:none;display:flex;flex-direction:column;align-items:center;gap:4px;border:1px solid var(--line);background:rgba(255,255,255,.035);border-radius:9px;padding:5px 4px 6px;color:var(--dim);font:inherit;font-size:11.5px;cursor:pointer;min-height:44px}
+.bm-chip canvas{display:block;width:100%;border-radius:5px}
+.bm-grid.e .bm-chip canvas{width:38px;height:38px}
+.bm-chip[aria-pressed=true]{border-color:var(--acc);color:#fff;background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1px var(--acc)}
+.bm-row{display:flex;align-items:center;gap:12px;margin:2px 0 10px}
+.bm-row>span{width:64px;flex:none;font-size:13px;color:var(--dim)}
+.bm-row input[type=range]{flex:1;accent-color:var(--acc);height:28px;min-width:0}
+.bm-row output{width:40px;text-align:right;font-size:13px;font-variant-numeric:tabular-nums;color:var(--dim)}
+.bm-segs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px}
+.bm-segs button{appearance:none;flex:1;min-width:64px;border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--dim);font:inherit;font-size:13px;font-weight:600;border-radius:8px;padding:8px 6px;cursor:pointer;min-height:36px}
+.bm-segs button[aria-pressed=true]{border-color:var(--acc);color:#fff;background:rgba(255,255,255,.08)}
+.bm-text{width:100%;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:9px;color:inherit;font:inherit;font-size:15px;padding:9px 11px;margin-bottom:10px;-webkit-user-select:text;user-select:text}
+.bm-text:focus{outline:none;border-color:var(--acc)}
+.bm-fonts button{font-size:15px;text-transform:none}
+.bm-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:8px}
+.bm-card{position:relative;appearance:none;border:1px solid var(--line);background:rgba(255,255,255,.035);border-radius:10px;padding:6px 6px 8px;color:#efeae2;font:inherit;font-size:13px;font-weight:600;text-align:left;cursor:pointer}
+.bm-card canvas{display:block;width:100%;margin-bottom:5px}
+.bm-card small{display:block;font-weight:500;color:var(--acc-hi);font-size:11px;margin-top:2px}
+.bm-card .bm-del{position:absolute;right:4px;top:4px;width:26px;height:26px;border-radius:7px;border:0;background:rgba(0,0,0,.45);color:#fff;font-size:15px;line-height:1;cursor:pointer}
+.bm-card[aria-pressed=true]{border-color:var(--acc)}
+.bm-empty{font-size:13px;color:var(--dim);padding:4px 0 10px}
+.bm-foot{display:flex;gap:8px;padding:12px 16px 14px;border-top:1px solid var(--line);background:var(--pan)}
+.bm-btn{appearance:none;flex:1;border:1px solid var(--line2);background:rgba(255,255,255,.05);color:#efeae2;font:inherit;font-size:15px;font-weight:700;border-radius:10px;padding:11px 10px;cursor:pointer;min-height:46px}
+.bm-btn:hover{background:rgba(255,255,255,.1)}
+.bm-btn.pri{flex:1.4;background:var(--acc);border-color:var(--acc);color:var(--acc-ink)}
+.bm-btn.pri:hover{background:var(--acc-hi)}
+.bm-root button:focus-visible{outline:2px solid var(--acc-hi);outline-offset:2px}
+@media (max-width:820px){
+ .bm-shell{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(200px,40%) minmax(0,1fr);height:100%;border-radius:0;border:0}
+ .bm-panel{border-left:0;border-top:1px solid var(--line)}
+ .bm-stage-top{left:14px;top:10px}.bm-title{font-size:17px}
+ .bm-stage-bot{bottom:8px}.bm-hint{display:none}
+ .bm-head{padding:10px 10px 8px 12px}.bm-tabs{padding:0 8px 8px}.bm-body{padding:4px 12px 14px}.bm-foot{padding:10px 12px calc(10px + env(safe-area-inset-bottom))}
+}
+@media (max-height:520px) and (min-width:821px){.bm-shell{height:100%;border-radius:0}}`;
+  function injectCss() { if (document.getElementById('bm-css')) return; const s = document.createElement('style'); s.id = 'bm-css'; s.textContent = CSS; document.head.appendChild(s); }
+  const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; };
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  const RANDOM_PAIRS = [['#121316', '#f4f1e8'], ['#1b2d48', '#e8c21a'], ['#d97757', '#1e1c19'], ['#17a99c', '#f4f1e8'], ['#c4202b', '#121316'], ['#f06aa8', '#1b2d48'],
+    ['#2a62d4', '#8fbfce'], ['#2f9e44', '#e8e6dc'], ['#7b3fc4', '#ffb000'], ['#ef7a1a', '#121316'], ['#e9f4fd', '#3a8fd0'], ['#3d3a36', '#d97757'], ['#93a35c', '#2a3220'], ['#ffb000', '#c4202b']];
+  function randomLayer(rnd, kind, prev) {
+    const pick = a => a[Math.floor(rnd() * a.length)], pr = pick(RANDOM_PAIRS), sw = rnd() < 0.5, c1 = sw ? pr[1] : pr[0], c2 = sw ? pr[0] : pr[1];
+    const pats = PATTERNS.filter(p => !p[2] || p[2] === kind).map(p => p[0]).filter(p => p !== 'solid');
+    const em = rnd() < 0.8 ? pick(EMBLEMS.slice(1))[0] : 'none', ecol = rnd() < 0.5 ? ink(c1) : pick(PALETTE.filter(c => Math.abs(lum(c) - lum(c1)) > 0.3) .concat([ink(c1)]));
+    return layer({ c1, c2, pattern: pick(pats), scale: +(0.7 + rnd() * 0.8).toFixed(2), angle: pick([0, 0, 30, 45, 90, -30, 60]), seed: 1 + Math.floor(rnd() * 999),
+      emblem: em, ec: ecol, ed: lum(ecol) > 0.5 ? '#121316' : '#f4f1e8', esize: +(0.9 + rnd() * 0.5).toFixed(2), epos: pick(['center', 'nose', 'center']),
+      text: prev ? prev.text : '', font: pick(Object.keys(FONTS)), tc: ink(c1), tsize: 1, tpos: em !== 'none' ? 'tail' : 'center' });
+  }
+  function randomDesign(kind, cur) {
+    const rnd = rng(Date.now() % 100000 + Math.floor(Math.random() * 1e6)), d = normalize(cur, kind), pick = a => a[Math.floor(rnd() * a.length)];
+    d.base = randomLayer(rnd, kind, cur && cur.base); d.top = randomLayer(rnd, kind, cur && cur.top);
+    if (kind === 'skate') { d.top.text = ''; d.grip = { color: pick(['#17181c', '#17181c', '#17181c', pick(PARTS.grip)]), style: pick(['solid', 'solid', 'cutout', 'clear', 'stripes']) }; if (d.grip.style === 'cutout' && d.top.emblem === 'none') d.top.emblem = 'star'; d.wheels = pick(PARTS.wheels); d.cores = pick(PARTS.cores); d.trucks = pick(PARTS.trucks); d.bushings = pick(PARTS.bushings); d.edges = pick(PARTS.edges.skate); }
+    else { d.stomp = pick(PARTS.stomp); d.stompStyle = pick(['pad', 'pad', 'ribs', 'none']); d.edges = pick(PARTS.edges.snow); }
+    return d;
+  }
+
+  let S = null;   // the open editor session
+  function open(opts) {
+    opts = opts || {}; if (S) close(true);
+    const THREE = opts.THREE || root.THREE; if (!THREE) throw new Error('BoardMaker.open needs THREE');
+    const kind = opts.kind === 'snow' ? 'snow' : 'skate'; injectCss();
+    const d = normalize(opts.design || load(kind) || presets(kind)[0], kind);
+    const rootEl = el('div', 'bm-root' + (kind === 'snow' ? ' bm-snow' : '')); rootEl.setAttribute('role', 'dialog'); rootEl.setAttribute('aria-modal', 'true'); rootEl.setAttribute('aria-label', 'Board maker');
+    rootEl.innerHTML = `<div class="bm-shell"><div class="bm-stage"><canvas class="bm-gl"></canvas>
+      <div class="bm-stage-top"><span class="bm-title">Board maker</span><span class="bm-kind">${KINDS[kind].label}</span></div>
+      <div class="bm-stage-bot"><div class="bm-seg" role="group" aria-label="Show"><button type="button" data-face="top">Top</button><button type="button" data-face="base">Base</button></div><span class="bm-hint">Drag to turn</span></div></div>
+      <div class="bm-panel"><div class="bm-head"><input class="bm-name" maxlength="28" aria-label="Design name" spellcheck="false" autocomplete="off"><button type="button" class="bm-x" data-act="close" aria-label="Close">&times;</button></div>
+      <div class="bm-tabs" role="tablist"><button type="button" role="tab" data-tab="base">Base</button><button type="button" role="tab" data-tab="top">${kind === 'skate' ? 'Grip' : 'Top'}</button><button type="button" role="tab" data-tab="parts">Parts</button><button type="button" role="tab" data-tab="library">Library</button></div>
+      <div class="bm-body"></div>
+      <div class="bm-foot"><button type="button" class="bm-btn" data-act="random">Randomize</button><button type="button" class="bm-btn pri" data-act="save">Save and equip</button></div></div></div>`;
+    document.body.appendChild(rootEl);
+    S = { kind, THREE, d, opts, root: rootEl, tab: opts.tab || 'base', body: rootEl.querySelector('.bm-body'), raf: 0, dirty: true, idle: opts.autoSpin === false ? 1e9 : 0, autoSpin: opts.autoSpin !== false };
+    // keys: nothing reaches the game while open; Escape closes
+    S.onKey = e => { e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); if (e.type === 'keydown' && (e.key === 'Escape' || e.code === 'Escape')) { e.preventDefault(); close(); } };
+    ['keydown', 'keyup', 'keypress'].forEach(t => window.addEventListener(t, S.onKey, true));
+    ['pointerdown', 'pointerup', 'pointermove', 'mousedown', 'mouseup', 'click', 'touchstart', 'touchend', 'touchmove', 'wheel', 'contextmenu'].forEach(t => rootEl.addEventListener(t, e => e.stopPropagation()));
+    rootEl.addEventListener('click', onClick);
+    const nameIn = rootEl.querySelector('.bm-name'); nameIn.value = d.title || ''; nameIn.addEventListener('input', () => { S.d.title = nameIn.value; });
+    initPreview(); renderTab(); setFace(opts.face || 'base', true);
+    if (opts.view) { if (opts.view.spin !== undefined) S.spin = S.spinT = S.B.faces[opts.face || 'base'] + opts.view.spin; if (opts.view.tilt !== undefined) S.tiltX = opts.view.tilt; }
+    S.prevFocus = document.activeElement; rootEl.tabIndex = -1; rootEl.style.outline = 'none'; try { rootEl.focus({ preventScroll: true }); } catch (e) {}
+    return api;
+  }
+  function onClick(e) {
+    const b = e.target.closest('button,[data-act]'); if (!b || !S) return;
+    if (b.dataset.tab) { S.tab = b.dataset.tab; renderTab(); return; }
+    if (b.dataset.face) { setFace(b.dataset.face); return; }
+    const act = b.dataset.act;
+    if (act === 'close') close();
+    else if (act === 'random') { S.d = randomDesign(S.kind, S.d); S.d.id = ''; changed(true); }
+    else if (act === 'save') {
+      S.d.title = (S.root.querySelector('.bm-name').value || '').trim() || 'My board';
+      const saved = saveDesign(S.kind, S.d), cb = S.opts.onSave; close(true, true); if (cb) cb(clone(saved)); if (S === null && cbClose) { const c = cbClose; cbClose = null; c(); }
+    }
+  }
+  let cbClose = null;
+  function close(silent, saved) {
+    if (!S) return; const s = S; S = null;
+    cancelAnimationFrame(s.raf); ['keydown', 'keyup', 'keypress'].forEach(t => window.removeEventListener(t, s.onKey, true));
+    if (s.ro) s.ro.disconnect(); window.removeEventListener('resize', s.onResize);
+    if (s.st) { disposeTree(s.st.scene); s.st.env.dispose(); s.st.renderer.dispose(); if (s.st.renderer.forceContextLoss) s.st.renderer.forceContextLoss(); }
+    s.root.remove(); try { if (s.prevFocus && s.prevFocus.focus) s.prevFocus.focus({ preventScroll: true }); } catch (e) {}
+    if (saved) { cbClose = s.opts.onClose || null; return; }
+    if (s.opts.onClose) s.opts.onClose();
+  }
+  function changed(full) {
+    S.dirty = true; if (full) { S.root.querySelector('.bm-name').value = S.d.title || ''; renderTab(); }
+  }
+  // ----- 3D preview
+  function initPreview() {
+    const THREE = S.THREE, canvas = S.root.querySelector('.bm-gl');
+    const st = S.st = makeStage(THREE, canvas, { keep: !!S.opts.keepBuffer });
+    st.renderer.setPixelRatio(Math.min(2, root.devicePixelRatio || 1));
+    const B = S.B = buildBoard(THREE, S.kind); B.group.rotation.x = B.flipX; B.group.scale.setScalar(1.6 / B.length); st.spin.add(B.group);
+    const K = KINDS[S.kind]; S.topC = mk(K.ow, K.oh); S.baseC = mk(K.ow, K.oh);
+    B.mats.top.map = texOf(THREE, S.topC, true); B.mats.base.map = texOf(THREE, S.baseC, true);
+    S.spin = S.spinT = 0; S.tiltX = 0.16; S.last = performance.now();
+    let drag = null;
+    canvas.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, id: e.pointerId }; try { canvas.setPointerCapture(e.pointerId); } catch (er) {} S.idle = 0; S.spinT = null; });
+    canvas.addEventListener('pointermove', e => { if (!drag || e.pointerId !== drag.id) return; S.spin += (e.clientX - drag.x) * 0.012; S.tiltX = clamp(S.tiltX + (e.clientY - drag.y) * 0.006, -0.9, 0.9); drag.x = e.clientX; drag.y = e.clientY; S.idle = 0; });
+    const up = () => { drag = null; S.idle = 0; }; canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
+    S.onResize = () => resize(); window.addEventListener('resize', S.onResize);
+    if (root.ResizeObserver) { S.ro = new ResizeObserver(() => resize()); S.ro.observe(canvas.parentNode); }
+    resize(); loop();
+  }
+  function resize() {
+    if (!S) return; const p = S.root.querySelector('.bm-stage'), w = Math.max(1, p.clientWidth), h = Math.max(1, p.clientHeight);
+    S.st.renderer.setSize(w, h, false); S.tiltZ = w / h > 1.25 ? -1.12 : w / h > 0.8 ? -0.75 : -0.12; S.vw = w; S.vh = h; fitCamera(S.st, w, h, S.tiltZ);
+  }
+  function setFace(f, snap) {
+    if (!S) return; const tgt = S.B.faces[f]; let cur = S.spin; const dd = ((tgt - cur) % TAU + TAU + PI) % TAU - PI;
+    S.spinT = cur + dd + (f === 'base' ? 0.45 : 0.45); if (snap) S.spin = S.spinT; S.idle = 0; S.face = f;
+    S.root.querySelectorAll('[data-face]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.face === f)));
+  }
+  function loop() {
+    if (!S) return; S.raf = requestAnimationFrame(loop);
+    const now = performance.now(), dt = Math.min(0.05, (now - S.last) / 1000); S.last = now;
+    if (S.dirty) { S.dirty = false; refreshTextures(); }
+    S.idle += dt;
+    if (S.spinT !== null && S.spinT !== undefined) { S.spin += (S.spinT - S.spin) * Math.min(1, dt * 7); if (Math.abs(S.spinT - S.spin) < 0.002) S.spinT = null; }
+    else if (S.autoSpin && S.idle > 2.5) S.spin += dt * 0.55;
+    const st = S.st; st.spin.rotation.y = S.spin; st.tilt.rotation.z = S.tiltZ; st.tilt.rotation.x = S.tiltX;
+    const face = Math.cos(S.spin - S.B.faces.top) > 0 ? 'top' : 'base';
+    if (face !== S.shownFace) { S.shownFace = face; S.root.querySelectorAll('[data-face]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.face === face))); }
+    st.renderer.render(st.scene, st.camera);
+  }
+  function refreshTextures() {
+    paintSurface(S.d, S.kind, 'top', S.topC); paintSurface(S.d, S.kind, 'base', S.baseC);
+    S.B.mats.top.map.needsUpdate = true; S.B.mats.base.map.needsUpdate = true; applyToBoard(S.B, S.d, S.kind, true);
+  }
+  // ----- panel
+  function swatches(label, val, list, set) {
+    const sec = el('div'); sec.appendChild(el('div', 'bm-lbl', esc(label)));
+    const row = el('div', 'bm-sw'); let custom = list.indexOf((val || '').toLowerCase()) < 0;
+    list.forEach(c => { const b = el('button'); b.type = 'button'; b.style.setProperty('--c', c); b.title = c; b.setAttribute('aria-label', label + ' ' + c); b.setAttribute('aria-pressed', String(c === (val || '').toLowerCase()));
+      b.addEventListener('click', () => { set(c); row.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); lab.classList.remove('on'); }); row.appendChild(b); });
+    const lab = el('label'); lab.title = 'Custom colour'; lab.style.setProperty('--c', custom ? val : 'transparent'); if (custom) lab.classList.add('on');
+    lab.innerHTML = '<i></i>'; const inp = el('input'); inp.type = 'color'; inp.value = /^#[0-9a-f]{6}$/i.test(val) ? val : '#888888'; inp.setAttribute('aria-label', label + ' custom colour');
+    inp.addEventListener('input', () => { set(inp.value); lab.style.setProperty('--c', inp.value); lab.classList.add('on'); row.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', 'false')); });
+    lab.appendChild(inp); row.appendChild(lab); sec.appendChild(row); return sec;
+  }
+  function slider(label, val, min, max, step, fmt, set) {
+    const r = el('div', 'bm-row'); r.innerHTML = `<span>${esc(label)}</span><input type="range" min="${min}" max="${max}" step="${step}" value="${val}" aria-label="${esc(label)}"><output>${fmt(val)}</output>`;
+    const i = r.querySelector('input'), o = r.querySelector('output'); i.addEventListener('input', () => { set(+i.value); o.textContent = fmt(+i.value); }); return r;
+  }
+  function segs(opts, val, set, cls) {
+    const r = el('div', 'bm-segs' + (cls ? ' ' + cls : '')); opts.forEach(([k, t, style]) => { const b = el('button', '', esc(t)); b.type = 'button'; if (style) b.style.cssText = style; b.setAttribute('aria-pressed', String(k === val));
+      b.addEventListener('click', () => { set(k); r.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); }); r.appendChild(b); }); return r;
+  }
+  function sec(label, right) { const s = el('div', 'bm-sec'); s.appendChild(el('div', 'bm-lbl', esc(label) + (right ? `<b>${esc(right)}</b>` : ''))); return s; }
+  function layerControls(body, L, surfName) {
+    const kind = S.kind, rerender = () => { S.dirty = true; renderTab(true); };
+    let s = sec('Colours'); body.appendChild(s);
+    s.appendChild(swatches('Colour 1', L.c1, PALETTE, c => { L.c1 = c; rerender(); }));
+    s.appendChild(swatches('Colour 2', L.c2, PALETTE, c => { L.c2 = c; rerender(); }));
+    s = sec('Pattern', (PATTERNS.find(p => p[0] === L.pattern) || [0, ''])[1]); body.appendChild(s);
+    const grid = el('div', 'bm-grid'); s.appendChild(grid);
+    PATTERNS.filter(p => !p[2] || p[2] === kind).forEach(([k, t]) => {
+      const b = el('button', 'bm-chip'); b.type = 'button'; b.setAttribute('aria-pressed', String(L.pattern === k)); b.title = t;
+      const c = mk(132, 54), g = c.getContext('2d'); g.scale(132 / 264, 54 / 108); drawPattern(g, 264, 108, Object.assign({}, L, { pattern: k })); b.appendChild(c); b.appendChild(el('span', '', esc(t)));
+      b.addEventListener('click', () => { L.pattern = k; if (k === 'wood' && lum(L.c1) < 0.3) { L.c1 = '#d9b88a'; L.c2 = '#8a5a32'; } rerender(); }); grid.appendChild(b);
+    });
+    s.appendChild(slider('Scale', L.scale, 0.4, 2.5, 0.05, v => v.toFixed(2), v => { L.scale = v; S.dirty = true; }));
+    s.appendChild(slider('Angle', L.angle, -90, 90, 1, v => Math.round(v) + '°', v => { L.angle = v; S.dirty = true; }));
+    if (['camo', 'stars', 'splatter', 'topo', 'wood', 'flames'].indexOf(L.pattern) >= 0) { const r = el('div', 'bm-segs'); const b = el('button', '', 'Shuffle pattern'); b.type = 'button'; b.addEventListener('click', () => { L.seed = 1 + Math.floor(Math.random() * 9999); S.dirty = true; }); r.appendChild(b); s.appendChild(r); }
+    s = sec('Graphic', (EMBLEMS.find(e => e[0] === L.emblem) || [0, ''])[1]); body.appendChild(s);
+    const eg = el('div', 'bm-grid e'); s.appendChild(eg);
+    EMBLEMS.forEach(([k, t]) => {
+      const b = el('button', 'bm-chip'); b.type = 'button'; b.title = t; b.setAttribute('aria-label', t); b.setAttribute('aria-pressed', String(L.emblem === k));
+      const c = mk(76, 76), g = c.getContext('2d'); g.fillStyle = L.c1; g.fillRect(0, 0, 76, 76);
+      if (k === 'none') { g.strokeStyle = rgba(ink(L.c1), 0.5); g.lineWidth = 3; g.beginPath(); g.moveTo(22, 54); g.lineTo(54, 22); g.stroke(); } else { g.translate(38, 38); g.scale(27, 27); emblem(g, k, L.ec, L.ed); }
+      b.appendChild(c); b.addEventListener('click', () => { L.emblem = k; rerender(); }); eg.appendChild(b);
+    });
+    if (L.emblem !== 'none') {
+      s.appendChild(swatches('Graphic colour', L.ec, PALETTE, c => { L.ec = c; rerender(); }));
+      s.appendChild(swatches('Detail colour', L.ed, PALETTE, c => { L.ed = c; rerender(); }));
+      s.appendChild(slider('Size', L.esize, 0.4, 2.2, 0.05, v => v.toFixed(2), v => { L.esize = v; S.dirty = true; }));
+      s.appendChild(segs([['nose', 'Nose'], ['center', 'Centre'], ['tail', 'Tail']], L.epos, v => { L.epos = v; S.dirty = true; }));
+    }
+    if (!(kind === 'skate' && surfName === 'top')) {
+      s = sec('Text'); body.appendChild(s);
+      const ti = el('input', 'bm-text'); ti.maxLength = 24; ti.placeholder = 'Board name'; ti.value = L.text || ''; ti.spellcheck = false; ti.setAttribute('aria-label', 'Board text');
+      ti.addEventListener('input', () => { L.text = ti.value; S.dirty = true; }); s.appendChild(ti);
+      s.appendChild(segs(Object.keys(FONTS).map(k => [k, FONTS[k].label, `font:${FONTS[k].css(15)};` + (FONTS[k].outline ? 'color:transparent;-webkit-text-stroke:1px currentColor;' : '')]), L.font, v => { L.font = v; S.dirty = true; }, 'bm-fonts'));
+      s.appendChild(swatches('Text colour', L.tc, PALETTE, c => { L.tc = c; S.dirty = true; }));
+      s.appendChild(slider('Size', L.tsize, 0.4, 2, 0.05, v => v.toFixed(2), v => { L.tsize = v; S.dirty = true; }));
+      s.appendChild(segs([['nose', 'Nose'], ['center', 'Centre'], ['tail', 'Tail']], L.tpos, v => { L.tpos = v; S.dirty = true; }));
+    }
+  }
+  function renderTab(keepScroll) {
+    if (!S) return; const body = S.body, y = body.scrollTop, d = S.d, kind = S.kind; body.innerHTML = '';
+    S.root.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === S.tab)));
+    if (S.tab === 'base') layerControls(body, d.base, 'base');
+    else if (S.tab === 'top') {
+      if (kind === 'skate') {
+        const s = sec('Grip tape'); body.appendChild(s);
+        s.appendChild(segs([['solid', 'Solid'], ['clear', 'Clear'], ['cutout', 'Cut-out'], ['stripes', 'Cut stripes']], d.grip.style, v => { d.grip.style = v; if (v === 'cutout' && d.top.emblem === 'none') d.top.emblem = 'star'; S.dirty = true; renderTab(true); }));
+        if (d.grip.style !== 'clear') s.appendChild(swatches('Grip colour', d.grip.color, PARTS.grip, c => { d.grip.color = c; S.dirty = true; }));
+        if (d.grip.style !== 'solid') { body.appendChild(el('div', 'bm-lbl', 'Under the grip')); layerControls(body, d.top, 'top'); }
+        else body.appendChild(el('div', 'bm-empty', 'Clear, cut-out and cut-stripe grip show a top graphic underneath.'));
+      } else layerControls(body, d.top, 'top');
+    } else if (S.tab === 'parts') {
+      const set = k => c => { d[k] = c; S.dirty = true; };
+      const s = sec(kind === 'skate' ? 'Hardware' : 'Board'); body.appendChild(s);
+      if (kind === 'skate') {
+        s.appendChild(swatches('Wheels', d.wheels, PARTS.wheels, set('wheels'))); s.appendChild(swatches('Wheel cores', d.cores, PARTS.cores, set('cores')));
+        s.appendChild(swatches('Trucks', d.trucks, PARTS.trucks, set('trucks'))); s.appendChild(swatches('Bushings', d.bushings, PARTS.bushings, set('bushings')));
+        s.appendChild(swatches('Deck edge', d.edges, PARTS.edges.skate, set('edges')));
+      } else {
+        s.appendChild(el('div', 'bm-lbl', 'Stomp pad'));
+        s.appendChild(segs([['none', 'None'], ['pad', 'Diamond'], ['ribs', 'Ribbed']], d.stompStyle, v => { d.stompStyle = v; S.dirty = true; renderTab(true); }));
+        if (d.stompStyle !== 'none') s.appendChild(swatches('Stomp pad colour', d.stomp, PARTS.stomp, set('stomp')));
+        s.appendChild(swatches('Edges and sidewall', d.edges, PARTS.edges.snow, set('edges')));
+      }
+    } else {
+      let s = sec('Presets'); body.appendChild(s); const pc = el('div', 'bm-cards'); s.appendChild(pc);
+      presets(kind).forEach(p => { const b = el('button', 'bm-card'); b.type = 'button'; b.appendChild(thumb(p, kind, 'base', 300, 84)); b.appendChild(document.createTextNode(p.title));
+        b.addEventListener('click', () => { S.d = normalize(p, kind); S.d.id = ''; changed(true); }); pc.appendChild(b); });
+      const st = readStore(kind); s = sec('Saved', st.saved.length ? st.saved.length + ' of 8' : ''); body.appendChild(s);
+      if (!st.saved.length) s.appendChild(el('div', 'bm-empty', 'Designs you save appear here.'));
+      const sc = el('div', 'bm-cards'); s.appendChild(sc);
+      st.saved.forEach(sv => { const b = el('button', 'bm-card'); b.type = 'button'; b.setAttribute('aria-pressed', String(sv.id === S.d.id)); b.appendChild(thumb(normalize(sv, kind), kind, 'base', 300, 84));
+        b.appendChild(document.createTextNode(sv.title || 'Untitled')); if (sv.id === st.equipped) b.appendChild(el('small', '', 'Equipped'));
+        const x = el('span', 'bm-del', '&times;'); x.setAttribute('role', 'button'); x.setAttribute('aria-label', 'Delete ' + (sv.title || 'design')); x.dataset.del = sv.id; b.appendChild(x);
+        b.addEventListener('click', e => { if (e.target.dataset.del) { e.stopPropagation(); const s2 = readStore(kind); s2.saved = s2.saved.filter(q => q.id !== sv.id); if (s2.equipped === sv.id) s2.equipped = s2.saved[0] ? s2.saved[0].id : null; writeStore(kind, s2); renderTab(true); return; }
+          S.d = normalize(sv, kind); changed(true); });
+        sc.appendChild(b); });
+    }
+    if (keepScroll) body.scrollTop = y;
+  }
+
+  const api = {
+    version: 1, open, close: () => close(), isOpen: () => !!S, load, makeTextures, setColor, presets, list: kind => readStore(kind).saved.map(d => normalize(d, kind)),
+    save: saveDesign, normalize, random: kind => randomDesign(kind), thumb, snapshot,
+    buildDemoBoard: (THREE, kind, opt) => buildBoard(THREE, kind === 'snow' ? 'snow' : 'skate', opt), applyColors: applyToBoard,
+    _paint: paintSurface, _ORIENT: ORIENT,
+  };
+  root.BoardMaker = api;
+})(typeof window !== 'undefined' ? window : this);
+</script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
 (() => {
@@ -673,7 +1677,10 @@ function buildGrid(o, res, mat, cut, sign = 1) {
       const i0 = ks[e], i1 = ks[(e + 1) % 3], v0 = vs[e], v1 = vs[(e + 1) % 3];
       if (v0 > 0) poly.push(i0);
       if ((v0 > 0) !== (v1 > 0)) {
-        const t = v0 / (v0 - v1), x = VX(i0) + (VX(i1) - VX(i0)) * t, z = VZ(i0) + (VZ(i1) - VZ(i0)) * t;
+        let t = v0 / (v0 - v1);
+        { let lo = 0, hi = 1; const x0 = VX(i0), z0 = VZ(i0), ex = VX(i1) - x0, ez = VZ(i1) - z0, pos0 = v0 > 0;   // the surface is often clamped flat part-way along the edge: bisect for the real toe
+          for (let it = 0; it < 12; it++) { const m = (lo + hi) / 2; if ((sign * o.f(x0 + ex * m, z0 + ez * m) - EPS > 0) === pos0) lo = m; else hi = m; } t = (lo + hi) / 2; }
+        const x = VX(i0) + (VX(i1) - VX(i0)) * t, z = VZ(i0) + (VZ(i1) - VZ(i0)) * t;
         pos.push(x, sign * EPS, z); if (RVBUILD) uv.push(lerp(uv[i0 * 2], uv[i1 * 2], t), lerp(uv[i0 * 2 + 1], uv[i1 * 2 + 1], t)); else uv.push(x / 4, z / 4); poly.push(pos.length / 3 - 1);
       }
     }
@@ -9493,6 +10500,7 @@ const boardRoot = new THREE.Group(); boardRoot.rotation.order = 'YXZ'; rider.add
 const boardSpin = new THREE.Group(); boardRoot.add(boardSpin);
 const boardFlip = new THREE.Group(); boardSpin.add(boardFlip);
 const KICK = 0.35;
+let DECK = null;   // board maker: deck meshes + materials (DECK.stock maps each to an untouched stock copy, for remote riders)
 const TRUCKS = [];   // each truck's hanger (with its axle and wheels), which pivots on the kingpin
 {
   // a real popsicle deck: rounded nose and tail that curve up, a little concave, grip on top, graphic underneath
@@ -9519,10 +10527,10 @@ const TRUCKS = [];   // each truck's hanger (with its axle and wheels), which pi
   const gripMesh = new THREE.Mesh(bend(top), new THREE.MeshStandardMaterial({ map: gripTex, roughness: 1 })); boardFlip.add(gripMesh);
   const gfxTex = (() => { const c = document.createElement('canvas'); c.width = 128; c.height = 512; const g = c.getContext('2d');
     const gr = g.createLinearGradient(0, 0, 0, 512); gr.addColorStop(0, '#ff3d5a'); gr.addColorStop(0.5, '#ffb000'); gr.addColorStop(1, '#ff3d5a'); g.fillStyle = gr; g.fillRect(0, 0, 128, 512);
-    g.fillStyle = '#141416'; for (let y = 40; y < 512; y += 70) g.fillRect(0, y, 128, 10);
-    g.save(); g.translate(64, 256); g.rotate(Math.PI / 2); g.fillStyle = '#141416'; g.font = 'bold 44px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('CONCRETE', 0, 0); g.restore();
+    g.fillStyle = '#141416'; for (let y = 40; y < 512; y += 70) if (Math.abs(y + 5 - 256) > 120) g.fillRect(0, y, 128, 10);   // stripes out by the trucks, a clear field for the name
+    g.save(); g.translate(64, 256); g.rotate(Math.PI / 2); g.fillStyle = '#141416'; g.font = 'bold 40px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('CONCRETE', 0, 0, 196);   // fits between the trucks g.restore();
     const t = new THREE.CanvasTexture(c); t.anisotropy = 4; return t; })();
-  const bot = new THREE.ShapeGeometry(shape, 16); flat(bot, -T / 2 - 0.0035); bot.rotateZ(Math.PI); uvFromPos(bot);
+  const bot = new THREE.ShapeGeometry(shape, 16); flat(bot, -T / 2 - 0.0035); { const ix = bot.index.array; for (let i = 0; i < ix.length; i += 3) { const t = ix[i + 1]; ix[i + 1] = ix[i + 2]; ix[i + 2] = t; } } uvFromPos(bot);   // under the deck, facing down
   const gfxMesh = new THREE.Mesh(bend(bot), new THREE.MeshStandardMaterial({ map: gfxTex, roughness: 0.55 })); boardFlip.add(gfxMesh);
   // trucks: baseplate, kingpin and bushings, hanger, axle; wheels with coloured cores
   const truckM = new THREE.MeshStandardMaterial({ color: 0xb9bec4, roughness: 0.35, metalness: 0.85 });
@@ -9544,6 +10552,8 @@ const TRUCKS = [];   // each truck's hanger (with its axle and wheels), which pi
       const cr = new THREE.Mesh(coreG, coreM); cr.position.set(x, -0.033, 0); hg.add(cr);
     });
   });
+  DECK = { body: deckBody, grip: gripMesh, gfx: gfxMesh, truckM, bushM, wheelM, coreM, stockMaps: [gripTex, gfxTex] };
+  DECK.stock = new Map([maple, gripMesh.material, gfxMesh.material, truckM, bushM, wheelM, coreM].map(m => [m, m.clone()]));
 }
 const BOARD_Y = 0.11;   // deck centre above the contact point
 const PUSH_D0 = 0.22, PUSH_D1 = 0.58;
@@ -10301,7 +11311,7 @@ function dismissSplash() { const sp = $('splash'); if (sp && !sp.hidden) { sp.hi
 $('splash').addEventListener('click', dismissSplash);
 window.addEventListener('keydown', e => {
   if ($('splash') && !$('splash').hidden) { e.preventDefault(); dismissSplash(); return; }   // the title screen takes the first key press
-  if (e.target && e.target.tagName === 'INPUT' && e.target.type !== 'range') return;   // typing a name or code
+  if (e.target && ((e.target.tagName === 'INPUT' && e.target.type !== 'range') || e.target.tagName === 'TEXTAREA')) return;   // typing a name or code
   if (rebinding) { e.preventDefault(); finishRebind(e.code); return; }
   if (game.running && (e.code === 'Space' || e.code.startsWith('Arrow') || Object.values(BIND).includes(e.code))) e.preventDefault();
   // Space on the main menu starts a free skate (on release, so the same press doesn't ollie you straight away)
@@ -10323,7 +11333,7 @@ renderer.domElement.addEventListener('mousedown', e => {
 renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
 window.addEventListener('keyup', e => {
   keys[e.code] = false; released[e.code] = true;
-  if (e.target && e.target.tagName === 'INPUT' && e.target.type !== 'range') return;
+  if (e.target && ((e.target.tagName === 'INPUT' && e.target.type !== 'range') || e.target.tagName === 'TEXTAREA')) return;
   if (menuSpace && (e.code === 'Space' || e.code === K.jump)) { menuSpace = false; if (!game.running && !$('menu').hidden) { e.preventDefault(); startGame(); } }
 });
 window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });   // losing focus (screenshots, alt-tab) only drops held keys; the game keeps running
@@ -10568,7 +11578,8 @@ function setMap(id, opts = {}) {
   [PX, PZN, PZS] = MAPS[id].bounds; PZC = (PZN + PZS) / 2; PZH = (PZN - PZS) / 2; LIMX = PX - 0.5; LIMZN = PZN - 0.5; LIMZS = PZS + 0.5;
   MAPID = id; spawnIdx = 0; if ($("tunFade")) $("tunFade").style.opacity = "0"; inSky = false; inDome = false; inTunnel = false;
   if (id === 'river' && typeof grafFlush === 'function') grafFlush();   // any graffiti not painted yet in idle time
-  PARK_ROOT.visible = id === 'park'; RIVER_ROOT.visible = id === 'river';
+  PARK_ROOT.visible = id === 'park'; RIVER_ROOT.visible = id === 'river'; LOT_ROOT.visible = id === 'lot';
+  $('editBtn').hidden = $('peBackBtn').hidden = id !== 'lot';
   if (RVB.birds) RVB.birds.setVisible(id === 'river');
   const E = ENV[id];
   hemiLight.color.setHex(E.hemi[0]); hemiLight.groundColor.setHex(E.hemi[1]); hemiLight.intensity = E.hemi[2];
@@ -10580,10 +11591,789 @@ function setMap(id, opts = {}) {
   if ($('menuEyebrow')) $('menuEyebrow').textContent = M.eyebrow;
   // letters and the tape only live in the park
   $('letters').hidden = id !== 'park';
-  try { localStorage.setItem('concrete-lines-map', id); } catch (e) {}
-  if (NET.host && !opts.quiet) netBroadcast({ t: 'map', m: id });
+  if (id !== 'lot') try { localStorage.setItem('concrete-lines-map', id); } catch (e) {}   // a built park is opened from Create a Park, never as the saved map
+  if (NET.host && !opts.quiet && id !== 'lot') netBroadcast({ t: 'map', m: id });
   if (P.state === 'walk') { P.state = 'ground'; P.walk = null; P.vel.set(0, 0, 0); }   // off foot on the old map: back on the board
   if (game.running) respawn();
+}
+
+// ---------- Create a Park: an empty 64 m lot you fill with pieces, then ride (map id 'lot') ----------
+// A park is plain data: pieces { t, x, z, r, s, h, v } = type, centre, rotation (degrees), size / height / style variant indexes.
+// lotRebuild() turns them into terrain (obstacles), rails and meshes with the same builders the hand-built maps use
+// (quarter, kicker, funbox, stairs, bowl, planter, profileRamp, buildObs, addRailPath), so every piece rides and grinds like the rest of the game.
+// The editor state lives in PE; its DOM is #pe (toolbar, palette) and #peDlg (saves, starters, share codes).
+const LOT = { half: 32, fenceH: 2.4, bound: 33 };
+const LOT_ROOT = new THREE.Group(); LOT_ROOT.visible = false; scene.add(LOT_ROOT);
+const LOT_PIECES = new THREE.Group(); LOT_ROOT.add(LOT_PIECES);
+const LOT_EDIT = new THREE.Group(); LOT_EDIT.visible = false; LOT_ROOT.add(LOT_EDIT);   // grid, outlines, the ghost: editor only
+const LOT_SET = { obstacles: [], pits: [], rails: [], boosts: [], traffic: [] };
+const LOT_SHARED = new Set(Object.values(mats));
+const D2R = Math.PI / 180;
+// build into a group with the lot's own obstacle / rail lists standing in for the current map's; returns everything that was in them
+function lotBuild(root, base, fn) {
+  const o0 = obstacles.slice(), r0 = rails.slice(), rv = RVBUILD;
+  obstacles.length = 0; rails.length = 0;
+  if (base) { obstacles.push(...base.obstacles); rails.push(...base.rails); }
+  RVBUILD = true; captureInto(root);
+  try { fn(); } finally { captureEnd(); RVBUILD = rv; }
+  const out = { obstacles: obstacles.slice(), rails: rails.slice() };
+  obstacles.length = 0; obstacles.push(...o0); rails.length = 0; rails.push(...r0);
+  return out;
+}
+function lotDispose(g) {
+  g.traverse(o => {
+    if (o.geometry) o.geometry.dispose();
+    if (o.material) [].concat(o.material).forEach(m => { if (!LOT_SHARED.has(m) && !m.userData.keep) m.dispose(); });
+  });
+}
+// ---- the lot itself: concrete slab, chain-link fence (solid, wallride it; the top rail grinds), lights, a few buildings outside ----
+const LOT_STATIC = lotBuild(LOT_ROOT, null, () => {
+  const h = LOT.half, S = 2 * h + 1, F = LOT.fenceH;
+  const slabG = new THREE.PlaneGeometry(S, S); slabG.rotateX(-Math.PI / 2);
+  { const uv = slabG.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * S, uv.getY(i) * S); }
+  const slab = new THREE.Mesh(slabG, mats.ground); slab.receiveShadow = true; scene.add(slab);
+  const outG = new THREE.PlaneGeometry(700, 700); outG.rotateX(-Math.PI / 2);
+  const out = new THREE.Mesh(outG, new THREE.MeshStandardMaterial({ color: 0x2b2826, roughness: 1 })); out.position.y = -0.03; out.receiveShadow = true; scene.add(out);
+  // a raised sidewalk strip round the outside of the fence
+  const walkM = new THREE.MeshStandardMaterial({ map: groundTex, color: 0xb9b1a4, roughness: 0.95 });
+  [[0, h + 2.4, S + 9.6, 4], [0, -h - 2.4, S + 9.6, 4], [h + 2.4, 0, 4, S + 1], [-h - 2.4, 0, 4, S + 1]].forEach(([x, z, w, d]) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.16, d), walkM); m.position.set(x, 0.08, z); m.receiveShadow = true; scene.add(m);
+  });
+  // chain-link: a drawn diamond mesh on a cut-out plane
+  const cc = document.createElement('canvas'); cc.width = cc.height = 64; const g = cc.getContext('2d');
+  g.strokeStyle = 'rgba(190,196,200,0.95)'; g.lineWidth = 3;
+  g.beginPath(); g.moveTo(0, 0); g.lineTo(64, 64); g.moveTo(64, 0); g.lineTo(0, 64); g.moveTo(-32, 32); g.lineTo(32, -32); g.moveTo(32, 96); g.lineTo(96, 32);
+  g.moveTo(-32, 32); g.lineTo(32, 96); g.moveTo(32, -32); g.lineTo(96, 32); g.stroke();
+  const ct = new THREE.CanvasTexture(cc); ct.wrapS = ct.wrapT = THREE.RepeatWrapping; ct.anisotropy = 4;
+  const linkM = new THREE.MeshStandardMaterial({ map: ct, alphaTest: 0.35, side: THREE.DoubleSide, metalness: 0.6, roughness: 0.5, color: 0xc8ccd0 });
+  [[0, h, 0], [0, -h, 0], [h, 0, Math.PI / 2], [-h, 0, Math.PI / 2]].forEach(([cx, cz, a]) => {
+    const pg = new THREE.PlaneGeometry(2 * h, F); const uv = pg.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 2 * h / 0.5, uv.getY(i) * F / 0.5);
+    const p = new THREE.Mesh(pg, linkM); p.position.set(cx, F / 2, cz); p.rotation.y = a; scene.add(p);
+    const c = Math.cos(a), s = Math.sin(a), A = new V3(cx - h * c, F, cz + h * s), B = new V3(cx + h * c, F, cz - h * s);
+    cylBetween(A, B, 0.045, mats.steel); cylBetween(A.clone().setY(0.12), B.clone().setY(0.12), 0.03, mats.steel);
+    for (let k = 0; k <= 16; k++) { const t = k / 16, x = lerp(A.x, B.x, t), z = lerp(A.z, B.z, t); cylBetween(new V3(x, 0, z), new V3(x, F + 0.06, z), 0.055, mats.steel); }
+    // physically a wall the height of the fence; its top rail grinds
+    addObs({ cx, cz, a, hw: h + 0.3, hl: 0.12, f: () => F });
+    const e = 0.4, ra = [lerp(A.x, B.x, e / (2 * h)), F + 0.05, lerp(A.z, B.z, e / (2 * h))], rb = [lerp(B.x, A.x, e / (2 * h)), F + 0.05, lerp(B.z, A.z, e / (2 * h))];
+    const il = Math.hypot(cx, cz) || 1;
+    addRailPath([ra, rb], { hidden: true }).forEach(r => { r.inward = [-cx / il, -cz / il]; });
+  });
+  // flood lights on the corners, just outside the fence
+  const headM = new THREE.MeshStandardMaterial({ color: 0x222222, emissive: 0xffe2b8, emissiveIntensity: 1.3 });
+  [[1, 1], [1, -1], [-1, 1], [-1, -1]].forEach(([sx, sz]) => {
+    const x = sx * (h + 1.6), z = sz * (h + 1.6);
+    cylBetween(new V3(x, 0, z), new V3(x, 9, z), 0.13, mats.steel);
+    const hd = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.25, 0.6), headM); hd.position.set(x - sx * 0.5, 9, z - sz * 0.5); hd.rotation.y = Math.atan2(sx, sz); scene.add(hd);
+  });
+  // plain low buildings round the block, so the lot sits somewhere
+  const bm = [0x6d625a, 0x7b6f63, 0x5f5953, 0x857565].map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.95 }));
+  const roofM = new THREE.MeshStandardMaterial({ color: 0x3c3836, roughness: 1 });
+  let seed = 77; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  for (let side = 0; side < 4; side++) for (let k = -3; k <= 3; k++) {
+    if (rnd() < 0.2) continue;
+    const w = 9 + rnd() * 8, d = 10 + rnd() * 10, H = 5 + rnd() * 9, off = h + 14 + d / 2 + rnd() * 6, along = k * 19 + (rnd() - 0.5) * 4;
+    const x = side === 0 ? along : side === 1 ? along : side === 2 ? off : -off, z = side === 0 ? off : side === 1 ? -off : along;
+    const m = new THREE.Mesh(new THREE.BoxGeometry(side < 2 ? w : d, H, side < 2 ? d : w), bm[(side * 7 + k + 9) % 4]); m.position.set(x, H / 2, z); m.castShadow = true; m.receiveShadow = true; scene.add(m);
+    const r = new THREE.Mesh(new THREE.BoxGeometry((side < 2 ? w : d) + 0.4, 0.4, (side < 2 ? d : w) + 0.4), roofM); r.position.set(x, H + 0.2, z); scene.add(r);
+  }
+});
+// ---- the piece types ----
+const qDims = (H, D) => { const R = H / 0.7569, Rl = R * 0.97; return { R, Rl, hl: (Rl + D) / 2 }; };
+const pW = (p, lx, lz) => { const a = p.r * D2R, c = Math.cos(a), s = Math.sin(a); return [p.x + lx * c + lz * s, p.z - lx * s + lz * c]; };
+const pAABB = (p, x0, x1, z0, z1) => { const cs = [pW(p, x0, z0), pW(p, x1, z0), pW(p, x0, z1), pW(p, x1, z1)]; return [Math.min(...cs.map(c => c[0])), Math.max(...cs.map(c => c[0])), Math.min(...cs.map(c => c[1])), Math.max(...cs.map(c => c[1]))]; };
+const mm = v => v + ' m';
+// a box with a flat top (ledges, manual pads); steel angle on the grindable top edges
+// (stacks: it sits on the highest thing under its footprint, so a ledge or a pad can go on a funbox top, a bank deck or another piece)
+const LOT_BASE = new WeakMap();
+function lotBase(p, w, L) {
+  let b = 0; for (let i = 0; i <= 4; i++) for (let j = 0; j <= 6; j++) { const [x, z] = pW(p, (i / 4 - 0.5) * (w - 0.1), (j / 6 - 0.5) * (L - 0.1)); b = Math.max(b, heightAt(x, z)); }
+  return b < 0.02 ? 0 : b;
+}
+function lotBox(p, w, L, H0, all) {
+  const base = lotBase(p, w, L), H = base + H0; LOT_BASE.set(p, base);
+  const a = p.r * D2R, o = addObs({ cx: p.x, cz: p.z, a, hw: w / 2, hl: L / 2, f: () => H });
+  buildObs(o, mats.ramp, mats.rampSide, [-w / 2, w / 2], [-L / 2, L / 2]);
+  const e = 0.03, ed = [[[-w / 2 + e, -L / 2 + e], [-w / 2 + e, L / 2 - e]], [[w / 2 - e, -L / 2 + e], [w / 2 - e, L / 2 - e]]];
+  if (all) ed.push([[-w / 2 + e, -L / 2 + e], [w / 2 - e, -L / 2 + e]], [[-w / 2 + e, L / 2 - e], [w / 2 - e, L / 2 - e]]);
+  ed.forEach(([A, B]) => {
+    const [ax, az] = pW(p, A[0], A[1]), [bx, bz] = pW(p, B[0], B[1]);
+    cylBetween(new V3(ax, H - 0.005, az), new V3(bx, H - 0.005, bz), 0.03, mats.steel);
+    addRailPath([[ax, H + 0.02, az], [bx, H + 0.02, bz]], { hidden: true, ledge: true });
+  });
+}
+// a rail from end to end at height H over whatever is under each end (so it runs down stairs or off a funbox), lifted clear of anything in between
+function lotRail(ax, az, bx, bz, H, flat) {
+  let ya = heightAt(ax, az) + H, yb = heightAt(bx, bz) + H, lift = 0;
+  for (let k = 1; k < 24; k++) { const t = k / 24, need = heightAt(lerp(ax, bx, t), lerp(az, bz, t)) + H * 0.6 - lerp(ya, yb, t); if (need > lift) lift = need; }
+  ya += lift; yb += lift;
+  if (!flat) { addRailPath([[ax, ya, az], [bx, yb, bz]]); return; }
+  addRailPath([[ax, ya, az], [bx, yb, bz]], { hidden: true });
+  const A = new V3(ax, ya - 0.025, az), B = new V3(bx, yb - 0.025, bz), L = A.distanceTo(B);
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.05, L), mats.steel); bar.position.copy(A).add(B).multiplyScalar(0.5); bar.lookAt(B); bar.castShadow = true; scene.add(bar);
+  const n = Math.max(1, Math.round(L / 2.4));
+  for (let k = 0; k <= n; k++) {
+    const t = lerp(0.04, 0.96, k / n), x = lerp(ax, bx, t), z = lerp(az, bz, t), y = lerp(ya, yb, t) - 0.05, gy = heightAt(x, z);
+    if (y - gy < 0.05) continue;
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.06, y - gy, 0.06), mats.steel); leg.position.set(x, (y + gy) / 2, z); leg.rotation.y = Math.atan2(bx - ax, bz - az); leg.castShadow = true; scene.add(leg);
+    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.02, 0.2), mats.steel); foot.position.set(x, gy + 0.01, z); foot.rotation.y = leg.rotation.y; scene.add(foot);
+  }
+}
+const stairDims = (n, rise, v) => { const Ht = n * rise, B = Math.max(1.6, Ht * 2.4), Lp = 2.4, Ls = n * 0.42; return { Ht, B, Lp, Ls, L: B + Lp + Ls }; };
+const bowlDims = (Rb, Rt, sp) => { const Hl = Rt * 0.7569, S = Hl * 2, D = 1.0; return { Hl, S, D, rMax: Rb + Rt * 0.97 + D + S, sp }; };
+const PT = {
+  quarter: { code: 'qp', name: 'Quarter pipe', grp: 'Transition', size: [4, 6, 8, 10], sl: v => mm(v) + ' wide', height: [1.2, 1.8, 2.4, 3], hl: v => mm(v) + ' tall',
+    dims: (S, H) => ({ hw: S / 2, hl: qDims(H, 1.2).hl, H }),
+    build(p, S, H) { quarter(p.x, p.z, p.r * D2R, S, qDims(H, 1.2).R, 1.2); } },
+  miniramp: { code: 'mr', name: 'Mini ramp', grp: 'Transition', size: [4, 6, 8], sl: v => mm(v) + ' wide', height: [1, 1.4, 1.8, 2.4], hl: v => mm(v) + ' tall', style: [3, 4.5, 6], vl: v => mm(v) + ' flat',
+    dims: (S, H, Y) => ({ hw: S / 2, hl: Y / 2 + 2 * qDims(H, 1).hl, H }),
+    build(p, S, H, Y) { const q = qDims(H, 1), a = p.r * D2R; [1, -1].forEach(sd => { const [cx, cz] = pW(p, 0, sd * (Y / 2 + q.hl)); quarter(cx, cz, a + (sd < 0 ? Math.PI : 0), S, q.R, 1); }); } },
+  spine: { code: 'sp', name: 'Spine', grp: 'Transition', size: [4, 6, 8], sl: v => mm(v) + ' wide', height: [1.2, 1.8, 2.4], hl: v => mm(v) + ' tall',
+    dims: (S, H) => ({ hw: S / 2, hl: 2 * qDims(H, 0.12).hl, H }),
+    build(p, S, H) { const q = qDims(H, 0.12), a = p.r * D2R; [1, -1].forEach(sd => { const [cx, cz] = pW(p, 0, -sd * q.hl); quarter(cx, cz, a + (sd < 0 ? Math.PI : 0), S, q.R, 0.12); }); } },
+  bank: { code: 'bk', name: 'Bank', grp: 'Transition', size: [4, 6, 8, 10], sl: v => mm(v) + ' wide', height: [0.8, 1.2, 1.6, 2], hl: v => mm(v) + ' tall', style: [2.6, 1.6], vl: v => v > 2 ? 'Mellow' : 'Steep',
+    dims: (S, H, Y) => ({ hw: S / 2, hl: (H * Y + 1.2) / 2, H }),
+    build(p, S, H, Y) { const L = H * Y, hl = (L + 1.2) / 2; profileRamp(p.x, p.z, p.r * D2R, S, 0, hl, lz => { const s = lz + hl; return s < L ? H * s / L : H; }, 0.25, mats.ramp, null, { vertical: true }); } },
+  bowl: { code: 'bw', name: 'Bowl', grp: 'Transition', size: [1.5, 2.5, 3.5], sl: v => mm(v) + ' floor', height: [1.6, 2.2, 2.8], hl: v => mm(+(v * 0.757).toFixed(1)) + ' deep', style: [0, 4, 8], vl: v => v === 0 ? 'Round' : v === 4 ? 'Oval' : 'Long',
+    dims: (S, H, Y) => { const b = bowlDims(S, H, Y); return { hw: Y / 2 + b.rMax, hl: b.rMax, H: b.Hl }; },
+    build(p, S, H, Y) { const b = bowlDims(S, H, Y); bowl(Y ? [pW(p, -Y / 2, 0), pW(p, Y / 2, 0)] : [[p.x, p.z]], S, H, b.D, b.S); } },
+  kicker: { code: 'kk', name: 'Kicker', grp: 'Jumps', size: [1.6, 2.4, 3.2], sl: v => mm(v) + ' wide', height: [0.4, 0.6, 0.85, 1.1], hl: v => mm(v) + ' tall',
+    dims: (S, H) => ({ hw: S / 2, hl: (H * 2.6 + 0.6) / 2, H }),
+    build(p, S, H) { kicker(p.x, p.z, p.r * D2R, S, H * 2.6 + 0.6, H); } },
+  gap: { code: 'kg', name: 'Kicker gap', grp: 'Jumps', size: [1.5, 2.5, 3.5, 4.5], sl: v => mm(v) + ' gap', height: [0.6, 0.9, 1.2], hl: v => mm(v) + ' tall',
+    dims: (S, H) => ({ hw: 1.4, hl: (H * 2.6 + S + 1 + H * 3) / 2, H }),
+    build(p, S, H) {
+      const L1 = H * 2.6, Ld = 1, L2 = H * 3, hl = (L1 + S + Ld + L2) / 2;
+      profileRamp(p.x, p.z, p.r * D2R, 2.8, 0, hl, lz => { const s = lz + hl; return s < L1 ? H * Math.pow(s / L1, 1.6) : s < L1 + S ? 0 : s < L1 + S + Ld ? H : H * (1 - (s - L1 - S - Ld) / L2); }, 0.2, mats.ramp, null, { vertical: true, breaks: [-hl + L1, -hl + L1 + S] });
+      const [ax, az] = pW(p, -1.4, -hl + L1 - 0.03), [bx, bz] = pW(p, 1.4, -hl + L1 - 0.03); cylBetween(new V3(ax, H - 0.02, az), new V3(bx, H - 0.02, bz), 0.05, mats.steel);   // steel lip on the kicker
+    },
+    gaps: (p, S, H) => { const L1 = H * 2.6, hl = (L1 + S + 1 + H * 3) / 2; return [{ name: 'Kicker Gap', pts: Math.round(200 + 60 * S), from: pAABB(p, -1.6, 1.6, -hl + L1 - 1.4, -hl + L1 + 0.15), to: pAABB(p, -1.8, 1.8, -hl + L1 + S + 0.1, hl + 0.5) }]; } },
+  tabletop: { code: 'tt', name: 'Table top', grp: 'Jumps', size: [3, 4, 6], sl: v => mm(v) + ' wide', height: [0.9, 1.3, 1.8], hl: v => mm(v) + ' tall', style: [2, 3, 4.5], vl: v => mm(v) + ' top',
+    dims: (S, H, Y) => ({ hw: S / 2 + 1.2, hl: (H * 2.4 + Y + H * 3) / 2, H }),
+    build(p, S, H, Y) {
+      const L1 = H * 2.4, L2 = H * 3, hl = (L1 + Y + L2) / 2;
+      profileRamp(p.x, p.z, p.r * D2R, S, 1.2, hl, lz => { const s = lz + hl; return s < 0 ? 0 : s < L1 ? H * Math.pow(s / L1, 1.5) : s < L1 + Y ? H : H * (1 - smoothT((s - L1 - Y) / L2)); }, 0.3);
+    },
+    gaps: (p, S, H, Y) => { const L1 = H * 2.4, hl = (L1 + Y + H * 3) / 2; return [{ name: 'Table Top', pts: Math.round(150 + 80 * Y), from: pAABB(p, -S / 2, S / 2, -hl + L1 - 1.2, -hl + L1 + 0.3), to: pAABB(p, -S / 2 - 0.5, S / 2 + 0.5, -hl + L1 + Y + 0.15, hl + 0.5) }]; } },
+  funbox: { code: 'fb', name: 'Funbox', grp: 'Jumps', size: [2, 3, 4, 6], sl: v => mm(v) + ' top', height: [0.5, 0.7, 0.9, 1.2], hl: v => mm(v) + ' tall', style: [0, 1], vl: v => v ? 'Wood' : 'Concrete',
+    dims: (S, H) => ({ hw: 1.2 + H * 2.4, hl: S / 2 + H * 2.4, H }),
+    build(p, S, H, Y) { funbox(p.x, p.z, p.r * D2R, 2.4, S, H, H * 2.4, !!Y); } },
+  pyramid: { code: 'py', name: 'Pyramid', grp: 'Jumps', size: [1.2, 2, 3], sl: v => mm(v) + ' top', height: [0.6, 0.9, 1.2], hl: v => mm(v) + ' tall',
+    dims: (S, H) => ({ hw: S / 2 + H * 2.6, hl: S / 2 + H * 2.6, H }),
+    build(p, S, H) { funbox(p.x, p.z, p.r * D2R, S, S, H, H * 2.6, false); } },
+  ledge: { code: 'lg', name: 'Ledge', grp: 'Street', stack: true, size: [3, 4.5, 6, 8], sl: v => mm(v) + ' long', height: [0.3, 0.45, 0.6, 0.8], hl: v => mm(v) + ' tall', style: [0.5, 0.9, 1.5], vl: v => mm(v) + ' deep',
+    dims: (S, H, Y) => ({ hw: Y / 2, hl: S / 2, H }),
+    build(p, S, H, Y) { lotBox(p, Y, S, H, false); } },
+  pad: { code: 'mp', name: 'Manual pad', grp: 'Street', stack: true, size: [4, 6, 8], sl: v => mm(v) + ' long', height: [0.15, 0.22, 0.3], hl: v => mm(v) + ' tall', style: [1.8, 2.6, 3.4], vl: v => mm(v) + ' wide',
+    dims: (S, H, Y) => ({ hw: Y / 2, hl: S / 2, H }),
+    build(p, S, H, Y) { lotBox(p, Y, S, H, true); } },
+  rail: { code: 'rl', name: 'Rail', grp: 'Street', late: true, free: true, size: [3, 4.5, 6, 8, 10], sl: v => mm(v) + ' long', height: [0.3, 0.45, 0.6, 0.85], hl: v => mm(v) + ' high', style: [0, 1], vl: v => v ? 'Flat bar' : 'Round rail',
+    dims: (S, H) => ({ hw: 0.3, hl: S / 2, H }),
+    build(p, S, H, Y) { const [ax, az] = pW(p, 0, -S / 2), [bx, bz] = pW(p, 0, S / 2); lotRail(ax, az, bx, bz, H, !!Y); } },
+  stairs: { code: 'st', name: 'Stair set', grp: 'Street', size: [3, 4, 5, 7], sl: v => v + ' steps', height: [0.14, 0.17, 0.2], hl: v => Math.round(v * 100) + ' cm steps', style: [0, 1, 2, 3], vl: v => ['Two handrails', 'One handrail', 'Hubba', 'No rails'][v],
+    dims: (S, H) => ({ hw: 2, hl: stairDims(S, H).L / 2, H: S * H + 0.9 }),
+    build(p, n, rise, Y) {
+      const d = stairDims(n, rise), a = p.r * D2R, z0 = -d.L / 2, hub = Y === 2, Ws = hub ? 3.4 : 4, sx = hub ? -0.3 : 0;
+      // the run-up bank and the top deck, then the steps down
+      { const hlb = (d.B + d.Lp) / 2, [cx, cz] = pW(p, 0, z0 + hlb);
+        profileRamp(cx, cz, a, 4, 0, hlb, lz => { const s = lz + hlb; return s < d.B ? d.Ht * s / d.B : d.Ht; }, 0.25, mats.ramp, null, { vertical: true }); }
+      const zs0 = z0 + d.B + d.Lp;
+      { const [cx, cz] = pW(p, sx, zs0 + d.Ls / 2); stairs(cx, cz, a, Ws, n, rise, 0.42); }
+      // a kinked handrail: level over the deck, down the steps parallel to the nosings, level again at the bottom, so it catches early and holds the whole way
+      const hand = lx => {
+        const top = d.Ht + 0.85, run = Math.min(1.8, d.Lp - 0.3), q = (lz, y) => { const [x, z] = pW(p, lx, lz); return [x, y, z]; };
+        addRailPath([q(zs0 - run, top), q(zs0, top), q(zs0 + d.Ls, 0.85), q(zs0 + d.Ls + 0.5, 0.85)], { noPosts: true });
+        [[zs0 - run + 0.1, top], [zs0 - 0.05, top], [zs0 + d.Ls + 0.4, 0.85]].forEach(([lz, y]) => { const [x, z] = pW(p, lx, lz); cylBetween(new V3(x, heightAt(x, z), z), new V3(x, y - 0.09, z), 0.035, mats.steel); });
+      };
+      if (Y === 0) { hand(sx - Ws / 2 + 0.22); hand(sx + Ws / 2 - 0.22); }
+      if (Y === 1) hand(sx + Ws / 2 - 0.22);
+      if (hub) {   // a sloped ledge beside the steps that starts as a ledge on the deck
+        const hl = (d.Lp + d.Ls) / 2, [cx, cz] = pW(p, 1.7, z0 + d.B + hl), top = s => s < d.Lp ? d.Ht + 0.45 : d.Ht + 0.45 - (s - d.Lp) / d.Ls * d.Ht;
+        const o = addObs({ cx, cz, a, hw: 0.3, hl, f: (lx, lz) => top(lz + hl) });
+        buildObs(o, mats.ramp, mats.rampSide, [-0.3, 0.3], uniq([-hl, ...lin(-hl + d.Lp, hl, 10)]));
+        [-0.27, 0.27].forEach(ex => {
+          const pts = [0.05, d.Lp, d.Lp + d.Ls - 0.05].map(s => { const [x, z] = pW(p, 1.7 + ex, z0 + d.B + s); return [x, top(s) + 0.02, z]; });
+          addRailPath(pts, { hidden: true, ledge: true });
+          for (let k = 0; k + 1 < pts.length; k++) cylBetween(new V3(pts[k][0], pts[k][1] - 0.025, pts[k][2]), new V3(pts[k + 1][0], pts[k + 1][1] - 0.025, pts[k + 1][2]), 0.03, mats.steel);
+        });
+      }
+    } },
+  planter: { code: 'pl', name: 'Planter', grp: 'Street', size: [1.2, 1.8, 2.4], sl: v => mm(v) + ' radius', height: [0.4, 0.55, 0.7], hl: v => mm(v) + ' tall',
+    dims: (S, H) => ({ hw: S, hl: S, H: H + 1.6 }),
+    build(p, S, H) {
+      planter(p.x, p.z, S, H);
+      const pts = []; for (let k = 0; k < 40; k++) { const t = k / 40 * TAU; pts.push([p.x + Math.cos(t) * (S - 0.03), H + 0.02, p.z + Math.sin(t) * (S - 0.03)]); }
+      addRailPath(pts, { hidden: true, ledge: true, closed: true });
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(S - 0.02, 0.03, 6, 64), mats.steel); ring.rotation.x = Math.PI / 2; ring.position.set(p.x, H, p.z); scene.add(ring);
+    } },
+  start: { code: 'ss', name: 'Drop-in spot', grp: 'Start', unique: true, free: true,
+    dims: () => ({ hw: 0.7, hl: 1.1, H: 0.1 }),
+    build(p) {
+      const sh = new THREE.Shape([[-0.45, -1], [0.45, -1], [0.45, 0.1], [0.8, 0.1], [0, 1.1], [-0.8, 0.1], [-0.45, 0.1]].map(([x, z]) => new THREE.Vector2(x, z)));
+      const g = new THREE.ShapeGeometry(sh); g.rotateX(Math.PI / 2);
+      const m = new THREE.Mesh(g, PE_ARROW_M); m.position.set(p.x, 0.03, p.z); m.rotation.y = p.r * D2R; m.userData.editOnly = true; scene.add(m);
+    } },
+};
+const PT_BY_CODE = Object.fromEntries(Object.entries(PT).map(([k, T]) => [T.code, k]));
+const PE_ARROW_M = new THREE.MeshBasicMaterial({ color: 0xe88c6c, side: THREE.DoubleSide, transparent: true, opacity: 0.9, depthWrite: false });
+const pVals = p => { const T = PT[p.t]; return [T.size ? T.size[p.s] : 0, T.height ? T.height[p.h] : 0, T.style ? T.style[p.v] : 0]; };
+const pDims = p => PT[p.t].dims(...pVals(p));
+// ---- editor state ----
+const PE = { on: false, pieces: [], sel: -1, place: null, last: {}, undo: [], redo: [], name: 'My park', prevMap: 'river', loaded: false,
+  cam: { tx: 0, tz: 0, yaw: 0.5, pitch: 0.86, pv: 0.86, dist: 60, top: false }, holders: [], ghostKey: '', drag: null, mode: null, ptrs: new Map(), hover: null, shift: false, msgT: 0, hook: null };
+const PE_GHOST = new THREE.Group(); LOT_EDIT.add(PE_GHOST);
+const GHOST_OK = new THREE.MeshBasicMaterial({ color: 0x9fb866, transparent: true, opacity: 0.5, depthWrite: false });
+const GHOST_BAD = new THREE.MeshBasicMaterial({ color: 0xff6a5c, transparent: true, opacity: 0.5, depthWrite: false });
+GHOST_OK.userData.keep = GHOST_BAD.userData.keep = PE_ARROW_M.userData.keep = true;
+const peBox = col => { const b = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)), new THREE.LineBasicMaterial({ color: col, depthTest: false, transparent: true })); b.renderOrder = 20; b.visible = false; LOT_EDIT.add(b); return b; };
+const PE_SELBOX = peBox(0xe88c6c), PE_GBOX = peBox(0x9fb866);
+const PE_FOOT = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x9fb866, transparent: true, opacity: 0.25, depthWrite: false }));
+PE_FOOT.renderOrder = 19; PE_FOOT.visible = false; LOT_EDIT.add(PE_FOOT);
+{ const g1 = new THREE.GridHelper(2 * LOT.half, 2 * LOT.half, 0x000000, 0x000000), g4 = new THREE.GridHelper(2 * LOT.half, LOT.half / 2, 0x000000, 0x000000);
+  g1.material.transparent = true; g1.material.opacity = 0.1; g4.material.transparent = true; g4.material.opacity = 0.28; g1.position.y = 0.012; g4.position.y = 0.014; LOT_EDIT.add(g1, g4); }
+function peFrameBox(b, p, col, y0 = 0) {
+  const d = pDims(p); b.visible = true; b.material.color.setHex(col);
+  b.scale.set(2 * d.hw + 0.1, d.H + 0.1, 2 * d.hl + 0.1); b.position.set(p.x, y0 + (d.H + 0.1) / 2, p.z); b.rotation.y = p.r * D2R;
+}
+// ---- placement rules: inside the fence, and solid pieces don't overlap (rails and the drop-in spot can go anywhere) ----
+function pCorners(p, pad = 0) { const d = pDims(p); return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sz]) => pW(p, sx * (d.hw + pad), sz * (d.hl + pad))); }
+function obbHit(A, B) {
+  const axes = [];
+  [A, B].forEach(Q => { for (let i = 0; i < 2; i++) { const a = Q[i], b = Q[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1; axes.push([-dz / l, dx / l]); } });
+  return axes.every(([ax, az]) => {
+    const pa = A.map(c => c[0] * ax + c[1] * az), pb = B.map(c => c[0] * ax + c[1] * az);
+    return Math.max(...pa) > Math.min(...pb) && Math.max(...pb) > Math.min(...pa);
+  });
+}
+function peCheck(p, skip) {
+  const lim = LOT.half - 0.35;
+  if (pCorners(p).some(([x, z]) => Math.abs(x) > lim || Math.abs(z) > lim)) return 'Outside the lot';
+  if (PT[p.t].free) return '';
+  const me = pCorners(p, -0.03);
+  for (let i = 0; i < PE.pieces.length; i++) { const q = PE.pieces[i]; if (i === skip || PT[q.t].free || !!PT[q.t].stack !== !!PT[p.t].stack) continue; if (obbHit(me, pCorners(q, -0.03))) return 'Overlaps ' + PT[q.t].name.toLowerCase(); }   // a ledge or pad may sit on a solid piece, not on another ledge or pad
+  return '';
+}
+// ---- build the park ----
+function lotRebuild() {
+  while (LOT_PIECES.children.length) { const g = LOT_PIECES.children[0]; LOT_PIECES.remove(g); lotDispose(g); }
+  PE.holders = [];
+  const gaps = [], spawns = [];
+  const rank = T => T.late ? 2 : T.stack ? 1 : 0;   // solid pieces, then what stacks on them (ledges, pads), then rails on top of everything
+  const order = PE.pieces.map((p, i) => i).sort((i, j) => rank(PT[PE.pieces[i].t]) - rank(PT[PE.pieces[j].t]) || i - j);
+  const built = lotBuild(LOT_PIECES, LOT_STATIC, () => {
+    for (const i of order) {
+      const p = PE.pieces[i], T = PT[p.t], hd = new THREE.Group(); hd.userData.pi = i; LOT_PIECES.add(hd); PE.holders[i] = hd;
+      captureInto(hd);
+      try { T.build(p, ...pVals(p)); } catch (err) { console.warn('park piece failed', p, err); }
+      if (T.gaps) gaps.push(...T.gaps(p, ...pVals(p)));
+      if (p.t === 'start') spawns.push({ name: 'Drop-in spot', x: p.x, z: p.z, heading: p.r * D2R });
+    }
+  });
+  LOT_SET.obstacles = built.obstacles; LOT_SET.rails = built.rails;
+  if (!spawns.length) spawns.push({ name: 'Lot', x: 0, z: -LOT.half + 4, heading: 0 });
+  spawns.push({ name: 'Lot centre', x: 0, z: 0, heading: 0 });
+  MAPS.lot.spawns = spawns; MAPS.lot.gaps = gaps;
+  if (MAPID === 'lot') {
+    obstacles.length = 0; obstacles.push(...LOT_SET.obstacles); rails.length = 0; rails.push(...LOT_SET.rails);
+    SPAWNS.length = 0; SPAWNS.push(...spawns); GAPS.length = 0; GAPS.push(...gaps);
+  }
+  peEditOnly(PE.on);
+}
+function peEditOnly(on) { LOT_PIECES.traverse(o => { if (o.userData.editOnly) o.visible = on; }); }
+MAPS.lot = { name: 'Create a Park', set: LOT_SET, spawns: [{ name: 'Lot', x: 0, z: -LOT.half + 4, heading: 0 }], gaps: [], bounds: [LOT.bound, LOT.bound, -LOT.bound],
+  attract: { x: 0, y: 0, z: 0, r: 60, h: 34 }, lede: 'Your own park on an empty lot.', eyebrow: 'Create a Park' };
+ENV.lot = { hemi: [0xc9d4f0, 0x7d6c58, 0.62], sun: [0xffc792, 1.05], amb: [0x5a524a, 0.28], fog: [0xd9b994, 160, 900], sunOff: [-20, 24, 42], sky: 1 };
+// ---- save format: "CLP1." + base64url of {n: name, p: [[code, x*10, z*10, rot, size, height, style], ...]} ----
+function peEncode(name, pieces) {
+  const o = { n: String(name || '').slice(0, 24), p: pieces.map(p => [PT[p.t].code, Math.round(p.x * 10), Math.round(p.z * 10), Math.round(p.r) % 360, p.s | 0, p.h | 0, p.v | 0]) };
+  return 'CLP1.' + btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function peDecode(code) {
+  try {
+    const m = String(code || '').trim().match(/^CLP1\.([A-Za-z0-9_-]+)$/); if (!m) return null;
+    let b = m[1].replace(/-/g, '+').replace(/_/g, '/'); while (b.length % 4) b += '=';
+    const o = JSON.parse(decodeURIComponent(escape(atob(b))));
+    if (!o || !Array.isArray(o.p)) return null;
+    const pieces = [];
+    for (const e of o.p.slice(0, 400)) {
+      if (!Array.isArray(e)) continue;
+      const t = PT_BY_CODE[e[0]], T = PT[t]; if (!T) continue;
+      const num = (v, lo, hi) => Number.isFinite(+v) ? clamp(+v, lo, hi) : 0;
+      const idx = (v, arr) => arr ? clamp(Math.round(num(v, 0, 99)), 0, arr.length - 1) : 0;
+      if (T.unique && pieces.some(q => q.t === t)) continue;
+      pieces.push({ t, x: num(e[1], -400, 400) / 10, z: num(e[2], -400, 400) / 10, r: ((Math.round(num(e[3], -720, 720)) % 360) + 360) % 360, s: idx(e[4], T.size), h: idx(e[5], T.height), v: idx(e[6], T.style) });
+    }
+    return { name: typeof o.n === 'string' ? o.n.slice(0, 24) : '', pieces };
+  } catch (e) { return null; }
+}
+const PE_KEY_SLOTS = 'concrete-lines-parks', PE_KEY_WORK = 'concrete-lines-park-work';
+const peSlots = () => { try { return JSON.parse(localStorage.getItem(PE_KEY_SLOTS) || '{}') || {}; } catch (e) { return {}; } };
+function peSaveWork() { try { localStorage.setItem(PE_KEY_WORK, peEncode(PE.name, PE.pieces)); } catch (e) {} }
+// ---- starter layouts ----
+const pc = (t, x, z, r = 0, s = 0, h = 0, v = 0) => ({ t, x, z, r, s, h, v });
+const PE_STARTERS = {
+  blank: { name: 'Empty lot', pieces: () => [pc('start', 0, -28)] },
+  plaza: { name: 'Street plaza', pieces: () => [
+    pc('start', 0, -28), pc('stairs', 0, -17, 0, 2, 1, 0), pc('stairs', 18, -21, 0, 1, 1, 2),
+    pc('ledge', -7, -6, 0, 2, 1, 1), pc('ledge', 7, -6, 0, 2, 1, 0), pc('ledge', 25, -12, 0, 3, 2, 0), pc('pad', 0, 2, 90, 1, 1, 1),
+    pc('rail', -8, 9, 0, 2, 0, 1), pc('rail', 8, 9, 0, 2, 2, 0), pc('funbox', 0, 15, 90, 1, 1, 0), pc('rail', 2.6, 15, 90, 0, 0, 0),
+    pc('planter', -15, 17, 0, 1, 1), pc('planter', 15, 17, 0, 1, 1), pc('gap', -22, -15, 0, 1, 1), pc('pyramid', 16, -5, 0, 0, 0),
+    pc('bank', -28.5, 5, 270, 2, 1, 0), pc('bank', 28.5, 5, 90, 2, 1, 0), pc('quarter', 0, 29.3, 0, 3, 1)] },
+  trans: { name: 'Transition park', pieces: () => [
+    pc('start', 0, -28), pc('miniramp', 0, -14, 90, 1, 1, 1), pc('bowl', -16, 12, 0, 1, 1, 1), pc('spine', 16, 14, 90, 1, 1),
+    pc('quarter', 0, 29, 0, 3, 2), pc('quarter', -26, -26, 225, 1, 1), pc('quarter', 26, -26, 135, 1, 1), pc('pyramid', 16, -2, 0, 1, 1),
+    pc('tabletop', -16, -10, 0, 1, 1, 1), pc('kicker', 6, 2, 0, 1, 1), pc('rail', 0, 6, 0, 2, 1, 0), pc('bank', 28.5, 4, 90, 2, 2, 1), pc('bank', -28.5, -10, 270, 1, 1, 0)] },
+};
+function peLoadPieces(pieces, name, keepUndo) {
+  if (keepUndo) { PE.undo.push(JSON.stringify(PE.pieces)); PE.redo.length = 0; } else { PE.undo.length = 0; PE.redo.length = 0; }
+  PE.pieces = pieces.map(p => ({ ...p })); PE.sel = -1; PE.place = null; if (name !== undefined) PE.name = name;
+  lotRebuild(); peSaveWork(); peUI();
+}
+function peLoadWork() {
+  let d = null; try { d = peDecode(localStorage.getItem(PE_KEY_WORK)); } catch (e) {}
+  if (d && d.pieces.length) { PE.pieces = d.pieces; PE.name = d.name || 'My park'; }
+  else { PE.pieces = PE_STARTERS.plaza.pieces(); PE.name = 'Street plaza'; }
+}
+// ---- editing ----
+function peMsg(t) { const el = $('peMsg'); if (el) el.textContent = t || ''; PE.msgT = t ? 2.6 : 0; }
+function peCommit(fn) {
+  const before = JSON.stringify(PE.pieces); fn();
+  if (JSON.stringify(PE.pieces) === before) { peUI(); return; }
+  PE.undo.push(before); if (PE.undo.length > 120) PE.undo.shift(); PE.redo.length = 0;
+  lotRebuild(); peSaveWork(); peUI();
+}
+function peHistory(dir) {
+  const from = dir < 0 ? PE.undo : PE.redo, to = dir < 0 ? PE.redo : PE.undo;
+  if (!from.length) return;
+  to.push(JSON.stringify(PE.pieces)); PE.pieces = JSON.parse(from.pop());
+  if (PE.sel >= PE.pieces.length) PE.sel = -1;
+  lotRebuild(); peSaveWork(); peUI();
+}
+function peSelect(i) { PE.sel = i; if (i >= 0) PE.place = null; peUI(); }
+function peTarget() { return PE.place ? null : PE.pieces[PE.sel]; }
+// change one property of the selected piece (or of the piece about to be placed): refused if it would no longer fit
+function peTweak(key, d, wrap) {
+  if (PE.place) {
+    const L = PE.last[PE.place] || (PE.last[PE.place] = { r: 0, s: 0, h: 0, v: 0 }), T = PT[PE.place];
+    if (key === 'r') L.r = (((L.r + d) % 360) + 360) % 360;
+    else { const arr = T[{ s: 'size', h: 'height', v: 'style' }[key]]; if (!arr) return; L[key] = wrap ? (L[key] + d + arr.length) % arr.length : clamp(L[key] + d, 0, arr.length - 1); }
+    PE.ghostKey = ''; peUI(); return;
+  }
+  const p = PE.pieces[PE.sel]; if (!p) return;
+  const T = PT[p.t], q = { ...p };
+  if (key === 'r') q.r = (((q.r + d) % 360) + 360) % 360;
+  else { const arr = T[{ s: 'size', h: 'height', v: 'style' }[key]]; if (!arr) return; q[key] = wrap ? (q[key] + d + arr.length) % arr.length : clamp(q[key] + d, 0, arr.length - 1); if (q[key] === p[key]) return; }
+  const why = peCheck(q, PE.sel); if (why) { peMsg(why); return; }
+  peCommit(() => { PE.pieces[PE.sel] = q; }); peMsg('');
+}
+function peDelete() { if (PE.sel < 0) return; const i = PE.sel; PE.sel = -1; peCommit(() => PE.pieces.splice(i, 1)); }
+function peDuplicate() {
+  const p = PE.pieces[PE.sel]; if (!p || PT[p.t].unique) return;
+  const d = pDims(p), a = p.r * D2R, steps = [[2 * d.hw + 0.5, 0], [-(2 * d.hw + 0.5), 0], [0, 2 * d.hl + 0.5], [0, -(2 * d.hl + 0.5)]];
+  for (const [lx, lz] of steps) {
+    const q = { ...p, x: Math.round((p.x + lx * Math.cos(a) + lz * Math.sin(a)) * 2) / 2, z: Math.round((p.z - lx * Math.sin(a) + lz * Math.cos(a)) * 2) / 2 };
+    if (!peCheck(q, -1)) { peCommit(() => { PE.pieces.push(q); PE.sel = PE.pieces.length - 1; }); peMsg(''); return; }
+  }
+  peMsg('No room next to it');
+}
+const peSnap = (v, fine) => { const f = fine ? 0.1 : 0.5; return Math.round(v / f) * f; };
+function pePlaceAt(g, fine) {
+  const t = PE.place, L = PE.last[t] || { r: 0, s: 0, h: 0, v: 0 }, q = { t, x: peSnap(g.x, fine), z: peSnap(g.z, fine), r: L.r, s: L.s, h: L.h, v: L.v };
+  const ex = PT[t].unique ? PE.pieces.findIndex(p => p.t === t) : -1;
+  const why = peCheck(q, ex); if (why) { peMsg(why); return; }
+  peCommit(() => { if (ex >= 0) { PE.pieces[ex] = q; PE.sel = ex; } else { PE.pieces.push(q); PE.sel = PE.pieces.length - 1; } });
+  PE.place = null; peMsg(''); peUI();
+}
+// ---- picking and the ground under the pointer ----
+const peRay = new THREE.Raycaster(), peNdc = new THREE.Vector2();
+function peRayAt(cx, cy) { const r = renderer.domElement.getBoundingClientRect(); peNdc.set((cx - r.left) / r.width * 2 - 1, -(cy - r.top) / r.height * 2 + 1); peApplyCam(); peRay.setFromCamera(peNdc, camera); return peRay; }
+function peGround(cx, cy) { const R = peRayAt(cx, cy).ray, o = R.origin, d = R.direction; if (d.y > -1e-4) return null; const t = -o.y / d.y; return { x: o.x + d.x * t, z: o.z + d.z * t }; }
+function pePick(cx, cy) {
+  const R = peRayAt(cx, cy), hs = PE.holders.filter(Boolean), hit = R.intersectObjects(hs, true).find(h => h.object.visible !== false);
+  if (hit) { let o = hit.object; while (o && o.userData.pi === undefined) o = o.parent; if (o) return o.userData.pi; }
+  const g = peGround(cx, cy); if (!g) return -1;
+  let best = -1, area = Infinity;
+  PE.pieces.forEach((p, i) => {
+    const d = pDims(p), a = p.r * D2R, dx = g.x - p.x, dz = g.z - p.z, lx = dx * Math.cos(a) - dz * Math.sin(a), lz = dx * Math.sin(a) + dz * Math.cos(a);
+    const hw = Math.max(d.hw, 0.45) + 0.1, hl = d.hl + 0.1;
+    if (Math.abs(lx) <= hw && Math.abs(lz) <= hl && hw * hl < area) { area = hw * hl; best = i; }
+  });
+  return best;
+}
+// ---- camera ----
+function peApplyCam() {
+  const C = PE.cam, cp = Math.cos(C.pv), sp = Math.sin(C.pv);
+  camera.position.set(C.tx - Math.sin(C.yaw) * cp * C.dist, sp * C.dist, C.tz - Math.cos(C.yaw) * cp * C.dist);
+  camera.lookAt(C.tx, 0, C.tz);
+  if (Math.abs(camera.fov - 50) > 0.01) { camera.fov = 50; camera.updateProjectionMatrix(); }
+  camera.updateMatrixWorld();
+}
+function pePan(ax, ay, bx, by) { const g1 = peGround(ax, ay), g2 = peGround(bx, by); if (!g1 || !g2) return; PE.cam.tx = clamp(PE.cam.tx + g1.x - g2.x, -45, 45); PE.cam.tz = clamp(PE.cam.tz + g1.z - g2.z, -45, 45); }
+function peTick(dt) {
+  const C = PE.cam;
+  if ($('peDlg').hidden && !keys.ControlLeft && !keys.ControlRight && !keys.MetaLeft) {
+    const k = c => !!keys[c], px = (k('ArrowRight') || k('KeyD') ? 1 : 0) - (k('ArrowLeft') || k('KeyA') ? 1 : 0), pz = (k('ArrowUp') || k('KeyW') ? 1 : 0) - (k('ArrowDown') || k('KeyS') ? 1 : 0);
+    const sp = (12 + C.dist * 0.5) * dt;
+    C.tx = clamp(C.tx + (-Math.cos(C.yaw) * px + Math.sin(C.yaw) * pz) * sp, -45, 45); C.tz = clamp(C.tz + (Math.sin(C.yaw) * px + Math.cos(C.yaw) * pz) * sp, -45, 45);
+    if (k('KeyQ')) C.yaw += 1.5 * dt; if (k('KeyE')) C.yaw -= 1.5 * dt;
+  }
+  C.pv += ((C.top ? 1.5 : C.pitch) - C.pv) * damp(9, dt);
+  peApplyCam();
+  if (PE.msgT > 0 && (PE.msgT -= dt) <= 0) peMsg('');
+  // the ghost: the piece about to be placed, or the one being dragged, tinted by whether it fits
+  let gp = null, gskip = -1;
+  if (PE.drag && PE.drag.p) { gp = PE.drag.p; gskip = PE.drag.i; }
+  else if (PE.place && PE.hover) { const L = PE.last[PE.place] || { r: 0, s: 0, h: 0, v: 0 }; gp = { t: PE.place, x: peSnap(PE.hover.x, PE.shift), z: peSnap(PE.hover.z, PE.shift), r: L.r, s: L.s, h: L.h, v: L.v }; if (PT[PE.place].unique) gskip = PE.pieces.findIndex(p => p.t === PE.place); }
+  if (gp) {
+    const ok = !peCheck(gp, gskip), key = JSON.stringify(gp);
+    if (key !== PE.ghostKey) {
+      while (PE_GHOST.children.length) { const c = PE_GHOST.children[0]; PE_GHOST.remove(c); lotDispose(c); }
+      const hd = new THREE.Group(); PE_GHOST.add(hd);
+      lotBuild(hd, LOT_SET, () => { try { PT[gp.t].build(gp, ...pVals(gp)); } catch (e) {} });
+      hd.traverse(o => { if (o.isMesh) { if (o.material && !LOT_SHARED.has(o.material) && o.material !== PE_ARROW_M) o.material.dispose(); o.castShadow = false; o.receiveShadow = false; o.userData.ghost = true; } });
+      PE.ghostKey = key;
+    }
+    PE_GHOST.traverse(o => { if (o.userData.ghost) o.material = ok ? GHOST_OK : GHOST_BAD; });
+    PE_GHOST.visible = true;
+    const col = ok ? 0x9fb866 : 0xff6a5c; peFrameBox(PE_GBOX, gp, col);
+    const d = pDims(gp); PE_FOOT.visible = true; PE_FOOT.material.color.setHex(col); PE_FOOT.scale.set(2 * d.hw, 1, 2 * d.hl); PE_FOOT.position.set(gp.x, 0.025, gp.z); PE_FOOT.rotation.y = gp.r * D2R;
+  } else { PE_GHOST.visible = false; PE_GBOX.visible = false; PE_FOOT.visible = false; }
+  const sp = PE.pieces[PE.sel];
+  if (sp && !PE.drag) peFrameBox(PE_SELBOX, sp, 0xe88c6c); else PE_SELBOX.visible = false;
+  PE.holders.forEach((hd, i) => { if (hd) hd.visible = !(PE.drag && PE.drag.i === i && PE.drag.p); });
+}
+// ---- pointer: click / tap to place or select, drag a piece to move it, drag empty ground to pan, right-drag to orbit, wheel / pinch to zoom ----
+{
+  const cv = renderer.domElement, live = () => PE.on && !game.running && $('peDlg').hidden;
+  cv.addEventListener('pointerdown', e => {
+    if (!live()) return;
+    e.preventDefault(); try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+    PE.ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, moved: false });
+    PE.shift = e.shiftKey;
+    if (PE.ptrs.size === 2) { if (PE.drag) PE.drag = null; PE.mode = 'pinch'; PE.pinch = null; return; }
+    if (PE.ptrs.size > 2) return;
+    if (e.button === 2) { PE.mode = 'orbit'; return; }
+    if (e.button === 1) { PE.mode = 'pan'; return; }
+    PE.hover = peGround(e.clientX, e.clientY);
+    if (PE.place) { PE.mode = 'placeTap'; return; }
+    const i = pePick(e.clientX, e.clientY);
+    if (i >= 0) {
+      peSelect(i); const p = PE.pieces[i], g = PE.hover;
+      PE.mode = 'dragWait'; PE.dragOff = g ? { x: p.x - g.x, z: p.z - g.z } : { x: 0, z: 0 }; return;
+    }
+    PE.mode = 'panTap';
+  });
+  cv.addEventListener('pointermove', e => {
+    if (!live()) return;
+    const pt = PE.ptrs.get(e.pointerId);
+    PE.shift = e.shiftKey;
+    if (!pt) { if (e.pointerType === 'mouse') PE.hover = peGround(e.clientX, e.clientY); return; }
+    if (!pt.moved && Math.hypot(e.clientX - pt.x0, e.clientY - pt.y0) > 6) pt.moved = true;
+    const C = PE.cam;
+    if (PE.mode === 'pinch' && PE.ptrs.size === 2) {
+      const [a, b] = [...PE.ptrs.values()], ax = a === pt ? e.clientX : a.x, ay = a === pt ? e.clientY : a.y, bx = b === pt ? e.clientX : b.x, by = b === pt ? e.clientY : b.y;
+      const d = Math.hypot(bx - ax, by - ay), ang = Math.atan2(by - ay, bx - ax), mx = (ax + bx) / 2, my = (ay + by) / 2;
+      if (PE.pinch) { C.dist = clamp(C.dist * PE.pinch.d / Math.max(20, d), 10, 110); C.yaw += angDiff(PE.pinch.a, ang); pePan(PE.pinch.mx, PE.pinch.my, mx, my); }
+      PE.pinch = { d: Math.max(20, d), a: ang, mx, my };
+    } else if (PE.mode === 'orbit') { C.yaw -= (e.clientX - pt.x) * 0.006; C.pitch = clamp(C.pitch + (e.clientY - pt.y) * 0.005, 0.3, 1.5); C.top = false; }
+    else if (PE.mode === 'pan' || ((PE.mode === 'panTap' || PE.mode === 'placeTap') && pt.moved)) { if (PE.mode !== 'pan') PE.mode = 'pan'; pePan(pt.x, pt.y, e.clientX, e.clientY); }
+    else if ((PE.mode === 'dragWait' && pt.moved) || PE.mode === 'drag') {
+      PE.mode = 'drag'; const g = peGround(e.clientX, e.clientY), p = PE.pieces[PE.sel];
+      if (g && p) PE.drag = { i: PE.sel, p: { ...p, x: peSnap(clamp(g.x + PE.dragOff.x, -LOT.half, LOT.half), e.shiftKey), z: peSnap(clamp(g.z + PE.dragOff.z, -LOT.half, LOT.half), e.shiftKey) } };
+    }
+    if (PE.place && e.pointerType === 'mouse') PE.hover = peGround(e.clientX, e.clientY);
+    pt.x = e.clientX; pt.y = e.clientY;
+  });
+  const up = (e, cancel) => {
+    const pt = PE.ptrs.get(e.pointerId); if (!pt) return;
+    PE.ptrs.delete(e.pointerId);
+    if (PE.mode === 'pinch') { if (!PE.ptrs.size) PE.mode = null; return; }
+    if (!cancel && live()) {
+      if (PE.mode === 'placeTap' && !pt.moved) { const g = peGround(e.clientX, e.clientY); if (g) pePlaceAt(g, e.shiftKey); }
+      else if (PE.mode === 'panTap' && !pt.moved) peSelect(-1);
+      else if (PE.mode === 'drag' && PE.drag && PE.drag.p) {
+        const D = PE.drag, why = peCheck(D.p, D.i);
+        if (why) peMsg(why + ', moved back'); else { peCommit(() => { PE.pieces[D.i] = D.p; }); peMsg(''); }
+      }
+    }
+    PE.drag = null; PE.mode = null;
+    if (e.pointerType !== 'mouse') PE.hover = null;
+  };
+  cv.addEventListener('pointerup', e => up(e, false));
+  cv.addEventListener('pointercancel', e => up(e, true));
+  cv.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse' && !PE.ptrs.size) PE.hover = null; });
+  cv.addEventListener('wheel', e => { if (!live()) return; e.preventDefault(); PE.cam.dist = clamp(PE.cam.dist * Math.exp(e.deltaY * 0.0012), 10, 110); }, { passive: false });
+}
+// ---- keys ----
+window.addEventListener('keydown', e => {
+  if (game.running && MAPID === 'lot' && e.code === 'Tab') { e.preventDefault(); peEdit(); return; }
+  if (!PE.on || game.running) return;
+  if (!$('peDlg').hidden) { if (e.code === 'Escape') peDlg(false); return; }
+  const tg = e.target; if (tg && (tg.tagName === 'INPUT' || tg.tagName === 'TEXTAREA')) { if (e.code === 'Enter' || e.code === 'Escape') tg.blur(); return; }
+  const ctrl = e.ctrlKey || e.metaKey;
+  if (ctrl && e.code === 'KeyZ') { e.preventDefault(); peHistory(e.shiftKey ? 1 : -1); return; }
+  if (ctrl && e.code === 'KeyY') { e.preventDefault(); peHistory(1); return; }
+  if (ctrl && e.code === 'KeyD') { e.preventDefault(); peDuplicate(); return; }
+  if (ctrl) return;
+  switch (e.code) {
+    case 'KeyR': peTweak('r', e.shiftKey ? -15 : 15); break;
+    case 'BracketRight': case 'PageUp': e.preventDefault(); peTweak('h', 1); break;
+    case 'BracketLeft': case 'PageDown': e.preventDefault(); peTweak('h', -1); break;
+    case 'Equal': case 'NumpadAdd': peTweak('s', 1); break;
+    case 'Minus': case 'NumpadSubtract': peTweak('s', -1); break;
+    case 'KeyT': peTweak('v', 1, true); break;
+    case 'Delete': case 'Backspace': e.preventDefault(); peDelete(); break;
+    case 'Escape': if (PE.place) { PE.place = null; peUI(); } else peSelect(-1); break;
+    case 'KeyV': PE.cam.top = !PE.cam.top; peUI(); break;
+    case 'Enter': peRide(); break;
+    case 'Tab': e.preventDefault(); break;
+  }
+});
+// ---- UI ----
+function pePieceLabel(p) {
+  const T = PT[p.t], [S, H, Y] = pVals(p), bits = [];
+  if (T.size) bits.push(T.sl(S)); if (T.height) bits.push(T.hl(H)); if (T.style) bits.push(T.vl(Y)); bits.push(Math.round(p.r) + '°');
+  if (T.stack && !PE.place && (LOT_BASE.get(p) || 0) > 0.05) bits.push('on top of a piece, top at ' + (LOT_BASE.get(p) + H).toFixed(2) + ' m');
+  return bits.join(' · ');
+}
+function peUI() {
+  if (!$('pe')) return;
+  document.querySelectorAll('#pePal .pe-piece').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.t === PE.place)));
+  const p = PE.place ? { t: PE.place, ...(PE.last[PE.place] || { r: 0, s: 0, h: 0, v: 0 }) } : PE.pieces[PE.sel];
+  const T = p && PT[p.t];
+  $('peSelName').textContent = T ? (PE.place ? 'Placing: ' : '') + T.name : PE.pieces.length + ' pieces';
+  $('peSelInfo').textContent = T ? pePieceLabel(p) : 'Pick a piece on the left, or click one in the lot';
+  const has = !!T, sel = !PE.place && !!PE.pieces[PE.sel];
+  const set = (id, on) => { const b = $(id); if (b) b.disabled = !on; };
+  set('peRotL', has && p.t !== 'planter'); set('peRotR', has && p.t !== 'planter');
+  set('peLower', has && !!T.height && p.h > 0); set('peRaise', has && !!T.height && p.h < T.height.length - 1);
+  set('peSmaller', has && !!T.size && p.s > 0); set('peLarger', has && !!T.size && p.s < T.size.length - 1);
+  set('peStyle', has && !!T.style); set('peDup', sel && !T.unique); set('peDel', sel);
+  set('peUndo', PE.undo.length > 0); set('peRedo', PE.redo.length > 0);
+  $('peTop').textContent = PE.cam.top ? 'Angled view' : 'Top view';
+  if (document.activeElement !== $('peName')) $('peName').value = PE.name;
+}
+function peBuildPalette() {
+  const pal = $('pePal'); if (!pal || pal.childElementCount) return;
+  const groups = {};
+  Object.entries(PT).forEach(([k, T]) => (groups[T.grp] = groups[T.grp] || []).push([k, T]));
+  Object.entries(groups).forEach(([g, list]) => {
+    const h = document.createElement('div'); h.className = 'pe-grp'; h.textContent = g; pal.appendChild(h);
+    list.forEach(([k, T]) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'pe-piece'; b.dataset.t = k; b.textContent = T.name; b.setAttribute('aria-pressed', 'false');
+      b.addEventListener('click', () => { PE.place = PE.place === k ? null : k; if (PE.place) { PE.sel = -1; PE.ghostKey = ''; if (!PE.hover) PE.hover = { x: PE.cam.tx, z: PE.cam.tz }; } peUI(); });
+      pal.appendChild(b);
+    });
+  });
+}
+function peRenderSlots() {
+  const box = $('peSlots'), S = peSlots(), names = Object.keys(S).sort();
+  box.innerHTML = '';
+  if (!names.length) { const e = document.createElement('p'); e.className = 'pe-empty'; e.textContent = 'No saved parks yet.'; box.appendChild(e); return; }
+  names.forEach(n => {
+    const d = peDecode(S[n]), row = document.createElement('div'); row.className = 'pe-slot';
+    const lbl = document.createElement('span'); lbl.innerHTML = '<b></b><small></small>'; lbl.firstChild.textContent = n; lbl.lastChild.textContent = d ? d.pieces.length + ' pieces' : 'unreadable';
+    const ld = document.createElement('button'); ld.type = 'button'; ld.className = 'btn ghost pe-sm'; ld.textContent = 'Load'; ld.disabled = !d;
+    ld.onclick = () => { peLoadPieces(d.pieces, n, true); peDlgMsg('Loaded ' + n); };
+    const del = document.createElement('button'); del.type = 'button'; del.className = 'btn ghost pe-sm'; del.textContent = 'Delete';
+    del.onclick = () => { if (del.dataset.armed) { const s = peSlots(); delete s[n]; try { localStorage.setItem(PE_KEY_SLOTS, JSON.stringify(s)); } catch (e) {} peRenderSlots(); } else { del.dataset.armed = '1'; del.textContent = 'Confirm'; } };
+    row.append(lbl, ld, del); box.appendChild(row);
+  });
+}
+function peDlgMsg(t) { $('peDlgMsg').textContent = t || ''; }
+function peDlg(open) {
+  $('peDlg').hidden = !open;
+  if (open) { $('peSaveName').value = PE.name; $('peCode').value = peEncode(PE.name, PE.pieces); peRenderSlots(); peDlgMsg(''); }
+}
+function peWireUI() {
+  peBuildPalette();
+  const on = (id, f) => { const b = $(id); if (b) b.addEventListener('click', f); };
+  on('peRotL', () => peTweak('r', -15)); on('peRotR', () => peTweak('r', 15));
+  on('peLower', () => peTweak('h', -1)); on('peRaise', () => peTweak('h', 1));
+  on('peSmaller', () => peTweak('s', -1)); on('peLarger', () => peTweak('s', 1)); on('peStyle', () => peTweak('v', 1, true));
+  on('peDup', peDuplicate); on('peDel', peDelete); on('peUndo', () => peHistory(-1)); on('peRedo', () => peHistory(1));
+  on('peRide', () => peRide()); on('peMenu', () => peExit()); on('peParks', () => peDlg(true)); on('peDlgClose', () => peDlg(false));
+  on('peTop', () => { PE.cam.top = !PE.cam.top; peUI(); });
+  on('peOrbL', () => { PE.cam.yaw += Math.PI / 8; }); on('peOrbR', () => { PE.cam.yaw -= Math.PI / 8; });
+  on('peZoomIn', () => { PE.cam.dist = clamp(PE.cam.dist / 1.25, 10, 110); }); on('peZoomOut', () => { PE.cam.dist = clamp(PE.cam.dist * 1.25, 10, 110); });
+  on('peSaveBtn', () => {
+    const n = ($('peSaveName').value || '').trim().slice(0, 24) || 'My park', s = peSlots();
+    s[n] = peEncode(n, PE.pieces); try { localStorage.setItem(PE_KEY_SLOTS, JSON.stringify(s)); peDlgMsg('Saved as ' + n); } catch (e) { peDlgMsg('Could not save in this browser'); }
+    PE.name = n; peSaveWork(); peRenderSlots(); $('peCode').value = peEncode(PE.name, PE.pieces); peUI();
+  });
+  on('peCopy', () => {
+    const ta = $('peCode'); ta.value = peEncode(PE.name, PE.pieces); ta.select();
+    const done = () => peDlgMsg('Code copied');
+    try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(done, () => { document.execCommand('copy'); done(); }); else { document.execCommand('copy'); done(); } } catch (e) { peDlgMsg('Select the code and copy it'); }
+  });
+  on('peLoadCode', () => { const d = peDecode($('peCode').value); if (!d) { peDlgMsg('That code could not be read'); return; } peLoadPieces(d.pieces, d.name || 'Shared park', true); peDlgMsg('Loaded ' + (d.name || 'shared park') + ', ' + d.pieces.length + ' pieces'); });
+  document.querySelectorAll('#peDlg [data-start]').forEach(b => b.addEventListener('click', () => { const S = PE_STARTERS[b.dataset.start]; peLoadPieces(S.pieces(), S.name, true); peDlgMsg('Started from ' + S.name.toLowerCase()); }));
+  const nm = $('peName'); if (nm) nm.addEventListener('input', () => { PE.name = nm.value.slice(0, 24); peSaveWork(); });
+  on('startPark', () => peOpen());
+  on('editBtn', () => peEdit()); on('peBackBtn', () => peEdit());
+}
+// ---- in and out of the editor, and riding the park ----
+function peOpen() {
+  if (NET.lockMap) { mapNote('The host picks the map'); return; }
+  if (MAPID !== 'lot') PE.prevMap = MAPID;
+  if (!PE.loaded) { peLoadWork(); PE.loaded = true; }
+  setMap('lot', { quiet: true });
+  PE.on = true; lotRebuild();
+  $('menu').hidden = true; $('pe').hidden = false; LOT_EDIT.visible = true;
+  respawn(); peUI();
+}
+function peExit() {
+  PE.on = false; PE.place = null; PE.sel = -1; PE.drag = null; $('pe').hidden = true; peDlg(false); LOT_EDIT.visible = false;
+  setMap(PE.prevMap || 'river', { quiet: true }); $('menu').hidden = false;
+}
+function peRide() {
+  if (!PE.on) return;
+  PE.on = false; PE.place = null; PE.drag = null; $('pe').hidden = true; peDlg(false); LOT_EDIT.visible = false; peEditOnly(false);
+  startGame();
+}
+function peEdit() {
+  if (MAPID !== 'lot') return;
+  if (RAG.on) endRagdoll();
+  game.running = false; game.paused = false; saveBest();
+  ['pause', 'hud', 'touch'].forEach(id => $(id).hidden = true); resetCombo(); sfx.update(0, 0, 0);
+  // look at the spot you were riding
+  PE.cam.tx = clamp(P.pos.x, -LOT.half, LOT.half); PE.cam.tz = clamp(P.pos.z, -LOT.half, LOT.half); PE.cam.dist = Math.min(PE.cam.dist, 46);
+  PE.on = true; $('pe').hidden = false; LOT_EDIT.visible = true; peEditOnly(true); respawn(); peUI();
+}
+peWireUI();
+// ---- test hooks: ?park=edit|ride|test&layout=plaza|trans|blank|<CLP1 code>&t=<s> (see HANDOFF) ----
+// edit: the editor (sel=<i> selects a piece, place=<type>&at=x,z shows a ghost, cam=top|x,y,z,tx,ty,tz, yaw/pitch/dist)
+// ride: rides the park (spawn=x,z,headingDeg,speed; keys=KeyW:0:2;Space:1:1.2 holds keys over ride time; freeze=t stops there)
+// test: scripted physics checks on placed pieces; results in #peTest and document.title. Sound is stubbed in every hook.
+function peBoot() {
+  const q = new URLSearchParams(location.search), mode = q.get('park');
+  if (!mode) return;
+  const H = PE.hook = { mode, t0: performance.now(), shot: parseFloat(q.get('t') || '2.5'), done: false, q };
+  sfx.init = () => {}; try { sfx.setMuted(true); } catch (e) {}
+  if ($('splash')) $('splash').hidden = true;
+  const lay = q.get('layout') || 'plaza', st = PE_STARTERS[lay], dec = st ? null : peDecode(lay);
+  PE.loaded = true; PE.pieces = st ? st.pieces() : dec ? dec.pieces : PE_STARTERS.plaza.pieces(); PE.name = st ? st.name : dec ? dec.name : 'Test';
+  if (mode === 'test') { peOpen(); peSelfTest(); return; }
+  peOpen();
+  const num = k => q.get(k) !== null && Number.isFinite(+q.get(k)) ? +q.get(k) : null;
+  if (num('yaw') !== null) PE.cam.yaw = num('yaw'); if (num('pitch') !== null) PE.cam.pitch = PE.cam.pv = num('pitch'); if (num('dist') !== null) PE.cam.dist = num('dist');
+  if (q.get('tgt')) { const [x, z] = q.get('tgt').split(',').map(Number); PE.cam.tx = x; PE.cam.tz = z; }
+  if (q.get('cam') === 'top') { PE.cam.top = true; PE.cam.pv = 1.5; }
+  if (q.get('sel') !== null) peSelect(+q.get('sel'));
+  if (q.get('place') && PT[q.get('place')]) { PE.place = q.get('place'); const [x, z] = (q.get('at') || '0,0').split(',').map(Number); PE.hover = { x, z }; if (q.get('rot')) PE.last[PE.place] = { r: +q.get('rot'), s: 0, h: 0, v: 0 }; peUI(); }
+  if (q.get('dlg')) peDlg(true);
+  if (mode === 'ride') {
+    peRide();
+    const sp = q.get('spawn');
+    if (sp) { const [x, z, hd, s] = sp.split(',').map(Number); P.pos.set(x, heightAt(x, z), z); P.heading = (hd || 0) * D2R; P.s = s || 0; camYaw = P.heading; camera.position.set(x - Math.sin(P.heading) * 7, P.pos.y + 3, z - Math.cos(P.heading) * 7); camY = P.pos.y + 2.5; }
+    H.keys = (q.get('keys') || '').split(';').filter(Boolean).map(s => { const [c, a, b] = s.split(':'); return { c, a: +a, b: +b, on: false }; });
+    H.rideT = 0; H.freeze = num('freeze');
+    // headless renders are slow, so a frozen ride is simulated up front at a fixed step (the same calls the main loop makes), then held
+    if (H.freeze !== null) {
+      const dt = 1 / 60;
+      while (H.rideT < H.freeze) {
+        peHookFrame(0, 0); if (game.paused) break;
+        game.clock += dt; physics(dt); stepDrops(dt); animate(dt); fxTick(dt); updateCamera(dt);
+        for (const k in pressed) delete pressed[k]; for (const k in released) delete released[k];
+        H.rideT += dt;
+      }
+      game.paused = true; H.frozen = true;
+    }
+  }
+}
+// called from the main loop before and after the frame renders
+function peHookFrame(phase, dt) {
+  const H = PE.hook; if (!H || H.mode === 'test') return;
+  if (phase === 0 && H.mode === 'ride' && game.running && !game.paused) {
+    if (dt) H.rideT += dt;
+    H.keys.forEach(k => { const want = H.rideT >= k.a && H.rideT < k.b; if (want && !k.on) { keys[k.c] = true; pressed[k.c] = true; } if (!want && k.on) { keys[k.c] = false; released[k.c] = true; } k.on = want; });
+    if (H.freeze !== null && H.rideT >= H.freeze) { game.paused = true; H.frozen = true; }
+  }
+  const due = H.mode === 'ride' && H.freeze !== null ? !!H.frozen : (performance.now() - H.t0) / 1000 >= H.shot;   // a frozen ride is shot the moment it freezes
+  if (phase === 1 && !H.done && due) {
+    const c = H.q.get('cam');
+    if (c && c.includes(',')) { const v = c.split(',').map(Number); camera.position.set(v[0], v[1], v[2]); camera.lookAt(v[3], v[4], v[5]); camera.updateMatrixWorld(); renderer.render(scene, camera); }
+    let im = $('peShotImg'); if (!im) { im = document.createElement('img'); im.id = 'peShotImg'; im.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none'; $('stage').appendChild(im); }
+    im.src = renderer.domElement.toDataURL('image/png'); H.done = true;
+  }
+}
+// scripted checks: a rider sent at each piece, stepping the real physics
+function peSelfTest() {
+  const out = [], step = dt => { game.clock += dt; physics(dt); for (const k in pressed) delete pressed[k]; for (const k in released) delete released[k]; };
+  const press = c => { keys[c] = true; pressed[c] = true; }, rel = c => { keys[c] = false; released[c] = true; };
+  const layout = ps => { PE.pieces = ps; lotRebuild(); setMap('lot', { quiet: true }); if (!game.running) startGame(); };
+  const go = (x, z, hd, s) => { respawn(); P.pos.set(x, heightAt(x, z), z); P.heading = hd * D2R; P.s = s; P.state = 'ground'; P.air = null; P.grindCD = 0; resetCombo(); for (const k in keys) keys[k] = false; };
+  const run = (secs, each) => { const seen = new Set(), tr = new Set(); let maxY = -9, bailed = false, gt = 0; for (let i = 0; i < secs * 60; i++) { if (each) each(i / 60); step(1 / 60); seen.add(P.state); maxY = Math.max(maxY, P.pos.y); if (P.state === 'bail' || RAG.on) bailed = true; if (P.state === 'grind') gt += 1 / 60; combo.tricks.forEach(n => tr.add(n)); } return { seen, maxY, bailed, gt, tricks: [...tr].join(',') }; };
+  const rec = (name, ok, info) => out.push((ok ? 'PASS ' : 'FAIL ') + name + (info ? ' :: ' + info : ''));
+  try {
+    // 1) ground R onto a round rail straight ahead
+    layout([pc('start', 0, -20), pc('rail', 0, 0, 0, 2, 1, 0)]);
+    go(0, -5.2, 0, 6.5); let r = run(2.5, t => { if (t === 0) press(K.grind); if (t > 0.1) rel(K.grind); });
+    rec('Rail: R hop onto a 6 m round rail', r.gt > 0.4, 'grind ' + r.gt.toFixed(2) + ' s, states ' + [...r.seen].join('/') + (r.bailed ? ', BAILED' : ''));
+    // 2) ollie + R catch onto a flat bar (try a few run-up lengths)
+    layout([pc('start', 0, -20), pc('rail', 0, 0, 0, 2, 0, 1)]);
+    let caught = [];
+    for (const d of [1.5, 2, 2.5, 3, 3.5, 4]) { go(0, -3 - d, 0, 6.5); r = run(2.2, t => { if (t === 0) press(K.jump); if (t > 0.16 && t < 0.2) rel(K.jump); if (t > 0.24 && t < 0.26) press(K.grind); if (t > 0.3) rel(K.grind); }); if (r.gt > 0.3) caught.push(d); }
+    rec('Flat bar: ollie + R catch', caught.length > 0, 'caught from run-ups ' + (caught.join(', ') || 'none'));
+    // 3) ground R onto a ledge edge
+    layout([pc('start', 0, -20), pc('ledge', 0, 0, 0, 2, 1, 0)]);
+    go(0.22, -5.2, 0, 6.5); r = run(2.5, t => { if (t === 0) press(K.grind); if (t > 0.1) rel(K.grind); });
+    rec('Ledge: R hop onto the edge of a 45 cm ledge', r.gt > 0.4, 'grind ' + r.gt.toFixed(2) + ' s' + (r.bailed ? ', BAILED' : ''));
+    // 4) quarter pipe: ride up, air, come back down
+    layout([pc('start', 0, -20), pc('quarter', 0, 6, 0, 1, 1)]);
+    go(0, -6, 0, 11.5); r = run(4);
+    rec('Quarter pipe: air out and come back down', !r.bailed && r.maxY > 2 && r.seen.has('air'), 'max height ' + r.maxY.toFixed(2) + ' m, states ' + [...r.seen].join('/') + (r.bailed ? ', BAILED' : '') + ', end v ' + P.s.toFixed(1));
+    // 5) quarter coping from a carve: ride up the face at an angle, tap R in the air to arm the catch, come down on the coping.
+    //    The same approach on the hand-built mini ramp (Concrete Park) is run for comparison.
+    const coping = (x0, z0) => { const got = []; for (const hd of [30, 40, 50]) for (const sp of [8, 9.5]) { go(x0, z0, hd, sp); let armed = false;
+        r = run(3.5, () => { if (P.state === 'air' && !armed) { press(K.grind); armed = true; } else if (armed) rel(K.grind); }); if (r.gt > 0.25) got.push(hd + 'deg@' + sp + '=' + r.gt.toFixed(2)); } return got; };
+    { layout([pc('start', 0, -20), pc('quarter', 0, 6, 0, 3, 1)]); const hl = qDims(1.8, 1.2).hl, lot = coping(-4.5, 6 - hl - 3);
+      setMap('park', { quiet: true }); const hb = coping(21, -205.5);
+      rec('Quarter coping: carve up, tap R in the air, grind the coping', lot.length > 0, 'lot quarter ' + (lot.join(' ') || 'none') + '; hand-built mini ramp ' + (hb.join(' ') || 'none')); }
+    // 6) stair set: up the bank, over the deck, down the stairs
+    layout([pc('start', 0, -20), pc('stairs', 0, 0, 0, 2, 1, 0)]);
+    go(0, -7, 0, 8); r = run(3);
+    rec('Stair set: roll up the bank and drop the stairs', !r.bailed && r.maxY > 0.8 && P.pos.z > 4, 'max ' + r.maxY.toFixed(2) + ' m, end z ' + P.pos.z.toFixed(1) + ', state ' + P.state + (r.bailed ? ', BAILED' : ''));
+    // 7) handrail: R hop onto the stair handrail from the deck
+    //    The rail is kinked: level over the deck, down the steps, level at the bottom. It should hold to the bottom of the steps (z 3.27 here).
+    { const hits = []; let best = 0, bestEnd = -9; for (const z of [-1.6, -1.1, -0.6]) for (const sp of [5, 6.5, 8]) { go(1.78, z, 0, sp); let endZ = -9; r = run(2.5, t => { if (t === 0) press(K.grind); if (t > 0.1) rel(K.grind); if (P.state === 'grind') endZ = P.pos.z; });
+        if (r.gt > 0.05) hits.push(z + '@' + sp + '=' + r.gt.toFixed(2) + 's/z' + endZ.toFixed(1)); if (r.gt > best) { best = r.gt; bestEnd = endZ; } }
+      let air = []; for (const z of [-2.2, -1.6, -1.1]) { go(1.78, z, 0, 6.5); r = run(2.5, t => { if (t === 0) press(K.jump); if (t > 0.22 && t < 0.26) rel(K.jump); if (t > 0.3 && t < 0.33) press(K.grind); if (t > 0.4) rel(K.grind); }); if (r.gt > 0.05) air.push(z + '=' + r.gt.toFixed(2)); }
+      rec('Stair handrail: R hop from the deck, held down the steps to the end of the rail', hits.length > 0 && bestEnd > 3.5, 'longest ' + best.toFixed(2) + ' s to z ' + bestEnd.toFixed(2) + '; R hop ' + (hits.join(' ') || 'none') + '; ollie+R ' + (air.join(' ') || 'none')); }
+    // 8) kicker gap: clear it and score the gap
+    layout([pc('start', 0, -20), pc('gap', 0, 0, 0, 1, 1)]);
+    go(0, -9, 0, 9.5); r = run(3);
+    rec('Kicker gap: clear it, gap scores', !r.bailed && /Kicker Gap/.test(r.tricks), 'tricks [' + r.tricks + '] max ' + r.maxY.toFixed(2) + (r.bailed ? ', BAILED' : ''));
+    // 9) mini ramp: pump back and forth
+    layout([pc('start', 0, -20), pc('miniramp', 0, 0, 90, 1, 1, 1)]);
+    go(0, 0, 90, 7); let flips = 0, lastS = 1; r = run(6, () => { const s = Math.sign(P.state === 'ground' ? P.s : P.vel.x); if (s && s !== lastS) { flips++; lastS = s; } });
+    rec('Mini ramp: rides wall to wall', !r.bailed && r.maxY > 1, 'max ' + r.maxY.toFixed(2) + ' m, direction changes ' + flips + (r.bailed ? ', BAILED' : ''));
+    // 10) bowl: drop in from the deck
+    layout([pc('start', 0, -20), pc('bowl', 0, 0, 0, 1, 1, 0)]);
+    { const b = bowlDims(2.5, 2.2, 0); go(0, -(2.5 + 2.2 * 0.97 + 0.5), 0, 3); r = run(4);
+      rec('Bowl: drop in from the deck and ride', !r.bailed && r.seen.size >= 1 && r.maxY > 1, 'start y ' + heightAt(0, -(2.5 + 2.2 * 0.97 + 0.5)).toFixed(2) + ', max ' + r.maxY.toFixed(2) + ', states ' + [...r.seen].join('/') + (r.bailed ? ', BAILED' : '')); }
+    // 11) funbox: over the top
+    layout([pc('start', 0, -20), pc('funbox', 0, 0, 0, 1, 1, 0)]);
+    go(0, -6, 0, 8); r = run(2.5);
+    rec('Funbox: ride over', !r.bailed && r.maxY > 0.6, 'max ' + r.maxY.toFixed(2) + (r.bailed ? ', BAILED' : ''));
+    // 12) the fence: ride into it, don't leave the lot
+    layout([pc('start', 0, -20)]);
+    go(0, 25, 0, 10); r = run(2.5);
+    rec('Fence: stops you inside the lot', P.pos.z < LOT.half + 0.1, 'end z ' + P.pos.z.toFixed(2) + ', states ' + [...r.seen].join('/'));
+    // 12b) stacking: a ledge sits on a funbox top and grinds there; two ledges still can't overlap
+    { layout([pc('start', 0, -20), pc('funbox', 0, 0, 0, 3, 1, 0), pc('ledge', 0, 0, 0, 1, 0, 0)]); const L2 = { ...PE.pieces[2] };
+      const ok = !peCheck(PE.pieces[2], 2), clash = peCheck(L2, -1), top = heightAt(0, 0);
+      let on = null, end = null; go(0.22, -2.95, 0, 6.5); r = run(2, t => { if (t === 0) press(K.grind); if (t > 0.1) rel(K.grind); if (P.state === 'grind') { if (on === null) on = P.pos.z; end = P.pos.z; } });
+      rec('Stacking: ledge on a funbox top, R hop grinds it to the end', ok && clash && Math.abs(top - 1.0) < 0.02 && on !== null && end > 2.0, 'fits ' + ok + ', second ledge: ' + (clash || 'allowed') + ', top ' + top.toFixed(2) + ' m, grind ' + r.gt.toFixed(2) + ' s from z ' + (on === null ? '-' : on.toFixed(2)) + ' to ' + (end === null ? '-' : end.toFixed(2)) + ' (ledge -2.25..2.25)' + (r.bailed ? ', BAILED' : '')); }
+    // 13) starters fit, and share codes round-trip
+    Object.entries(PE_STARTERS).forEach(([k, S]) => { PE.pieces = S.pieces(); const bad = PE.pieces.map((p, i) => [i, peCheck(p, i)]).filter(e => e[1]); rec('Starter "' + S.name + '" fits', !bad.length, bad.map(e => '#' + e[0] + ' ' + PE.pieces[e[0]].t + ': ' + e[1]).join('; ') || PE.pieces.length + ' pieces'); });
+    { const ps = PE_STARTERS.trans.pieces(), c = peEncode('Round trip', ps), d = peDecode(c); rec('Share code round-trip', d && JSON.stringify(d.pieces) === JSON.stringify(ps), c.length + ' chars'); }
+  } catch (err) { out.push('ERROR ' + (err && err.stack || err)); }
+  game.running = false; ['hud', 'touch', 'pause'].forEach(id => $(id).hidden = true);
+  const pre = document.createElement('pre'); pre.id = 'peTest'; pre.textContent = out.join('\n');
+  pre.style.cssText = 'position:fixed;left:12px;top:12px;right:12px;z-index:99;background:rgba(12,10,9,.92);color:#f1e9dc;font:14px/1.45 monospace;padding:12px;white-space:pre-wrap';
+  document.body.appendChild(pre);
+  document.title = 'PARKTEST ' + out.filter(l => l.startsWith('PASS')).length + '/' + out.length;
+  $('pe').hidden = true;
 }
 
 // ---------- LA River: per-frame life (sludge, the fire, the guy with the beer, birds) ----------
@@ -12156,12 +13946,15 @@ function railSpot(r0, x, z) {
 function hopOnto(t, vy, along) {
   const r = t.r, nX = -r.dh.y, nZ = r.dh.x;
   const off = (P.pos.x - r.a.x) * nX + (P.pos.z - r.a.z) * nZ, lx = P.pos.x - nX * off, lz = P.pos.z - nZ * off;
-  let ry = t.ry, T = 0, s = null;
-  for (let i = 0; i < 2; i++) {   // twice, so a sloped rail is met at the height it has where he comes down on it
-    T = hopTime(vy, ry + 0.2 - P.pos.y);
-    if (!T) return null;
+  // fly the arc (the same air gravity stepAir uses) and stop where, on the way down, it meets the rail under it:
+  // exact on sloped, kinked and curved rails (a kinked handrail drops away under you, so a fixed-height guess overshoots it)
+  let y = 0, v = vy, T = 0, s = null; const hs = 1 / 120;
+  for (;;) {
+    v -= airGrav(v) * hs; y += v * hs; T += hs;
+    if (T >= 2) return null;
+    if (v >= 0) continue;
     s = railSpot(r, lx + r.dh.x * along * T, lz + r.dh.y * along * T);
-    ry = s.ry;
+    if (P.pos.y + y <= s.ry + 0.2) break;
   }
   const L = Math.sqrt(s.r.lenH2);
   // off the end, or short of the start (a curved rail bends away from the straight line: fine, the hop is aimed at the spot on the curve)
@@ -13394,6 +15187,17 @@ const flamePts = new THREE.Points(flameGeo, new THREE.PointsMaterial({ size: 0.1
 flamePts.frustumCulled = false; scene.add(flamePts);
 const FIRE = { t: 0, on: false }, FIRE_TIME = 30;   // how long the wheels keep burning once the big combo is over
 const WHEEL_MATS = []; boardFlip.traverse(o => { if (o.isMesh && o.material && o.material.color && o.material.color.getHex() === 0xf4efe6 && !WHEEL_MATS.includes(o.material)) WHEEL_MATS.push(o.material); });
+// board maker: put a saved design on the deck (grip, graphic, wheels, cores, trucks, bushings, ply edge). Remote riders keep the stock deck (DECK.stock).
+function applyBoardDesign(d) {
+  if (!d || !window.BoardMaker || !DECK) return;
+  const tx = BoardMaker.makeTextures(THREE, d, 'skate');   // linear (the skate renderer has no sRGB output)
+  [[DECK.grip, tx.top], [DECK.gfx, tx.base]].forEach(([mesh, t]) => { const m = mesh.material; if (m.map && !DECK.stockMaps.includes(m.map)) m.map.dispose(); t.anisotropy = 4; m.map = t; m.needsUpdate = true; });
+  DECK.wheelM.color.set(tx.colors.wheels); DECK.coreM.color.set(tx.colors.cores);
+  DECK.truckM.color.set(tx.colors.trucks); DECK.bushM.color.set(tx.colors.bushings);
+  DECK.body.material.color.set(tx.colors.edges);   // deck edge / ply colour
+}
+try { if (/[?&]bdclear=1/.test(location.search)) localStorage.removeItem('boardmaker.skate.v1'); } catch (e) {}   // test hook: start from the stock board
+applyBoardDesign(window.BoardMaker && BoardMaker.load('skate'));
 // water splashes
 const SPL_MAX = 400, spl = [];
 const splGeo = new THREE.BufferGeometry(); splGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(SPL_MAX * 3), 3));
@@ -13641,6 +15445,7 @@ function toMenu() {
   saveBest();
   ['pause', 'hud', 'touch'].forEach(id => $(id).hidden = true); $('menu').hidden = false;
   resetCombo(); sfx.update(0, 0, 0);
+  if (MAPID === 'lot') setMap(PE.prevMap || 'river', { quiet: true });   // Create a Park: back on the map you came from
 }
 function setVolume(v, save) {
   v = clamp(v, 0, 1); sfx.setVol(v);
@@ -13684,6 +15489,8 @@ if (location.hash === '#debug') {
 // ---------- Main loop ----------
 let last = performance.now();
 {
+  const openBoard = () => { if (window.BoardMaker) BoardMaker.open({ kind: 'skate', THREE, onSave: applyBoardDesign }); };
+  ['boardBtn', 'boardBtn2', 'peBoard'].forEach(id => { const b = $(id); if (b) b.addEventListener('click', e => { e.stopPropagation(); b.blur(); openBoard(); }); });
   const pick = $('shirtPick');
   if (pick) Object.entries(SHIRT_COLORS).forEach(([name, hex]) => {
     const b = document.createElement('button'); b.type = 'button'; b.dataset.c = name; b.style.background = hex; b.title = name; b.setAttribute('aria-label', name + ' shirt');
@@ -13696,6 +15503,7 @@ const MP = { room: null, user: null, mePeer: null, remotes: new Map(), names: {}
 const MP_NODES = []; rider.traverse(o => { if (o !== rider) MP_NODES.push(o); });
 const MP_BOARD = MP_NODES.indexOf(boardRoot), MP_CHAR = MP_NODES.indexOf(char), MP_FLIP = MP_NODES.indexOf(boardFlip);
 const mpTemplate = rider.clone(true);
+if (DECK && DECK.stock) mpTemplate.traverse(o => { if (o.isMesh && DECK.stock.has(o.material)) o.material = DECK.stock.get(o.material); });   // remote riders: stock deck, never this player's design
 const MP_STRIDE = 13, mpView = new DataView(new ArrayBuffer(MP_NODES.length * MP_STRIDE)), mpRagView = new DataView(new ArrayBuffer(RAG.p.length * 6));
 const mpI16 = v => Math.max(-32767, Math.min(32767, Math.round(v)));
 const mpB64 = dv => { let s = ''; const u = new Uint8Array(dv.buffer); for (let i = 0; i < u.length; i++) s += String.fromCharCode(u[i]); return btoa(s); };
@@ -13758,7 +15566,7 @@ function mpNewRemote(peer) {
   const g = mpTemplate.clone(true), capM = rigM.capM.clone(); capM.color.setHex(color);
   const shirtM = rigM.shirt.clone(), sleeveM = rigM.sleeve.clone();
   g.traverse(o => { if (o.material === rigM.capM) o.material = capM; if (o.material === rigM.shirt) o.material = shirtM; if (o.material === rigM.sleeve) o.material = sleeveM; });
-  const wheelM = new Map(); g.traverse(o => { if (o.isMesh && WHEEL_MATS.includes(o.material)) { if (!wheelM.has(o.material)) wheelM.set(o.material, o.material.clone()); o.material = wheelM.get(o.material); } });   // own wheels, so only a burning rider's glow
+  const wheelM = new Map(); g.traverse(o => { if (o.isMesh && (WHEEL_MATS.includes(o.material) || (DECK && o.material === DECK.stock.get(DECK.wheelM)))) { if (!wheelM.has(o.material)) wheelM.set(o.material, o.material.clone()); o.material = wheelM.get(o.material); } });   // own wheels, so only a burning rider's glow
   const nodes = []; g.traverse(o => { if (o !== g) nodes.push(o); });
   const rg = ragGroup.clone(true); rg.visible = false; scene.add(rg, g);
   rg.traverse(o => { if (o.material === rigM.shirt) o.material = shirtM; });
@@ -14018,6 +15826,109 @@ document.querySelectorAll('#mapPick button').forEach(b => b.addEventListener('cl
   setMap(b.dataset.m);
 }));
 { let sv = 'river'; try { sv = localStorage.getItem('concrete-lines-map') || 'river'; } catch (e) {} setMap(MAPS[sv] ? sv : 'river', { quiet: true }); }
+peBoot();   // Create a Park test hooks (?park=...), does nothing otherwise
+// ---- board maker test hooks: ?board=menu|pause|pe|show|test (see review/park2/status.md). Sound is stubbed in every hook. ----
+// menu: the board maker over the menu (&preset=1-6 opens on that preset, &tab=base|top|parts|library, &face=top|base, &save=1 presses Save and equip after 1.5 s and then shows the deck)
+// pause: the board maker over the pause menu of a ride (&map=river|park). ride: just ride that map. Any other value (board=0): the menu, no splash. pe: add to ?park=edit to open it over the park editor.
+// show: a studio render of the deck, grip and graphic side by side, after &t= seconds (&preset=N applies a preset first; otherwise the equipped design, or the stock deck)
+// test: scripted checks; results in #bmTest and document.title "BOARDTEST n/m". Use &bdclear=1 so it starts from the stock deck.
+// bd=1-6 with any hook (also ?park=ride): puts that preset on the deck for this load only, nothing is saved.
+function bmStudio() {
+  const sc = new THREE.Scene(); sc.background = new THREE.Color(0x2b2624);
+  sc.add(new THREE.HemisphereLight(0xfff3e4, 0x4a423c, 0.95));
+  const d1 = new THREE.DirectionalLight(0xffffff, 0.75); d1.position.set(1.5, 4, 2.5); sc.add(d1);
+  const cam = new THREE.PerspectiveCamera(26, renderer.domElement.width / renderer.domElement.height, 0.05, 20);
+  [[0, -0.2], [1, 0.2]].forEach(([under, z]) => {
+    const g = new THREE.Group(), b = boardFlip.clone(true); b.position.set(0, 0, 0); b.rotation.set(0, 0, under ? Math.PI : 0); b.scale.set(1, 1, 1);
+    g.add(b); g.rotation.y = under ? -Math.PI / 2 : Math.PI / 2; g.position.set(0, 0, z); sc.add(g);   // the graphic turned to read the right way up
+  });
+  cam.position.set(0, 1.95, 0.32); cam.lookAt(0, 0, 0.02);
+  renderer.render(sc, cam); const url = renderer.domElement.toDataURL('image/png');
+  sc.traverse(o => { if (o.isLight && o.dispose) o.dispose(); });
+  return url;
+}
+function bmShowImg(url, label) {
+  let im = $('bmShotImg'); if (!im) { im = document.createElement('img'); im.id = 'bmShotImg'; im.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;object-fit:contain;background:#2b2624;z-index:2147483600;pointer-events:none'; document.body.appendChild(im); }
+  im.src = url;
+  if (label) { let t = $('bmShotLbl'); if (!t) { t = document.createElement('div'); t.id = 'bmShotLbl'; t.style.cssText = 'position:fixed;left:16px;top:12px;z-index:2147483601;color:#f1e9dc;font:700 15px/1.3 system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase'; document.body.appendChild(t); } t.textContent = label; }
+}
+function bmBoot() {
+  const q = new URLSearchParams(location.search), mode = q.get('board'), bd = +q.get('bd');
+  if (bd && window.BoardMaker) applyBoardDesign(BoardMaker.presets('skate')[(bd - 1) % 6]);
+  if (!mode || !window.BoardMaker) return;
+  sfx.init = () => {}; try { sfx.setMuted(true); } catch (e) {}
+  if ($('splash')) $('splash').hidden = true;
+  const pre = +q.get('preset'), design = pre ? BoardMaker.presets('skate')[(pre - 1) % 6] : null;
+  const opts = { kind: 'skate', THREE, onSave: applyBoardDesign, tab: q.get('tab') || undefined, face: q.get('face') || undefined, keepBuffer: true };
+  if (design) opts.design = design;
+  const wait = s => new Promise(r => setTimeout(r, s * 1000));
+  if (mode === 'menu' || mode === 'pe') {
+    BoardMaker.open(opts);
+    if (q.get('save')) wait(1.5).then(() => { const b = document.querySelector('.bm-root [data-act="save"]'); if (b) b.click(); return wait(0.4); })
+      .then(() => bmShowImg(bmStudio(), 'Deck after Save: ' + ((BoardMaker.load('skate') || {}).title || 'stock')));
+  } else if (mode === 'pause') {
+    setMap(q.get('map') || MAPID, { quiet: true }); startGame(); togglePause(); BoardMaker.open(opts);
+  } else if (mode === 'ride') {   // just ride a map (&map=river|park) with whatever deck is on, e.g. &bd=3
+    setMap(q.get('map') || MAPID, { quiet: true }); startGame();
+  } else if (mode === 'show') {
+    if (design) applyBoardDesign(design);
+    wait(parseFloat(q.get('t') || '1')).then(() => bmShowImg(bmStudio(), design ? 'Preset ' + pre + ': ' + design.title : (BoardMaker.load('skate') ? 'Equipped: ' + BoardMaker.load('skate').title : 'Stock deck')));
+  } else if (mode === 'test') wait(0.5).then(bmSelfTest);
+  else if (q.get('map')) setMap(q.get('map'), { quiet: true });   // any other value: the menu over that map
+}
+function bmSelfTest() {
+  const out = [], rec = (n, ok, info) => out.push((ok ? 'PASS ' : 'FAIL ') + n + (info ? ' :: ' + info : ''));
+  const key = (code, type) => (document.activeElement || document.body).dispatchEvent(new KeyboardEvent(type || 'keydown', { code, key: code === 'Escape' ? 'Escape' : code === 'Space' ? ' ' : code.replace('Key', '').toLowerCase(), bubbles: true, cancelable: true }));
+  const open = d => BoardMaker.open({ kind: 'skate', THREE, onSave: applyBoardDesign, design: d });
+  const [stockGrip, stockGfx] = DECK.stockMaps, hex = c => '#' + c.getHexString();
+  try {
+    rec('Stock deck when nothing is saved', BoardMaker.load('skate') === null && DECK.grip.material.map === stockGrip && DECK.gfx.material.map === stockGfx && DECK.wheelM.color.getHex() === 0xf4efe6,
+      'saved ' + !!BoardMaker.load('skate') + ', wheels ' + hex(DECK.wheelM.color));
+    { const g = DECK.gfx.geometry, n = g.attributes.normal, p = g.attributes.position; let ny = 0, py = 0; for (let i = 0; i < n.count; i++) { ny += n.getY(i); py += p.getY(i); } ny /= n.count; py /= n.count;
+      const gp = DECK.grip.geometry.attributes.position; let gy = 0; for (let i = 0; i < gp.count; i++) gy += gp.getY(i); gy /= gp.count;
+      rec('Bottom graphic sits under the deck, facing down', ny < -0.8 && py < gy - 0.02, 'mean normal y ' + ny.toFixed(2) + ', mean y ' + py.toFixed(3) + ' (grip ' + gy.toFixed(3) + ')'); }
+    // menu: keys blocked, Escape closes
+    $('menu').hidden = false; open();
+    rec('Opens from the menu', BoardMaker.isOpen() && !!document.querySelector('.bm-root'));
+    key('Space'); key('Space', 'keyup'); key('KeyM'); key('KeyM', 'keyup');
+    rec('Game keys blocked while open (Space would start a run, M mutes)', !game.running && !$('menu').hidden && !keys.Space && BoardMaker.isOpen(), 'running ' + game.running + ', menu ' + !$('menu').hidden);
+    key('Escape');
+    rec('Escape closes it, menu stays', !BoardMaker.isOpen() && !$('menu').hidden && !game.running && !document.querySelector('.bm-root'));
+    // save and equip applies at once
+    const pre = BoardMaker.presets('skate')[2], want = BoardMaker.makeTextures(THREE, pre, 'skate'); want.dispose && want.dispose();
+    open(pre); document.querySelector('.bm-root [data-act="save"]').click();
+    const L = BoardMaker.load('skate'), gm = DECK.grip.material.map, bm = DECK.gfx.material.map;
+    rec('Save and equip: closes and applies at once', !BoardMaker.isOpen() && L && gm !== stockGrip && bm !== stockGfx && gm.image && gm.image.width === 256 && gm.image.height === 1024 && hex(DECK.wheelM.color) === new THREE.Color(want.colors.wheels).getHexString().replace(/^/, '#'),
+      'equipped "' + (L && L.title) + '", wheels ' + hex(DECK.wheelM.color) + ', trucks ' + hex(DECK.truckM.color));
+    // remote riders keep the stock deck
+    { const r = mpNewRemote({ peer: 'bm-test', by: 'x' }); const mats = new Set(); r.g.traverse(o => { if (o.isMesh) mats.add(o.material); });
+      const leaks = [DECK.grip.material, DECK.gfx.material, DECK.body.material, DECK.wheelM, DECK.coreM, DECK.truckM, DECK.bushM].filter(m => mats.has(m)).length;
+      const sg = DECK.stock.get(DECK.grip.material), wheels = [...mats].filter(m => m.color && m.color.getHex() === 0xf4efe6);
+      rec('Co-op: remote riders keep the stock deck', leaks === 0 && mats.has(sg) && sg.map === stockGrip && wheels.length > 0 && r.wheelMats.length > 0 && !r.wheelMats.includes(DECK.stock.get(DECK.wheelM)),
+        'shared local materials ' + leaks + ', own wheel copies ' + r.wheelMats.length);
+      scene.remove(r.g, r.rg); }
+    // pause menu during a ride
+    startGame(); togglePause(); open();
+    key('Escape');
+    rec('From the pause menu: Escape closes the board maker only', !BoardMaker.isOpen() && game.running && game.paused && !$('pause').hidden, 'paused ' + game.paused);
+    toMenu();
+    // the park editor
+    PE.pieces = PE_STARTERS.plaza.pieces(); PE.loaded = true; peOpen(); peSelect(1); const r0 = PE.pieces[1].r, n0 = PE.pieces.length;
+    $('peBoard').click();
+    key('KeyR'); key('Delete'); key('Escape');
+    rec('From the park editor: R / Delete / Escape do not reach the editor', !BoardMaker.isOpen() && PE.on && PE.sel === 1 && PE.pieces.length === n0 && PE.pieces[1].r === r0, 'rot ' + r0 + ' -> ' + PE.pieces[1].r + ', pieces ' + n0 + ' -> ' + PE.pieces.length + ', sel ' + PE.sel);
+    peRide();
+    rec('Park ride keeps the design', game.running && MAPID === 'lot' && DECK.grip.material.map === gm, 'map ' + MAPID);
+    game.running = false; peExit();
+  } catch (err) { out.push('ERROR ' + (err && err.stack || err)); }
+  try { localStorage.removeItem('boardmaker.skate.v1'); } catch (e) {}
+  ['hud', 'touch', 'pause'].forEach(id => $(id).hidden = true);
+  const pre = document.createElement('pre'); pre.id = 'bmTest'; pre.textContent = out.join('\n');
+  pre.style.cssText = 'position:fixed;left:12px;top:12px;right:12px;z-index:2147483600;background:rgba(12,10,9,.92);color:#f1e9dc;font:14px/1.45 monospace;padding:12px;white-space:pre-wrap';
+  document.body.appendChild(pre);
+  document.title = 'BOARDTEST ' + out.filter(l => l.startsWith('PASS')).length + '/' + out.length;
+}
+bmBoot();
 
 function frame(now) {
   requestAnimationFrame(frame);
@@ -14029,7 +15940,8 @@ function frame(now) {
     physics(dt);
     stepDrops(dt); animate(dt); fxTick(dt); updateCamera(dt); updateHUD(dt);
   } else if (!game.running) {
-    attractCamera(dt); animate(dt);
+    if (PE.on) peTick(dt); else attractCamera(dt);
+    animate(dt);
   }
   mpTick(dt); trafficTick(dt); riverTick(game.running && !game.paused ? dt : game.running ? 0 : dt);
   if (!game.running || game.paused) { sfx.update(0, 0, 0); sfx.spinUpdate(0, 300); sfx.wheelStop(); }   // no looping sounds outside of riding, ever
@@ -14038,10 +15950,13 @@ function frame(now) {
   for (const k in released) delete released[k];
   sky.position.copy(camera.position);
   if (RV_BACKDROP.mesh) RV_BACKDROP.mesh.position.set(camera.position.x, 0, camera.position.z);   // the skyline band rides with the camera
-  const focus = game.running ? P.pos : camera.position;
+  const focus = game.running ? P.pos : PE.on ? _peFocus.set(PE.cam.tx, 0, PE.cam.tz) : camera.position;
   sun.position.set(focus.x + sunOff[0], sunOff[1], focus.z + sunOff[2]); sun.target.position.set(focus.x, 0, focus.z);
+  peHookFrame(0, dt);
   renderer.render(scene, camera);
+  peHookFrame(1, dt);
 }
+const _peFocus = new V3();
 requestAnimationFrame(frame);
 })();
 </script>

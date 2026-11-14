@@ -23,9 +23,9 @@ canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block}
 #trick .n{font-size:15px;font-weight:600;letter-spacing:.02em}
 #trick .p{font-size:12px;color:var(--hud-dim);margin-top:2px;font-variant-numeric:tabular-nums}
 #fade{position:fixed;inset:0;background:#f4f9ff;opacity:0;pointer-events:none}
-.overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:linear-gradient(180deg,rgba(225,238,250,.15),rgba(16,36,58,.25))}
+.overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:linear-gradient(180deg,rgba(225,238,250,.15),rgba(16,36,58,.25));overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;padding:12px 0;box-sizing:border-box}
 .overlay.on{display:flex}
-.card{background:var(--frost);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-radius:18px;padding:30px 36px;box-shadow:0 10px 40px rgba(16,36,58,.25);text-align:center;max-width:min(520px,88vw)}
+.card{background:var(--frost);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-radius:18px;padding:30px 36px;box-shadow:0 10px 40px rgba(16,36,58,.25);text-align:center;max-width:min(520px,88vw);margin:auto;box-sizing:border-box}
 h1{margin:0 0 6px;font-weight:800;font-size:clamp(40px,7vw,64px);letter-spacing:-.01em;color:var(--ink)}
 h2{margin:0 0 14px;font-weight:600;font-size:22px}
 .sub{color:var(--ink-soft);font-size:13px;margin-top:16px}
@@ -43,7 +43,22 @@ table.keys td:first-child{font-weight:600;white-space:nowrap;color:var(--glacier
 #tbtns div{width:72px;height:72px;border-radius:36px;background:rgba(255,255,255,.28);border:2px solid rgba(255,255,255,.6);color:#fff;font-weight:600;font-size:14px;display:flex;align-items:center;justify-content:center;text-shadow:var(--shadow)}
 #tbtns div.down{background:rgba(255,255,255,.55)}
 body.touch #gauge{bottom:auto;top:14px}
-#tpause{position:fixed;top:12px;left:12px;width:40px;height:40px;border-radius:20px;background:rgba(255,255,255,.3);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;pointer-events:auto}
+body.touch #runsum{top:62px}
+table.keys.tch{display:none}
+body.touch table.keys.kb{display:none}
+body.touch table.keys.tch{display:table}
+/* short screens (phones in landscape): a tighter card so everything fits or scrolls */
+@media (max-height:560px){.card{padding:14px 22px;border-radius:14px}h1{font-size:34px;margin-bottom:2px}h2{margin-bottom:8px;font-size:19px}button.big{font-size:17px;padding:8px 24px;margin-top:8px}.drops{margin-top:8px}.drops .lbl{margin-bottom:3px}.gear{margin-top:8px}button.ghost{padding:6px 20px}a.sib{margin-top:8px}.sub{margin-top:8px}.best{margin-top:6px}table.keys{font-size:12px}table.sum{font-size:12px;margin-bottom:4px}table.sum td,table.keys td{padding:1px 8px}}
+@media (max-width:440px){.card{padding:20px 16px}table.keys{font-size:13px}table.keys td{padding:2px 6px}}
+/* phone: a row of small round buttons top left (pause, camera, respawn, mute), clear of the stick and the rider */
+#tsys{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:calc(12px + env(safe-area-inset-left,0px));display:flex;gap:8px;pointer-events:auto}
+#tsys>div{width:40px;height:40px;border-radius:20px;background:rgba(255,255,255,.3);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;text-shadow:var(--shadow);box-sizing:border-box}
+#tsys>div.down{background:rgba(255,255,255,.55)}
+#tsys svg{width:20px;height:20px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 1px 1.5px rgba(10,30,50,.45))}
+#tmute .x{display:none}
+#tmute.off .x{display:inline}
+#tmute.off .w{display:none}
+button.ghost.quit{color:var(--ink-soft);box-shadow:inset 0 0 0 2px rgba(61,86,112,.45)}
 #trick.bank{animation:bank 1.25s ease-out}
 #trick.bank .p{color:#ffe7b0}
 #trick::after{content:'';position:absolute;left:11px;right:11px;bottom:3px;height:2px;border-radius:1px;background:linear-gradient(90deg,rgba(255,231,176,0),rgba(255,231,176,.95),rgba(255,231,176,0));transform:scaleX(0);opacity:0}
@@ -69,7 +84,7 @@ table.sum td{padding:2px 10px}
 table.sum td:first-child{color:var(--ink-soft);text-align:right}
 table.sum td:last-child{font-weight:600;text-align:left}
 /* title / pause: Board and Rider buttons */
-.gear{display:flex;gap:10px;justify-content:center;margin-top:14px}
+.gear{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:14px}
 a.sib{display:inline-flex;align-items:center;gap:8px;margin-top:14px;font-family:var(--font);font-size:13px;font-weight:600;color:var(--ink-soft);text-decoration:none;padding:6px 14px;border-radius:999px;background:rgba(255,255,255,.35)}
 a.sib:hover{color:var(--glacier-deep);background:rgba(255,255,255,.6)}
 a.sib b{color:var(--glacier-deep)}
@@ -123,12 +138,20 @@ button.ghost:hover{background:rgba(58,143,208,.14)}
   <div class="gear"><button class="ghost" id="boardBtn" type="button">Board</button><button class="ghost" id="riderBtn" type="button">Rider</button></div>
   <div class="best" id="bestLine"></div>
   <a class="sib" href="https://jonbeam1-netizen.github.io/concrete-lines/" target="_top"><svg width="22" height="12" viewBox="0 0 22 12" aria-hidden="true"><rect x="1" y="2" width="20" height="4" rx="2" fill="currentColor"/><circle cx="5" cy="9" r="2.2" fill="currentColor"/><circle cx="17" cy="9" r="2.2" fill="currentColor"/></svg>Also play <b>Concrete Lines</b> &middot; skateboarding &rarr;</a>
-  <div class="sub">Updated November 14, 2026 &middot; Play-test 0.003</div>
+  <div class="sub">Updated November 14, 2026 &middot; Play-test 0.004</div>
 </div></div>
 <div class="overlay" id="pause"><div class="card">
   <h2>Paused</h2>
   <div id="pscore"></div>
-  <table class="keys">
+  <table class="keys tch">
+    <tr><td>Stick</td><td>Left thumb anywhere on the left half. Left / right carve, up tuck, down skid</td></tr>
+    <tr><td>Pop</td><td>Hold to crouch and build speed, release to pop</td></tr>
+    <tr><td>Grab</td><td>Air: hold, the stick picks the grab. Snow: Grab + stick = butter</td></tr>
+    <tr><td>Spin</td><td>Air: hold to rotate. Stick left / right spin, up front flip, down back flip</td></tr>
+    <tr><td>Rail</td><td>Lock onto a rail, box or log. On a rail, stick up / down = nose / tail press</td></tr>
+    <tr><td>Top left</td><td>Pause, camera, respawn, mute</td></tr>
+  </table>
+  <table class="keys kb">
     <tr><td>A / D</td><td>Carve left / right</td></tr>
     <tr><td>W</td><td>Lean forward / tuck</td></tr>
     <tr><td>S</td><td>Skid, slow down</td></tr>
@@ -142,7 +165,7 @@ button.ghost:hover{background:rgba(58,143,208,.14)}
     <tr><td>P / Esc</td><td>Pause</td></tr>
   </table>
   <button class="big" id="resumeBtn">Resume</button>
-  <div class="gear"><button class="ghost" id="boardBtn2" type="button">Board</button><button class="ghost" id="riderBtn2" type="button">Rider</button></div>
+  <div class="gear"><button class="ghost" id="boardBtn2" type="button">Board</button><button class="ghost" id="riderBtn2" type="button">Rider</button><button class="ghost quit" id="quitBtn" type="button">Quit to title</button></div>
 </div></div>
 <div id="rp" role="dialog" aria-modal="true" aria-label="Rider"><div class="shell">
   <div class="stage" id="rpStage"><span class="t">Rider</span><span class="h">Drag to turn</span></div>
@@ -152,7 +175,10 @@ button.ghost:hover{background:rgba(58,143,208,.14)}
 </div></div>
 <div id="touch"><div id="stickBase"><div id="stickKnob"></div></div>
   <div id="tbtns"><div data-k="KeyQ">Grab</div><div data-k="KeyE">Spin</div><div data-k="KeyR">Rail</div><div data-k="Space">Pop</div></div>
-  <div id="tpause">II</div></div>
+  <div id="tsys"><div id="tpause" aria-label="Pause">II</div>
+    <div id="tcam" aria-label="Camera"><svg viewBox="0 0 24 24"><path d="M3 8h3.5l2-2.5h7l2 2.5H21v11H3z"/><circle cx="12" cy="13" r="3.4"/></svg></div>
+    <div id="tresp" aria-label="Respawn"><svg viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4v4h-4"/></svg></div>
+    <div id="tmute" aria-label="Mute"><svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path class="w" d="M15.5 9a4.5 4.5 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11"/><path class="x" d="M16 9.5l5 5M21 9.5l-5 5"/></svg></div></div></div>
 <pre id="dbg"></pre>
 <script>
 // show script errors on screen in debug / screenshot / test runs
@@ -1779,7 +1805,7 @@ function createSnowRider(THREE, opts) {
   }
   // ---------------------------------------------------------------- public interface
   const BP_KEYS = ['nose', 'tail', 'toe', 'heel', 'center'];
-  var R = null;
+  var R = null, HOLD = null;
   R = {
     root, _dbg: {}, _dbgOn: false, _glance: () => glanceT,
     get toeSide() { return S.switch ? 1 : -1; },
@@ -1806,6 +1832,19 @@ function createSnowRider(THREE, opts) {
     ragdollStep(dt) { return RAG.on ? ragStepAll(dt) : RAG.out; },
     ragdollEnd() { return ragEnd(); },
     isRagdoll() { return RAG.on; },
+    // the game's Rider panel: park a ragdoll / bail / get-up so the preview ticks the plain standing pose (on),
+    // then hand it back exactly as it was (off; a ragdoll re-drives its bones from its points at once)
+    previewHold(on) {
+      if (on) {
+        if (HOLD) return;
+        HOLD = { rag: RAG.on, blendOn: RAG.blendOn, blendPending: RAG.blendPending, bailMode, bailT, recovering, recT, recFrom };
+        RAG.on = false; RAG.blendOn = false; RAG.blendPending = false; bailMode = 0; recovering = false;
+      } else {
+        if (!HOLD) return; const h = HOLD; HOLD = null;
+        RAG.on = h.rag; RAG.blendOn = h.blendOn; RAG.blendPending = h.blendPending; bailMode = h.bailMode; bailT = h.bailT; recovering = h.recovering; recT = h.recT; recFrom = h.recFrom;
+        if (RAG.on) ragDrive();
+      }
+    },
     ragdollContacts: ragContacts,
     _rag: { P: rP, sticks: rSticks, rad: rRad, RAG, F: RAGF },
     land(strength, quality) {
@@ -1999,9 +2038,9 @@ if (typeof window !== 'undefined') window.createSnowRider = createSnowRider;
   // ------------------------------------------------------------------ canvas helpers
   const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
   const scratchC = {};
-  const scratch = (k, w, h) => { let c = scratchC[k]; if (!c || c.width !== w || c.height !== h) c = scratchC[k] = mk(w, h); const g = c.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, w, h); return c; };
+  const scratch = (k, w, h) => { let c = scratchC[k]; if (!c || c.width !== w || c.height !== h) c = scratchC[k] = mk(w, h); const g = c.getContext('2d', { willReadFrequently: true }); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, w, h); return c; };
   function noise(c, amt, speck) {
-    if (amt <= 0) return; const g = c.getContext('2d'), img = g.getImageData(0, 0, c.width, c.height), d = img.data; let s = 12345;
+    if (amt <= 0) return; const g = c.getContext('2d', { willReadFrequently: true }), img = g.getImageData(0, 0, c.width, c.height), d = img.data; let s = 12345;
     for (let i = 0; i < d.length; i += 4) {
       s = (s * 1103515245 + 12345) & 0x7fffffff; let n = ((s >> 8) / 8388608 - 0.5) * amt;
       if (speck && (s & 1023) < speck) n += amt * 1.4;
@@ -4048,7 +4087,9 @@ function createScenery(THREE, renderer, scene, opts) {
       tr.p.copy(p); tr.s.copy(_ts); tr.w = w; tr.dep = dep;
       tr.dmin = Math.min(tr.dmin, sIdx); tr.dmax = Math.max(tr.dmax, sIdx);
     },
-    lift: function () { tr.has = false; }
+    lift: function () { tr.has = false; },
+    // wipe every groove (the game's quit to title: the course under them is gone)
+    clear: function () { tr.has = false; for (var q = 0; q < TSEG * TV; q++) tAT[q * 4 + 1] = -1e6; tr.dmin = 0; tr.dmax = TSEG - 1; }
   };
   function flushTrail() {
     if (tr.dmax < 0) return;
@@ -4960,8 +5001,8 @@ function createSnowAudio(opts) {
     if (opts.gusts !== false && t >= e.nextGust) { e.nextGust = t + rnd(40, 90); if (st.mode !== 'intro' && st.mode !== 'heli') shots.gust(e); }
   }
   function transitions(e) { // shared by update() and the legacy setters, so nothing double-triggers
-    if (st.air && !prevAir && opts.autoPop !== false) shots.pop(e, 0.7);
-    if (st.rail && !prevRail) shots.railOn(e, st.railKind);
+    if (st.air && !prevAir && opts.autoPop !== false && !mutedFlag) shots.pop(e, 0.7);
+    if (st.rail && !prevRail && !mutedFlag) shots.railOn(e, st.railKind);
     prevAir = !!st.air; prevRail = !!st.rail;
   }
 
@@ -5068,6 +5109,7 @@ function createSnowAudio(opts) {
 
   // ------------------------------------------------------------------ public object
   function ready() { return !!(E && ctx); }
+  function live() { return ready() && !mutedFlag && ctx.state !== "closed"; }
   var api = {
     unlock: function () {
       if (!ctx) {
@@ -5103,13 +5145,14 @@ function createSnowAudio(opts) {
     air: function (on) { st.air = !!on; tick(true); },
     rail: function (on, kind) { st.rail = !!on; if (kind) st.railKind = kind; tick(true); },
     // one-shots
-    pop: function (g) { if (ready()) shots.pop(E, g); },
-    land: function (s) { if (ready()) shots.land(E, s); },
-    railOn: function (kind) { if (ready()) shots.railOn(E, kind || st.railKind); },
-    slam: function (kind) { if (ready()) shots.slam(E, kind); },
-    treeHit: function (g) { if (ready()) shots.treeHit(E, g); },
-    gust: function () { if (ready()) shots.gust(E); },
-    heliDrop: function () { if (ready()) shots.heliDrop(E); },
+    // one-shots are skipped while muted: the context is suspended, so they would queue up and all fire at once on unmute
+    pop: function (g) { if (live()) shots.pop(E, g); },
+    land: function (s) { if (live()) shots.land(E, s); },
+    railOn: function (kind) { if (live()) shots.railOn(E, kind || st.railKind); },
+    slam: function (kind) { if (live()) shots.slam(E, kind); },
+    treeHit: function (g) { if (live()) shots.treeHit(E, g); },
+    gust: function () { if (live()) shots.gust(E); },
+    heliDrop: function () { if (live()) shots.heliDrop(E); },
     heliLoop: function (g) {
       if (!ready()) return; g = clamp01(g == null ? 1 : g);
       var h = E.heli || heliStart(E), t = ctx.currentTime;
@@ -5179,7 +5222,9 @@ function audioUnlock() { if (!NO_AUDIO) sfx.unlock(); }
 // pause (and the user's M) silence everything: master ramps to 0 and the context suspends
 
 const canvas = document.getElementById('c');
-const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+const FORCE_TOUCH = QS.get('touch') === '1'; // shots: show the phone controls headless
+const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0 || FORCE_TOUCH;
+const TOUCH_UI = isTouch && (!AUTO || FORCE_TOUCH);
 const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || (isTouch && Math.min(innerWidth, innerHeight) < 820);
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isMobile, preserveDrawingBuffer: AUTO });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isMobile ? 1.5 : 2));
@@ -5188,6 +5233,7 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.1, 2400);
 scene.add(camera);
 const SC = createScenery(THREE, renderer, scene, { quality: isMobile ? 'low' : 'high' });
+const FOG0 = scene.fog ? { near: scene.fog.near, far: scene.fog.far } : null, CAM0 = { fov: camera.fov, near: camera.near }; // Endless base (restored on quit)
 const R = createSnowRider(THREE, { jacket: '#d9483b' });
 scene.add(R.root);
 // ---- board maker (parts/boardmaker.js): the equipped design goes on the board at startup and right after Save
@@ -5942,6 +5988,8 @@ function disposeChunk(k) {
   c.group.traverse(o => { if (o.isMesh && !SHARED_GEOS.has(o.geometry) && !(o.userData.prop && SC.disposeProp)) o.geometry.dispose(); });
   // scenery-made props (logs, rocks, stumps): let the scenery free them if it wants to (optional SC.disposeProp)
   if (SC.disposeProp) for (const o of c.group.children) if (o.userData.prop) SC.disposeProp(o);
+  // the distance banners' canvas texture + material belong to this chunk only (one per 500 m mark)
+  for (let ms = Math.ceil(k * CH / 500) * 500; ms < (k + 1) * CH; ms += 500) { const m = distMats.get(ms); if (m) { if (m.map) m.map.dispose(); m.dispose(); distMats.delete(ms); } }
   SC.removeTrees(k);
   chunks.delete(k);
   refreshActive();
@@ -6103,6 +6151,26 @@ function enterBowl() {
   const fog = scene.fog; if (fog) { fog.near = isMobile ? 160 : 260; fog.far = isMobile ? 1000 : 1700; }
   buildBowl();
 }
+// ---- back to a fresh Endless world in place (quit to title, Endless after the bowl): free every chunk (or the whole
+// bowl: terrain tiles, statics, trees, pad), clear the course plan / centerline, and stream the start again.
+function resetWorld(reseed) {
+  for (const k of Array.from(chunks.keys())) disposeChunk(k);
+  if (BOWL) {
+    SC.removeTrees('bowl');
+    if (BW.padMat) { if (BW.padMat.map) BW.padMat.map.dispose(); BW.padMat.dispose(); BW.padMat = null; }
+    if (scene.fog && FOG0) { scene.fog.near = FOG0.near; scene.fog.far = FOG0.far; }
+  }
+  BOWL = false;
+  if (reseed && !AUTO) SEED = (Math.random() * 1e9) | 0;
+  bumps.length = 0; kickers.length = 0; railDefs.length = 0; obstacles.length = 0; cliffs.length = 0; markers.length = 0;
+  CL.x = [0]; CL.z = [0]; CL.y = [0]; CL.th = [0]; CL.n = 1;
+  Object.assign(plan, { rng: mulberry(SEED ^ 0x51ed27), end: 0, step: 0, cyc: 0, lastBig: '', zones: [], grade: [[0, 0.2]], curv: [], curvEnd: 0, noTree: [] });
+  Object.assign(BW, { built: false, group: null, geos: [], rails: [], colliders: [], camTrees: [], refreshT: 0, drop: -1, runs: 0, done: false, finishWait: 0, lastSum: null });
+  dropRng = mulberry(SEED ^ 0x4d0f);
+  lastKicker = null; activeRails = []; activeColliders = []; activeCamTrees = [];
+  SC.trail.lift(); if (SC.trail.clear) SC.trail.clear(); trailOn = false;
+  ensureCourse(1200); stream(0, 99);
+}
 function bowlTile(cx, cz, s0, d0, size, step) {
   const n = Math.round(size / step) + 1, N = n + 2, H = new Float32Array(N * N);
   for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) H[j * N + i] = heightSD(s0 + (j - 1) * step, d0 + (i - 1) * step);
@@ -6238,7 +6306,8 @@ function buildBowl() {
     x.fillStyle = '#e9622f'; x.fillRect(78, 62, 26, 132); x.fillRect(152, 62, 26, 132); x.fillRect(100, 115, 56, 26);
     const tex = new THREE.CanvasTexture(cv); tex.anisotropy = 4; if (THREE.sRGBEncoding && renderer.outputEncoding === THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
     const pg = new THREE.CircleGeometry(9, 40); pg.rotateX(-Math.PI / 2); geos.push(pg);
-    const pad = new THREE.Mesh(pg, new THREE.MeshLambertMaterial({ map: tex })); pad.position.set(PAD.d, PAD.y + 0.06, -S(PAD.s)); pad.receiveShadow = true; pad.userData.keep = true; group.add(pad);
+    BW.padMat = new THREE.MeshLambertMaterial({ map: tex }); // owned by the bowl: freed in leaveWorld()
+    const pad = new THREE.Mesh(pg, BW.padMat); pad.position.set(PAD.d, PAD.y + 0.06, -S(PAD.s)); pad.receiveShadow = true; pad.userData.keep = true; group.add(pad);
     for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2 + 0.3; const fx = PAD.d + Math.cos(a) * 13, fs = S(PAD.s) + Math.sin(a) * 13;
       const pole = new THREE.Mesh(poleGeo, SC.featureMaterials.metal); pole.position.set(fx, heightSD(fs, fx) - 0.05, -fs); group.add(pole);
       const fl = new THREE.Mesh(flagGeo, flagMats[0]); fl.position.copy(pole.position); fl.rotation.y = -a; group.add(fl); }
@@ -6367,12 +6436,22 @@ addEventListener('keydown', ev => {
   if (ev.code === 'KeyM') { userMuted = !userMuted; applyMute(); }
   if (ev.code === 'KeyC') camMode = (camMode + 1) % 2;
   if (ev.code === 'KeyB' && state === 'play') respawn('button');
-  if ((ev.code === 'Enter') && state === 'title') startGame(WANT_BOWL ? 'bowl' : 'endless');
+  // Enter on the title starts a run, unless a title button has focus (then that button's own click does it)
+  if ((ev.code === 'Enter') && state === 'title' && !(document.activeElement && document.activeElement.tagName === 'BUTTON')) startGame(WANT_BOWL ? 'bowl' : 'endless');
+  // in a run, Space / Enter must never reach a button that kept focus (a Space keyup would click it)
+  if (state !== 'title' && (ev.code === 'Space' || ev.code === 'Enter')) ev.preventDefault();
 });
-addEventListener('keyup', ev => { keys[ev.code] = false; });
-addEventListener('pointerdown', () => { audioUnlock(); if (state === 'play' && heliSkippable()) skipHeli(); });
+addEventListener('keyup', ev => { keys[ev.code] = false; if (state !== 'title' && !RP.on && ev.code === 'Space') ev.preventDefault(); });
+// a tap skips the heli drop, except on the phone's pause / camera / respawn / mute row (pause must not also skip)
+const onSysBtn = t => !!(t && t.closest && t.closest('#tsys'));
+addEventListener('pointerdown', ev => { audioUnlock(); if (state === 'play' && heliSkippable() && !onSysBtn(ev.target)) skipHeli(); });
 addEventListener('touchstart', audioUnlock, { passive: true });
-addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+// focus lost (alt-tab, a system dialog): release every held key, and a held Space must not pop on the way out
+addEventListener('blur', () => { clearKeys(); P.prevSpace = false; P.holdT = 0; });
+// tab hidden: the frame loop stops anyway; pause the run so the player comes back to the pause card (audio suspends in audio.js)
+document.addEventListener('visibilitychange', () => { if (document.hidden) { clearKeys(); if (state === 'play' && !AUTO) togglePause(); } });
+// a button that started the run / closed a card keeps focus: drop it so keys go to the game
+function dropFocus() { const a = document.activeElement; if (a && a !== document.body && a.blur) a.blur(); }
 function readControls(t) {
   const k = keys;
   ctl.a = !!(k.KeyA || k.ArrowLeft) || ctl.stickX < -0.35;
@@ -6390,14 +6469,15 @@ function readControls(t) {
   }
 }
 // touch: floating stick on the left, buttons on the right
+let touchRelease = () => {};
 (function setupTouch() {
-  if (!isTouch || AUTO) return;
+  if (!TOUCH_UI) return;
   document.body.classList.add('touch');
   const base = document.getElementById('stickBase'), knob = document.getElementById('stickKnob');
   let sid = null, ox = 0, oy = 0;
   addEventListener('touchstart', ev => {
     for (const t of ev.changedTouches) {
-      if (sid === null && t.clientX < innerWidth * 0.5 && state === 'play') {
+      if (sid === null && t.clientX < innerWidth * 0.5 && state === 'play' && !onSysBtn(t.target)) {
         sid = t.identifier; ox = t.clientX; oy = t.clientY;
         base.style.display = 'block'; base.style.left = (ox - 60) + 'px'; base.style.top = (oy - 60) + 'px';
       }
@@ -6409,15 +6489,25 @@ function readControls(t) {
       ctl.stickX = dx; ctl.stickY = dy; knob.style.left = (35 + dx * 35) + 'px'; knob.style.top = (35 + dy * 35) + 'px';
     }
   }, { passive: true });
-  const end = ev => { for (const t of ev.changedTouches) if (t.identifier === sid) { sid = null; ctl.stickX = ctl.stickY = 0; base.style.display = 'none'; knob.style.left = knob.style.top = '35px'; } };
+  const release = () => { sid = null; ctl.stickX = ctl.stickY = 0; base.style.display = 'none'; knob.style.left = knob.style.top = '35px'; };
+  const end = ev => { for (const t of ev.changedTouches) if (t.identifier === sid) release(); };
   addEventListener('touchend', end); addEventListener('touchcancel', end);
+  // pause / focus loss: let go of the stick and every button (their touchend may never arrive)
+  touchRelease = () => { release(); for (const b of document.querySelectorAll('#tbtns div, #tsys>div')) b.classList.remove('down'); };
   for (const b of document.querySelectorAll('#tbtns div')) {
     const code = b.dataset.k;
     b.addEventListener('touchstart', ev => { ev.preventDefault(); keys[code] = true; b.classList.add('down'); });
     const up = ev => { ev.preventDefault(); keys[code] = false; b.classList.remove('down'); };
     b.addEventListener('touchend', up); b.addEventListener('touchcancel', up);
   }
-  document.getElementById('tpause').addEventListener('touchstart', ev => { ev.preventDefault(); togglePause(); });
+  // the small row top left: pause, camera (C), respawn (B), mute (M)
+  const sysBtn = (id, fn) => { const b = document.getElementById(id);
+    b.addEventListener('touchstart', ev => { ev.preventDefault(); b.classList.add('down'); fn(); });
+    const up = ev => { ev.preventDefault(); b.classList.remove('down'); }; b.addEventListener('touchend', up); b.addEventListener('touchcancel', up); };
+  sysBtn('tpause', togglePause);
+  sysBtn('tcam', () => { if (state === 'play') camMode = (camMode + 1) % 2; });
+  sysBtn('tresp', () => { if (state === 'play') respawn('button'); });
+  sysBtn('tmute', () => { audioUnlock(); userMuted = !userMuted; applyMute(); });
 })();
 
 // =====================================================================================================
@@ -6429,7 +6519,7 @@ const P = {
   holdT: 0, prevSpace: false, prevQ: false, crouch: 0, skid: 0, skidSide: 1, steerSm: 0, lastSide: 1, tuck: 0, press: 0,
   airT: 0, airDrop: false, spin: 0, flip: 0, spinRate: 0, flipRate: 0, grab: null, grabT: 0, grabTotal: 0, sw: false, takeoffSw: false,
   baseQ: new THREE.Quaternion(), rootQ: new THREE.Quaternion(), ragSlide: new V3(), butterYaw: 0, butterRate: 0, shifty: 0, style: null, timeToLand: -1, windup: 0, leftKickerT: 9, popT: 9,
-  rail: null, railD: 0, railSign: 1, railSpd: 0, slide: null, slideT: 0,
+  rail: null, railD: 0, railSign: 1, railSpd: 0, slide: null, slideT: 0, goodS: 20,
   bail: null, bailT: 0, tumbleAng: 0, invuln: 0, stillT: 0, airRotSet: false,
   score: 0, combo: { n: 0, pts: 0, last: '' }, comboGroundT: 0,
   stats: { maxSpeed: 0, airs: 0, airTotal: 0, maxAir: 0, stumbles: 0, tumbles: 0, oob: 0, stuck: 0, slides: 0, tricks: 0, edgeBumps: 0 }
@@ -6462,8 +6552,15 @@ function physStep(dt) {
   else if (P.mode === 'bail') stepBail(dt);
   else if (P.mode === 'ragdoll') stepRagdoll(dt);
   P.prevSpace = ctl.space; P.prevQ = ctl.q;
+  // NaN guard: a bad step must never poison the run; put him back on the snow at the last good spot and respawn
+  if (!(isFinite(P.pos.x) && isFinite(P.pos.y) && isFinite(P.pos.z) && isFinite(P.vel.x) && isFinite(P.vel.y) && isFinite(P.vel.z))) {
+    P.stats.nan = (P.stats.nan || 0) + 1;
+    if (P.mode === 'ragdoll' && R.isRagdoll && R.isRagdoll()) R.ragdollEnd();
+    placeOnCourse(P.goodS, 0, 0, 0); P.mode = 'ride'; P.rail = null; P.slide = null; P.bail = null; P.ragKeep = 0;
+    respawn('oob'); return;
+  }
   // course coords + boundary
-  ground(P.pos.x, P.pos.z, P.hint, false); P.hint = GQ.i; P.s = GQ.s; P.d = GQ.d;
+  ground(P.pos.x, P.pos.z, P.hint, false); P.hint = GQ.i; P.s = GQ.s; P.d = GQ.d; P.goodS = P.s;
   P.speed = P.vel.length();
   if (P.mode !== 'bail' && P.mode !== 'ragdoll') { if (BOWL) bowlBarrier(); else edgeBarrier(); }
   if (P.mode === 'ride' || P.mode === 'air') hitObstacles();
@@ -6471,7 +6568,9 @@ function physStep(dt) {
   const offSide = BOWL ? bowlOut() : Math.abs(P.d) > halfWidth(P.s) + 24;
   if (offSide || P.pos.y < GQ.h - 3.5 || (P.mode === 'air' && P.airT > 9)) respawn('oob');
   const runOut = BOWL && P.s - BO > PAD.s - 110;
-  if (P.mode === 'ride' && P.speed < 1.2) { P.stillT += dt; if (P.stillT > (runOut ? 1.5 : 4)) { if (runOut) finishRun(); else respawn('stuck'); } } else P.stillT = 0;
+  // stuck: 4 s stopped with hands off; a player who is still pushing / steering / braking gets 7 s to sort it out himself
+  const busy = ctl.space || ctl.s || ctl.w || Math.abs(ctl.steer) > 0.2;
+  if (P.mode === 'ride' && P.speed < 1.2) { P.stillT += dt; if (P.stillT > (runOut ? 1.5 : busy ? 7 : 4)) { if (runOut) finishRun(); else respawn('stuck'); } } else P.stillT = 0;
   // bowl: reaching the heli pad (or rolling past it) ends the run
   if (BOWL && (P.mode === 'ride' || P.mode === 'air') && (Math.hypot(P.s - BO - PAD.s, P.d - PAD.d) < PAD.r || P.s - BO > PAD.s + 25)) finishRun();
   trackRun(dt);
@@ -6806,7 +6905,7 @@ function tryRail() {
     railClosest(rail, P.pos.x, P.pos.z, RC);
     const cap = rail.capture + (ctl.r ? 0.45 : 0);
     if (RC.dist > cap) continue;
-    if (RC.at > rail.len - 0.8) continue;
+    if (RC.at > rail.len - 0.8 && RC.at < 0.8) continue; // a stub: nothing to slide
     railPoint(rail, RC.at, _rp, _rd);
     const topY = _rp.y + rail.top, dy = P.pos.y - topY;
     const air = P.mode === 'air';
@@ -6815,6 +6914,8 @@ function tryRail() {
     _v.set(P.vel.x, 0, P.vel.z).normalize(); _w.set(_rd.x, 0, _rd.z).normalize();
     const al = _v.dot(_w);
     if (Math.abs(al) < (ctl.r ? 0.25 : 0.62)) continue;
+    // too close to the end he is heading for (either way along the rail): no lock, no zero-length slide
+    if ((al >= 0 ? rail.len - RC.at : RC.at) < 0.8) continue;
     // lock
     P.rail = rail; P.railSign = al >= 0 ? 1 : -1; P.railD = RC.at; P.railSpd = Math.max(4, spd * Math.abs(al) * 0.97);
     // slide type: board across (from spin or steer held) = boardslide, else 50-50
@@ -7577,27 +7678,61 @@ function updateHud(dt) {
 // =====================================================================================================
 let state = 'title', perfNow = 0, simT = 0, acc = 0;
 const elTitle = document.getElementById('title'), elPause = document.getElementById('pause');
+function showTouch(on) { if (TOUCH_UI) document.getElementById('touch').classList.toggle('on', on); }
 function startGame(mode) {
-  if (mode !== 'bowl' && BOWL) { location.href = location.pathname; return; } // Endless after the bowl: a fresh page
+  if (state !== 'title') return; // a second click / Enter on a title button that kept focus must not restart the run
+  if (mode !== 'bowl' && BOWL) resetWorld(false); // Endless after the bowl (?mode=bowl page): swap the world in place
   if (mode === 'bowl') enterBowl();
   if (COND === 'auto') applyConditions('auto');
-  state = 'play'; elTitle.classList.remove('on'); elGauge.classList.add('on');
-  if (isTouch && !AUTO) document.getElementById('touch').classList.add('on');
+  state = 'play'; elTitle.classList.remove('on'); elGauge.classList.add('on'); dropFocus();
+  showTouch(true);
   P.score = 0; loseCombo();
   introDrop(); resetRun();
 }
 function togglePause() {
+  if (RP.on || (window.BoardMaker && BoardMaker.isOpen())) return; // the panels own the keys (and Escape) while open
   if (state === 'play') {
-    state = 'pause'; elPause.classList.add('on'); sfx.heliStop();
+    state = 'pause'; elPause.classList.add('on'); sfx.heliStop(); clearKeys(); showTouch(false);
     // the run so far (bowl: this run from the drop; Endless: since the start)
     const sum = runSummary(), mode = BOWL ? 'bowl' : 'endless';
     if (!BOWL) { sum.dist = Math.max(sum.dist, P.s); savePB('endless', P.score); }
     document.getElementById('pscore').innerHTML = '<table class="sum">' + sumRows(sum, mode).map(r => '<tr><td>' + r[0] + '</td><td>' + esc(r[1]) + '</td></tr>').join('') + '</table>';
   }
-  else if (state === 'pause') { state = 'play'; elPause.classList.remove('on'); }
+  else if (state === 'pause') { state = 'play'; elPause.classList.remove('on'); dropFocus(); showTouch(true); }
   applyMute();
 }
-function applyMute() { sfx.setMuted(userMuted || state === 'pause'); }
+// ---- Quit to title (pause card): end the run cleanly and go back to the fly-over with a fresh Endless world, so either
+// mode can be picked again without a reload. Sound loops stop, the heli and any ragdoll / get-up go, run state resets.
+function quitToTitle() {
+  if (state !== 'pause' && state !== 'play') return;
+  if (RP.on || (window.BoardMaker && BoardMaker.isOpen())) return;
+  if (!BOWL) savePB('endless', P.score);
+  clearKeys(); scripted = null;
+  sfx.stopAll(); sfx.heliStop();
+  if (HS.on) endHeli(); if (heli) scene.remove(heli.root);
+  Object.assign(HS, { on: false, camOn: false, skipped: false, dropped: false, landT: -1 });
+  settleRider();
+  fade.a = 0; fade.dir = 0; fade.cb = null; elFade.style.opacity = 0;
+  resetWorld(true);
+  // rider / run state
+  placeOnCourse(20, 0, 0, 0);
+  Object.assign(P, { mode: 'title', speed: 0, holdT: 0, prevSpace: false, prevQ: false, crouch: 0, skid: 0, steerSm: 0, tuck: 0, press: 0, airT: 0, airDrop: false, heliDrop: false,
+    spin: 0, flip: 0, spinRate: 0, flipRate: 0, grab: null, rail: null, slide: null, bail: null, bailT: 0, tumbleAng: 0, invuln: 0, stillT: 0, ragKeep: 0, goodS: 20,
+    butterYaw: 0, butterRate: 0, ignoreSpace: false, score: 0, comboGroundT: 0 });
+  P.vel.set(0, 0, 0); loseCombo(); P.combo.last = '';
+  for (const k in P.stats) P.stats[k] = typeof P.stats[k] === 'number' ? 0 : '';
+  resetRun(); BW.lastSum = null;
+  elSum.classList.remove('on'); elSum.innerHTML = ''; sumT = 0;
+  elTrick.style.opacity = 0; elTrick.classList.remove('bank'); trickFade = 0;
+  // camera back to the fly-over
+  camSnap = true; Object.assign(cam, { kick: 0, shake: 0, dip: 0, dipV: 0, roll: 0, rollV: 0, air: 0, side: 0, ragW: 0, fov: CAM0.fov });
+  camera.fov = CAM0.fov; camera.near = CAM0.near; camera.updateProjectionMatrix(); camera.up.set(0, 1, 0);
+  titleS = 0; hudMph = 0; shownMph = -1; acc = 0;
+  state = 'title'; R.root.visible = false;
+  elPause.classList.remove('on'); elGauge.classList.remove('on'); elTitle.classList.add('on'); showTouch(false); dropFocus();
+  bestLine(); applyMute();
+}
+function applyMute() { sfx.setMuted(userMuted || state === 'pause'); const b = document.getElementById('tmute'); if (b) b.classList.toggle('off', userMuted); }
 // ---- sound state, every frame (board layers, rail, wind); one-shots fire from the events themselves
 const AUD = { speed: 0, edge: 0, skid: 0, air: false, mode: 'menu', rail: false, railKind: 'rail', powder: 0 };
 let gustPrev = 0, gustNext = 25;
@@ -7633,18 +7768,22 @@ document.getElementById('bowlBtn').addEventListener('click', () => startGame('bo
   names.forEach((nm, i) => { const b = document.createElement('button'); b.textContent = nm; if (i === 0) b.className = 'on';
     b.addEventListener('click', () => { BW.pick = i - 1; for (const x of box.querySelectorAll('button')) x.classList.toggle('on', x === b); }); box.appendChild(b); });
   if (QS.has('drop')) { BW.pick = clamp(parseInt(QS.get('drop'), 10) | 0, 0, DROPS.length - 1); box.querySelectorAll('button').forEach((x, i) => x.classList.toggle('on', i === BW.pick + 1)); }
+  bestLine();
+})();
+function bestLine() {
   const pb = [];
   if (PB.endless) pb.push('Endless ' + fmt(PB.endless)); if (PB.bowl) pb.push('Bowl ' + fmt(PB.bowl));
   document.getElementById('bestLine').textContent = pb.length ? 'Personal best \u00b7 ' + pb.join(' \u00b7 ') : '';
-})();
+}
+document.getElementById('quitBtn').addEventListener('click', e => { e.stopPropagation(); quitToTitle(); });
 addEventListener('pagehide', () => { if (!BOWL && state !== 'title') savePB('endless', P.score); });
 document.getElementById('resumeBtn').addEventListener('click', togglePause);
 
 // ---- Board button (title + pause): the board maker swallows every key while open, Escape closes it
-function clearKeys() { for (const k in keys) keys[k] = false; }
+function clearKeys() { for (const k in keys) keys[k] = false; touchRelease(); }
 function openBoardMaker(extra) {
   if (!window.BoardMaker || BoardMaker.isOpen() || RP.on) return;
-  BoardMaker.open(Object.assign({ kind: 'snow', THREE, onSave: applyBoardDesign, onClose: clearKeys }, extra || {}));
+  BoardMaker.open(Object.assign({ kind: 'snow', THREE, onSave: applyBoardDesign, onClose: () => { clearKeys(); dropFocus(); } }, extra || {}));
 }
 ['boardBtn', 'boardBtn2'].forEach(id => { const b = document.getElementById(id); if (!b) return; if (!window.BoardMaker) { b.style.display = 'none'; return; } b.addEventListener('click', e => { e.stopPropagation(); openBoardMaker(); }); });
 
@@ -7693,6 +7832,8 @@ function rpOpen() {
   RP.parent = R.root.parent; RP.pos.copy(R.root.position); RP.q.copy(R.root.quaternion); RP.vis = R.root.visible;
   PV.scene.add(R.root); R.root.position.set(0, 0, 0); R.root.quaternion.identity(); R.root.updateMatrixWorld(true); R.root.visible = true;
   RP.yaw = (R.toeSide || 1) * 0.6; RP.idle = 0;
+  // paused mid-ragdoll / bail / get-up: park it so the preview shows him standing (handed back on close)
+  if (R.previewHold) R.previewHold(true);
   R.setPose(PV_POSE); if (!(R.isRagdoll && R.isRagdoll())) for (let i = 0; i < 45; i++) R.tick(1 / 60);
   elTitle.classList.add('hide'); elPause.classList.add('hide'); elRP.classList.add('on'); rpRender();
 }
@@ -7702,7 +7843,8 @@ function rpClose(save) {
   else R.setOutfit(RP.before);
   RP.on = false; elRP.classList.remove('on'); elTitle.classList.remove('hide'); elPause.classList.remove('hide');
   (RP.parent || scene).add(R.root); R.root.position.copy(RP.pos); R.root.quaternion.copy(RP.q); R.root.visible = RP.vis;
-  renderer.setScissorTest(false); renderer.setViewport(0, 0, innerWidth, innerHeight); clearKeys();
+  R.root.updateMatrixWorld(true); if (R.previewHold) R.previewHold(false);
+  renderer.setScissorTest(false); renderer.setViewport(0, 0, innerWidth, innerHeight); clearKeys(); dropFocus();
 }
 function rpDraw(dt) {
   const st = elRPStage.getBoundingClientRect();
@@ -7755,7 +7897,8 @@ function applyConditions(name, secs) {
 
 let titleS = 0, pbT = 5;
 function frame(dt) {
-  dt = Math.min(dt, 0.05);
+  dt = dt > 0 ? Math.min(dt, 0.05) : 0; // background tab / alt-tab spikes clamp; NaN or negative never reaches the physics
+  if (!(acc >= 0 && acc < 1)) acc = 0;
   simT += dt; perfNow += dt * 1000;
   if (state === 'play') {
     readControls(simT);
@@ -7829,7 +7972,7 @@ function debugStats(dt, cpu, rnd) {
 function firstZone(type) { ensurePlan(4000); return plan.zones.find(z => z.type === type); }
 function riderRun(sec, dt) { const n = Math.round(sec / dt); for (let i = 0; i < n; i++) frame(dt); }
 function startAt(s, d, speed) {
-  state = 'play'; elTitle.classList.remove('on'); elGauge.classList.add('on');
+  state = 'play'; elTitle.classList.remove('on'); elGauge.classList.add('on'); showTouch(true);
   if (HS.on) endHeli();
   settleRider();
   placeOnCourse(s, d, 0, speed); P.mode = 'ride'; stream(s, 99); camSnap = true;
@@ -8003,6 +8146,7 @@ function runShot(name) {
   }
   if (QS.get('panel') === 'rider') { rpOpen(); if (QS.has('hat')) R.setOutfit({ hat: QS.get('hat'), jacketStyle: QS.get('style') || 'puffy', lens: QS.get('lens') || 'fire' }), rpRender(); RP.idle = -99; for (let i = 0; i < 20; i++) rpDraw(dt); }
   if (QS.get('panel') === 'board') openBoardMaker({ keepBuffer: true });
+  if (QS.has('pause') && state === 'play') togglePause();
   if (QS.has('info')) { const pre = document.getElementById('dbg'); pre.style.display = 'block'; pre.textContent = 'pos ' + P.pos.toArray().map(v => v.toFixed(1)) + '\nvel ' + P.vel.toArray().map(v => v.toFixed(1)) + '\ncam ' + camera.position.toArray().map(v => v.toFixed(1)) + '\nmode ' + P.mode + ' s ' + P.s.toFixed(1) + ' d ' + P.d.toFixed(1) + ' air ' + P.airT.toFixed(2) + '\nchunks ' + chunks.size + ' fov ' + camera.fov.toFixed(1) + ' gl ' + !!renderer.getContext(); renderer.render(scene, camera); const gl = renderer.getContext(); const px = new Uint8Array(4); gl.readPixels(gl.drawingBufferWidth >> 1, gl.drawingBufferHeight >> 1, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); pre.textContent += '\nbuf ' + gl.drawingBufferWidth + 'x' + gl.drawingBufferHeight + ' win ' + innerWidth + 'x' + innerHeight + ' px ' + Array.from(px) + ' err ' + gl.getError() + ' calls ' + renderer.info.render.calls + ' tris ' + renderer.info.render.triangles + ' bg ' + (scene.background && scene.background.getHexString()); }
   finishShot();
 }
@@ -8086,6 +8230,9 @@ function bowlTest() {
 }
 function runTest() {
   if (TEST === 'bowl') return bowlTest();
+  if (TEST === 'soak') return soakTest();
+  if (TEST === 'states') return statesTest();
+  if (TEST === 'cycles') return cyclesTest();
   const secs = parseFloat(QS.get('t') || '90'), dt = 1 / 60;
   startAt(20, 0, 10);
   const speeds = [];
@@ -8123,6 +8270,249 @@ function runTest() {
     'mph / s        ' + speeds.join(' ')].join('\n');
   const pre = document.getElementById('dbg'); pre.style.display = 'block'; pre.textContent = out;
   console.log(out);
+  finishShot();
+}
+
+// ?test=soak : a long Endless run at speed (&min=10, &v=22 m/s floor) at a fixed 1/60 step, rendered once per sim second.
+// Every sim minute: GPU geometries / textures / programs, scene children, chunks, trees, JS heap, update ms, sound calls.
+// PASS when the GPU counts stay flat after minute 2 (geometries within 15 %, textures within 3, programs equal).
+function soakTest() {
+  const dt = 1 / 60, mins = parseFloat(QS.get('min') || '10'), vMin = parseFloat(QS.get('v') || '22');
+  // sound calls (audio is never unlocked headless). Nodes per call, from audio.js (worst case): every one-shot stops itself
+  const NODES = { pop: 8, land: 14, rail: 15, slam: 28, treeHit: 11, heliDrop: 11, gust: 3 };
+  const calls = {}, callsMin = {};
+  for (const k in NODES) { const f = sfx[k]; calls[k] = 0; sfx[k] = function (a) { if (k !== 'rail' || a) calls[k]++; return f.apply(sfx, arguments); }; }
+  startAt(20, 0, vMin);
+  let airSeen = -1, airBig = false, forced = 0, rags = 0, dist = 0, px = P.pos.x, pz = P.pos.z, errors = 0, b0 = DBG.builds, wantRespawn = true;
+  scripted = tt => {
+    const o = carvePattern(tt), c = tt % 14;
+    if (c > 4 && c < 8) o.space = true;
+    if (tt % 23 > 19) o.s = true;
+    if (tt % 17 > 15) o.r = true;
+    if (P.mode === 'air') { if (airSeen < 0) { airSeen = tt; airBig = P.timeToLand > 0.9 || P.timeToLand < 0; } o.e = airBig && tt - airSeen < 0.45; o.a = true; o.q = airBig; } else airSeen = -1;
+    const want = clamp(o.steer * 0.9 - P.d * 0.03, -0.8, 0.8);
+    courseDir(P.s, _ca); const vx = P.vel.x, vz = P.vel.z;
+    const cur = Math.atan2(-(_ca.z * vx - _ca.x * vz), _ca.x * vx + _ca.z * vz);
+    o.steer = P.mode === 'ride' ? clamp((want - cur) * 2.2, -1, 1) : 0;
+    return o;
+  };
+  const info = renderer.info, rows = [], fpm = 3600;
+  const sample = m => {
+    renderer.render(scene, camera);
+    const mem = performance.memory ? (performance.memory.usedJSHeapSize / 1048576).toFixed(0) : '-';
+    let n = 0; for (const k in NODES) { n += (calls[k] - (callsMin[k] || 0)) * NODES[k]; callsMin[k] = calls[k]; }
+    rows.push({ m, geos: info.memory.geometries, tex: info.memory.textures, progs: info.programs ? info.programs.length : 0, kids: scene.children.length, chunks: chunks.size,
+      trees: SC.treeStats ? SC.treeStats().total : 0, heap: mem, builds: DBG.builds - b0, km: dist / 1000, nodes: n, banners: distMats.size });
+    b0 = DBG.builds;
+  };
+  // the heli is built on the first drop: do one before the baseline so it is counted from the start
+  respawn('button'); for (let i = 0; i < 120; i++) frame(dt); skipHeli(); for (let i = 0; i < 300; i++) frame(dt);
+  forced++; wantRespawn = false; sample(0);
+  const N = Math.round(mins * 60 / dt);
+  for (let i = 1; i <= N; i++) {
+    if (P.mode === 'ride') { const l = P.vel.length(); if (l > 0.5 && l < vMin) P.vel.multiplyScalar(vMin / l); }
+    try { frame(dt); } catch (e) { errors++; if (errors < 3) console.error(e); }
+    const dx = P.pos.x - px, dz = P.pos.z - pz, l = Math.sqrt(dx * dx + dz * dz); if (l < 5) dist += l; px = P.pos.x; pz = P.pos.z;
+    if (i % 5400 === 0) wantRespawn = true;                                                                     // heli in and out every 90 s
+    if (wantRespawn && P.mode === 'ride') { respawn('button'); forced++; wantRespawn = false; }
+    if (i % 7860 === 0 && P.mode === 'ride') { _w.copy(P.vel).setY(2); startRagdoll(_w, P.speed, null); rags++; } // a ragdoll now and then
+    if (HS.on && heliSkippable() && HS.t > 1.2) skipHeli();
+    if (i % 60 === 0) renderer.render(scene, camera);
+    if (i % fpm === 0) sample(i / fpm);
+  }
+  const fromI = Math.min(2, rows.length - 1), tail = rows.slice(fromI), rng = k => Math.max(...tail.map(r => r[k])) - Math.min(...tail.map(r => r[k]));
+  const g0 = Math.min(...tail.map(r => r.geos)), okG = rng('geos') <= Math.max(8, g0 * 0.15), okT = rng('tex') <= 3, okP = rng('progs') === 0, okK = rng('kids') <= 3;
+  const st = P.stats, lines = ['Powder Lines soak test  seed ' + SEED + '  ' + mins + ' min Endless, speed floor ' + vMin + ' m/s, step 1/60',
+    'min   geos  tex  progs  scene  chunks  trees  banners  heap MB  builds  km     sound nodes/min'];
+  for (const r of rows) lines.push(pad(r.m, 6) + pad(r.geos, 6) + pad(r.tex, 5) + pad(r.progs, 7) + pad(r.kids, 7) + pad(r.chunks, 8) + pad(r.trees, 7) + pad(r.banners, 9) + pad(r.heap, 9) + pad(r.builds, 8) + pad(r.km.toFixed(1), 7) + r.nodes);
+  lines.push('calls  ' + Object.keys(NODES).map(k => k + ' ' + calls[k]).join('  '));
+  lines.push('airs ' + st.airs + '  tricks ' + st.tricks + '  slides ' + st.slides + '  bails ' + (st.stumbles + st.tumbles) + '  ragdolls ' + (st.ragdolls || 0) + ' (forced ' + rags + ')  respawns oob ' + st.oob + ' stuck ' + st.stuck + ' button ' + forced + '  nan ' + (st.nan || 0));
+  lines.push('geometries ' + (okG ? 'flat' : 'GROWING') + ' (range ' + rng('geos') + ')  textures ' + (okT ? 'flat' : 'GROWING') + ' (range ' + rng('tex') + ')  programs ' + (okP ? 'flat' : 'CHANGING') + '  scene ' + (okK ? 'flat' : 'GROWING') + '  errors ' + errors);
+  lines.push(okG && okT && okP && okK && !errors ? 'SOAK PASS' : 'SOAK FAIL');
+  const pre = document.getElementById('dbg'); pre.style.display = 'block'; pre.textContent = lines.join('\n');
+  console.log(lines.join('\n'));
+  finishShot();
+}
+
+// ?test=states : scripted state-machine transitions through the real key handlers (synthetic key events)
+function statesTest() {
+  const dt = 1 / 60, out = ['Powder Lines states test  seed ' + SEED]; let fails = 0, errors = 0;
+  const ok = (name, cond, extra) => { out.push((cond ? 'ok    ' : 'FAIL  ') + name + (extra !== undefined ? '  (' + extra + ')' : '')); if (!cond) fails++; };
+  const key = (type, code) => document.body.dispatchEvent(new KeyboardEvent(type, { code, key: code === 'Escape' ? 'Escape' : code === 'Space' ? ' ' : code.replace('Key', '').toLowerCase(), bubbles: true, cancelable: true }));
+  const press = code => { key('keydown', code); key('keyup', code); };
+  const run = s => { for (let i = 0, n = Math.round(s / dt); i < n; i++) { try { frame(dt); } catch (e) { errors++; if (errors < 4) console.error(e); } } };
+  const finite = () => [P.pos.x, P.pos.y, P.pos.z, P.vel.x, P.vel.y, P.vel.z, camera.position.x, camera.position.y, camera.position.z, simT].every(isFinite);
+  let pops = 0; const pop0 = sfx.pop; sfx.pop = function () { pops++; return pop0.apply(sfx, arguments); };
+  const skipNow = () => { for (let i = 0; i < 400 && !heliSkippable(); i++) run(dt); key('keydown', 'KeyW'); key('keyup', 'KeyW'); };
+  const kids0 = () => scene.children.length;
+  // 1) title -> run (button click), a second click must not restart it
+  run(0.5); ok('title', state === 'title');
+  const pb = document.getElementById('playBtn'); pb.focus(); pb.click();
+  ok('Endless button starts the run', state === 'play' && P.mode === 'heli' && HS.on);
+  ok('the button lets go of focus', document.activeElement !== pb);
+  run(0.4); const ht = HS.t; pb.click(); ok('second click ignored (no restart)', HS.t >= ht && state === 'play', 'heli t ' + HS.t.toFixed(2));
+  // 2) Space skips the drop; the same held Space must not charge or pop
+  for (let i = 0; i < 400 && !heliSkippable(); i++) run(dt);
+  const p0 = pops; key('keydown', 'Space');
+  ok('Space skips the heli drop', P.mode === 'ride' && HS.skipped);
+  run(0.6); ok('held skip-Space does not charge', P.holdT === 0, 'holdT ' + P.holdT.toFixed(2));
+  key('keyup', 'Space'); run(0.2); ok('releasing it does not pop', pops === p0, 'pops ' + (pops - p0));
+  run(1.5);
+  { const s1 = P.s, m1 = P.mode; key('keydown', 'Enter'); key('keyup', 'Enter'); ok('Enter in a run does nothing', state === 'play' && P.mode !== 'heli' && Math.abs(P.s - s1) < 1, m1 + ' -> ' + P.mode); }
+  // 3) focus loss with keys held
+  key('keydown', 'KeyA'); key('keydown', 'Space'); run(0.3); const p1 = pops;
+  window.dispatchEvent(new Event('blur')); run(0.3);
+  ok('blur releases held keys', !keys.KeyA && !keys.Space && !ctl.a);
+  ok('blur while charging does not pop', pops === p1);
+  key('keyup', 'KeyA'); key('keyup', 'Space');
+  // 4) pause / resume, keys during pause, mute
+  key('keydown', 'KeyD'); press('Escape'); ok('Esc pauses', state === 'pause' && elPause.classList.contains('on'));
+  ok('pause clears held keys + mutes', !keys.KeyD && sfx.muted === true);
+  const s0 = P.s; press('KeyB'); ok('B does nothing while paused', state === 'pause' && P.mode !== 'heli');
+  key('keyup', 'KeyD');
+  press('KeyP'); ok('P resumes', state === 'play' && !elPause.classList.contains('on') && sfx.muted === false);
+  press('KeyM'); ok('M mutes', userMuted && sfx.muted === true); press('KeyM'); ok('M unmutes', !userMuted && sfx.muted === false);
+  press('KeyP'); press('KeyM'); press('KeyP'); ok('M while paused then resume stays muted', state === 'play' && sfx.muted === true); press('KeyM');
+  // 5) rider panel from the pause card: keys blocked, Esc closes the panel only
+  press('Escape'); rpOpen(); ok('rider panel opens over pause', RP.on && R.root.parent === PV.scene);
+  press('KeyB'); press('KeyP'); ok('keys blocked in the rider panel', RP.on && state === 'pause' && P.mode !== 'heli');
+  press('Escape'); ok('Esc closes the panel, still paused', !RP.on && state === 'pause' && R.root.parent === scene);
+  press('Escape'); ok('Esc again resumes', state === 'play');
+  // 6) board maker from the pause card
+  if (window.BoardMaker) {
+    press('Escape'); let bmErr = '';
+    try { openBoardMaker(); } catch (e) { bmErr = e.message; }
+    ok('board maker opens over pause', BoardMaker.isOpen(), bmErr);
+    press('KeyB'); press('KeyP'); ok('keys blocked in the board maker', BoardMaker.isOpen() && state === 'pause');
+    press('Escape'); ok('Esc closes the board maker, still paused', !BoardMaker.isOpen() && state === 'pause');
+    press('Escape'); ok('Esc again resumes', state === 'play');
+  }
+  run(0.5); ok('riding after the panels', (P.mode === 'ride' || P.mode === 'air') && finite(), P.mode);
+  // 7) respawn from every mode
+  const kidsA = kids0();
+  key('keydown', 'Space'); run(0.35); key('keyup', 'Space'); run(0.05);
+  const wasAir = P.mode === 'air'; respawn('button');
+  ok('respawn in the air', wasAir && P.mode === 'heli' && HS.on, wasAir ? '' : 'not in the air: ' + P.mode);
+  skipNow(); run(0.5);
+  { const z = firstZone('rails'), rd = railDefs.find(r => r.s > z.s0 && r.type !== 'log');
+    startAt(rd.s - 14, rd.d, 9); scripted = tt => ({ steer: clamp((rd.d - P.d) * 0.3, -1, 1) * (P.mode === 'ride' ? 1 : 0), r: true });
+    for (let i = 0; i < 300 && P.mode !== 'rail'; i++) run(dt); scripted = null; const onRail = P.mode === 'rail';
+    run(0.1); respawn('button'); ok('respawn on a rail', onRail && P.mode === 'heli' && !P.rail && !P.slide, onRail ? '' : 'never locked'); skipNow(); run(0.5); }
+  _w.copy(P.heading).multiplyScalar(20).setY(3); startRagdoll(_w, 20, null); run(0.6); const rag = P.mode === 'ragdoll';
+  respawn('button'); ok('respawn in a ragdoll', rag && P.mode === 'heli' && !R.isRagdoll() && !R.isRecovering());
+  skipNow(); run(2); ok('riding after the ragdoll respawn', (P.mode === 'ride' || P.mode === 'air') && finite() && !R.isRecovering(), P.mode);
+  startBail('tumble', 'test'); run(0.4); respawn('button'); ok('respawn in a tumble', P.mode === 'heli' && !R.isRecovering()); skipNow(); run(0.5);
+  respawn('button'); run(0.2); respawn('button'); ok('respawn during the heli drop', P.mode === 'heli' && HS.on); skipNow(); run(1);
+  ok('scene children flat over the respawns', kids0() <= kidsA + 1, kidsA + ' -> ' + kids0());
+  ok('one heli in the scene', heli ? scene.children.filter(o => o === heli.root).length <= 1 : true);
+  key('keydown', 'Escape'); key('keyup', 'Escape'); const hs = HS.on; press('Escape'); ok('pause during the heli drop', state === 'play' && finite(), 'heli ' + hs);
+  // 7b) a tap on the phone's II (or camera / respawn / mute) during the drop must not also skip it
+  respawn('button'); for (let i = 0; i < 400 && !heliSkippable(); i++) run(dt);
+  for (const id of ['tpause', 'tcam', 'tmute']) document.getElementById(id).dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+  ok('tap on the phone buttons during the heli drop does not skip it', heliSkippable() && !HS.skipped);
+  document.getElementById('c').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); ok('a tap elsewhere still skips it', HS.skipped); run(0.5);
+  // 7c) paused mid-ragdoll: the rider preview stands; closing the panel hands the ragdoll back
+  _w.copy(P.heading).multiplyScalar(20).setY(3); startRagdoll(_w, 20, null); run(0.5);
+  press('Escape'); rpOpen(); const held = RP.on && !R.isRagdoll() && !R.isRecovering(); rpClose(false);
+  ok('rider panel over a ragdoll previews him standing, then hands it back', held && R.isRagdoll() && P.mode === 'ragdoll' && state === 'pause');
+  press('Escape'); run(0.4); ok('ragdoll carries on after the panel', finite() && (P.mode === 'ragdoll' || P.mode === 'bail' || P.mode === 'ride'), P.mode); respawn('button'); skipNow(); run(0.5);
+  // 8) rails: landing on the very end, either way along it; spinning into one
+  { const rail = activeRails.find(r => r.len > 4) || railDefs.length && null;
+    if (!rail) ok('rail edge cases', false, 'no rail near'); else {
+      const lockAt = (at, sign, spin) => {
+        P.mode = 'air'; P.rail = null; P.airT = 0.6; P.spin = spin || 0; P.flip = 0; railPoint(rail, at, _rp, _rd);
+        P.pos.copy(_rp); P.pos.y += rail.top + 0.2; P.vel.copy(_rd).multiplyScalar(10 * sign); P.vel.y = -1;
+        const r = tryRail(); const res = { lock: r, slide: P.slide, spin: P.spin }; if (r) { P.mode = 'air'; P.rail = null; P.slide = null; } return res; };
+      ok('lands on the far end: no lock', !lockAt(rail.len - 0.3, 1).lock);
+      ok('lands on the near end riding backwards: no lock', !lockAt(0.3, -1).lock);
+      ok('lands in the middle: locks', lockAt(rail.len * 0.5, 1).lock);
+      const sp = lockAt(rail.len * 0.4, 1, Math.PI / 2 + 0.15); ok('spun 90 into it: a boardslide/lipslide', sp.lock && sp.slide !== '5050' && sp.spin === 0, sp.slide);
+      startAt(P.s + 20, 0, 10);
+    } }
+  // 9) zero-speed edge cases: kicker at 0, skid at 0, stopping on purpose
+  { const k = kickers.find(kk => kk.s > 200) || kickers[0];
+    startAt(k.s - k.L * 0.5, k.d, 0); scripted = () => ({}); run(2); ok('kicker at 0 speed', finite() && P.mode !== 'bail', P.mode + ' ' + P.speed.toFixed(1));
+    startAt(k.s - k.L * 0.3, k.d, 0); scripted = tt => ({ space: tt < 0.4 }); run(2); ok('pop on a kicker at 0 speed', finite(), P.mode);
+    // stopped on the ramp face: braking on purpose is left alone for 7 s; hands off, the stuck respawn still comes at 4 s
+    const st1 = P.stats.stuck; startAt(k.s - k.L * 0.5, k.d, 0); scripted = () => ({ s: true }); run(5.5);
+    ok('stopped on purpose (S held) 5.5 s: no stuck respawn', P.stats.stuck === st1, P.speed.toFixed(1) + ' m/s');
+    startAt(k.s - k.L * 0.5, k.d, 0); scripted = () => ({}); run(4.6); ok('stopped hands-off 4.6 s: stuck respawn', P.stats.stuck === st1 + 1, P.speed.toFixed(1) + ' m/s ' + P.mode);
+    skipNow(); run(0.3); }
+  { const z = firstZone('mini'), st0 = P.stats.stuck;
+    startAt(z.s0 + 10, 0, 0); scripted = () => ({ s: true }); run(6); ok('skid from 0 speed for 6 s: no NaN, no stuck reset', finite() && P.stats.stuck === st0, P.speed.toFixed(1) + ' m/s');
+    startAt(z.s0 + 10, 0, 0); scripted = () => ({}); run(1); ok('standing start rolls away', P.speed > 1.2, P.speed.toFixed(1) + ' m/s'); }
+  scripted = null;
+  // 10) dt spikes: a background tab, NaN, negative, zero
+  frame(5); frame(NaN); frame(-1); frame(0); frame(1e9); run(0.2); ok('dt spikes keep everything finite', finite() && isFinite(acc));
+  // 11) a NaN in the physics recovers
+  P.vel.x = NaN; run(0.2); ok('NaN velocity recovers', finite() && (P.stats.nan || 0) > 0, 'nan ' + (P.stats.nan || 0));
+  // 12) quit to title from the pause card, then a Bowl run and quit again
+  press('Escape'); document.getElementById('quitBtn').click(); run(0.5);
+  ok('Quit to title', state === 'title' && elTitle.classList.contains('on') && !elPause.classList.contains('on') && !HS.on && !BOWL && P.score === 0 && !R.root.visible);
+  document.getElementById('bowlBtn').click(); ok('Bowl from the title after a quit', state === 'play' && BOWL && P.mode === 'heli'); skipNow(); run(1);
+  press('Escape'); document.getElementById('quitBtn').click(); run(0.5); ok('Quit from the bowl', state === 'title' && !BOWL && chunks.size > 0);
+  document.getElementById('playBtn').click(); ok('Endless after the bowl, no reload', state === 'play' && !BOWL && P.mode === 'heli'); skipNow(); run(1);
+  ok('riding Endless after the switch', (P.mode === 'ride' || P.mode === 'air') && finite(), P.mode);
+  out.push('errors ' + errors + '   checks failed ' + fails);
+  out.push(fails || errors ? 'STATES FAIL' : 'STATES PASS');
+  const pre = document.getElementById('dbg'); pre.style.display = 'block'; pre.textContent = out.join('\n');
+  console.log(out.join('\n'));
+  finishShot();
+}
+
+// ?test=cycles (&n=10): title -> Endless -> pause -> Quit -> title -> Bowl -> pause -> Quit -> title, n times, through the real
+// buttons. Each run rides a few seconds with a ragdoll and a respawn. Measured at the title after every cycle: GPU geometries /
+// textures / programs, scene children, chunks, trees, banners, heli in the scene, DOM listeners added, rAF loops started,
+// sound loops. PASS when every count after cycle 1 matches cycle 1 (geometries within 2) and the run state is clean.
+function cyclesTest() {
+  const dt = 1 / 60, N = parseInt(QS.get('n') || '10', 10), out = ['Powder Lines cycles test  seed ' + SEED + '  ' + N + ' x (title > Endless > title > Bowl > title)'];
+  let errors = 0, fails = 0;
+  const run = s => { for (let i = 0, n = Math.round(s / dt); i < n; i++) { try { frame(dt); } catch (e) { errors++; if (errors < 4) console.error(e); } if (i % 30 === 0) renderer.render(scene, camera); } renderer.render(scene, camera); };
+  const key = (type, code) => document.body.dispatchEvent(new KeyboardEvent(type, { code, key: code, bubbles: true, cancelable: true }));
+  const press = code => { key('keydown', code); key('keyup', code); };
+  // count DOM listeners and animation-frame loops started from here on
+  let lis = 0, rafs = 0; const ael = EventTarget.prototype.addEventListener, rel = EventTarget.prototype.removeEventListener, raf0 = window.requestAnimationFrame;
+  EventTarget.prototype.addEventListener = function () { lis++; return ael.apply(this, arguments); };
+  EventTarget.prototype.removeEventListener = function () { lis--; return rel.apply(this, arguments); };
+  window.requestAnimationFrame = function () { rafs++; return raf0.apply(window, arguments); };
+  const info = renderer.info, rows = [];
+  const snap = c => { const E = sfx._engine && sfx._engine();
+    return { c, geos: info.memory.geometries, tex: info.memory.textures, progs: info.programs ? info.programs.length : 0, kids: scene.children.length, chunks: chunks.size,
+      trees: SC.treeStats ? SC.treeStats().total : 0, banners: distMats.size, heli: heli ? scene.children.filter(o => o === heli.root).length : 0, lis, rafs,
+      loops: E ? Object.keys(E.loops).length + (E.heli ? 1 : 0) : 0, heap: performance.memory ? (performance.memory.usedJSHeapSize / 1048576).toFixed(0) : '-' }; };
+  const clean = () => state === 'title' && elTitle.classList.contains('on') && !elPause.classList.contains('on') && !HS.on && !R.isRagdoll() && !R.isRecovering() &&
+    P.score === 0 && P.combo.n === 0 && RUN.dist === 0 && !elSum.classList.contains('on') && fade.dir === 0 && !BOWL && camera.fov === CAM0.fov && !R.root.visible;
+  const ride = (secs, rag) => {
+    for (let i = 0; i < 600 && !heliSkippable(); i++) run(dt);
+    press('KeyW'); run(secs * 0.5);
+    if (rag && P.mode === 'ride') { _w.copy(P.heading).multiplyScalar(18).setY(3); startRagdoll(_w, 18, null); run(0.7); }
+    press('Escape'); const paused = state === 'pause'; press('Escape'); run(0.2);
+    respawn('button'); run(0.5); press('Escape');
+    return paused && state === 'pause';
+  };
+  run(0.5); const pb = document.getElementById('playBtn'), bb = document.getElementById('bowlBtn'), qb = document.getElementById('quitBtn');
+  let cleanAll = true, modesOk = true;
+  for (let c = 1; c <= N; c++) {
+    pb.click(); const e1 = state === 'play' && !BOWL && P.mode === 'heli'; const pe = ride(2.5, c % 2 === 1); qb.click(); run(0.6);
+    const c1 = clean();
+    bb.click(); const b1 = state === 'play' && BOWL && P.mode === 'heli'; const pbw = ride(2.5, c % 2 === 0); qb.click(); run(0.6);
+    const c2 = clean();
+    if (!(e1 && b1 && pe && pbw)) { modesOk = false; out.push('cycle ' + c + ': endless start ' + e1 + ' bowl start ' + b1 + ' paused ' + pe + '/' + pbw); }
+    if (!(c1 && c2)) { cleanAll = false; out.push('cycle ' + c + ': title not clean after ' + (c1 ? 'Bowl' : 'Endless') + ' (state ' + state + ' heli ' + HS.on + ' rag ' + R.isRagdoll() + ' score ' + P.score + ' bowl ' + BOWL + ')'); }
+    rows.push(snap(c));
+  }
+  EventTarget.prototype.addEventListener = ael; EventTarget.prototype.removeEventListener = rel; window.requestAnimationFrame = raf0;
+  out.push('cycle  geos  tex  progs  scene  chunks  trees  banners  heli  listeners  rAF  sound loops  heap MB');
+  for (const r of rows) out.push(pad(r.c, 7) + pad(r.geos, 6) + pad(r.tex, 5) + pad(r.progs, 7) + pad(r.kids, 7) + pad(r.chunks, 8) + pad(r.trees, 7) + pad(r.banners, 9) + pad(r.heli, 6) + pad(r.lis, 11) + pad(r.rafs, 5) + pad(r.loops, 13) + r.heap);
+  const b = rows[0], same = k => rows.every(r => r[k] === b[k]);
+  const okG = rows.every(r => Math.abs(r.geos - b.geos) <= 2), okT = same('tex'), okP = same('progs'), okK = same('kids'), okC = same('chunks') && same('trees') && same('banners');
+  const okL = rows.every(r => r.lis === 0 && r.rafs === 0 && r.heli === 0 && r.loops === 0);
+  out.push('geometries ' + (okG ? 'flat' : 'GROWING') + '  textures ' + (okT ? 'flat' : 'CHANGING') + '  programs ' + (okP ? 'flat' : 'CHANGING') + '  scene ' + (okK ? 'flat' : 'CHANGING') +
+    '  chunks/trees/banners ' + (okC ? 'flat' : 'CHANGING') + '  listeners/rAF/heli/loops ' + (okL ? 'none' : 'LEAKING') + '  title clean ' + cleanAll + '  modes ' + modesOk + '  errors ' + errors);
+  if (!(okG && okT && okP && okK && okC && okL && cleanAll && modesOk)) fails++;
+  out.push(fails || errors ? 'CYCLES FAIL' : 'CYCLES PASS');
+  const pre = document.getElementById('dbg'); pre.style.display = 'block'; pre.textContent = out.join('\n');
+  console.log(out.join('\n'));
   finishShot();
 }
 

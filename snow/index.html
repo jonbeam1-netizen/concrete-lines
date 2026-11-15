@@ -139,6 +139,37 @@ body.touch .mouseonly{display:none}
 #rp .btn.pri{flex:1.4;background:#3a8fd0;border-color:#3a8fd0;color:#fff}
 #rp .btn.pri:hover{background:#5aa7e2}
 @media (max-width:760px){#rp .shell{grid-template-columns:1fr;grid-template-rows:40% 60%;height:100%;border-radius:0;border:0}#rp .panel{border-left:0;border-top:1px solid rgba(255,255,255,.09)}#rp .body{padding:2px 12px 12px}}
+/* co-op: the join row on the title / pause cards, the riders list, the race line and the results card */
+.coop{margin-top:14px;font-size:13px;color:var(--ink-soft)}
+.coop .lbl{display:block;margin-bottom:6px;letter-spacing:.08em;text-transform:uppercase;font-size:11px}
+.coop .row{display:flex;gap:6px;justify-content:center;align-items:center;flex-wrap:wrap}
+.coop [hidden]{display:none}
+.coop input{font-family:var(--font);font-size:14px;color:var(--ink);background:rgba(255,255,255,.75);border:1px solid rgba(16,36,58,.22);border-radius:9px;padding:7px 9px;width:112px;box-sizing:border-box}
+.coop input#coopCode{width:76px;text-transform:uppercase;letter-spacing:.12em;text-align:center}
+.coop button.ghost{font-size:14px;padding:7px 14px}
+.coop .code{font-size:22px;font-weight:800;letter-spacing:.16em;color:var(--glacier-deep)}
+.coop .st{margin-top:6px;min-height:16px;font-size:12px}
+.coop button.big{font-size:17px;padding:9px 24px;margin-top:6px}
+.coop button.big:disabled{opacity:.55;cursor:default}
+#coopHud{position:fixed;right:16px;top:14px;pointer-events:none;color:var(--hud);text-shadow:var(--shadow);background:rgba(16,36,58,.34);border-radius:10px;padding:7px 11px 8px;font-size:13px;line-height:1.5;display:none;font-variant-numeric:tabular-nums;min-width:150px;max-width:44vw}
+#coopHud.on{display:block}
+#coopHud .h{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--hud-dim)}
+#coopHud .r{display:flex;justify-content:space-between;gap:14px;white-space:nowrap}
+#coopHud .r i{display:inline-block;width:8px;height:8px;border-radius:4px;margin-right:6px;background:var(--c)}
+#coopHud .r span:last-child{color:var(--hud-dim)}
+body.touch #coopHud{top:104px}
+#racebar{position:fixed;left:50%;top:14px;transform:translateX(-50%);display:none;align-items:center;gap:10px;color:var(--hud);text-shadow:var(--shadow);background:rgba(16,36,58,.46);border-radius:12px;padding:8px 14px;font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;max-width:94vw;box-sizing:border-box}
+#racebar.on{display:flex}
+#racebar.bad{background:rgba(160,44,32,.66)}
+#racebar button{font-family:var(--font);font-size:14px;font-weight:600;border:0;border-radius:9px;padding:6px 14px;cursor:pointer;color:#fff;background:var(--glacier)}
+#racebar button.no{background:rgba(255,255,255,.25)}
+#racebox{position:fixed;left:16px;top:16px;pointer-events:none;color:var(--hud);text-shadow:var(--shadow);background:rgba(16,36,58,.46);border-radius:12px;padding:10px 14px 11px;font-size:14px;line-height:1.6;display:none;font-variant-numeric:tabular-nums;min-width:220px}
+#racebox.on{display:block}
+#racebox .h{font-weight:700;font-size:16px;margin-bottom:3px}
+#racebox .r{display:flex;justify-content:space-between;gap:18px}
+#racebox .r.me{color:#ffe7b0}
+body.touch #racebox{top:62px}
+@media (max-width:640px){#racebar{font-size:13px;padding:6px 10px;white-space:normal;text-align:center}}
 #dbg{position:fixed;left:10px;top:10px;margin:0;padding:10px 12px;background:rgba(10,24,40,.82);color:#cfe6ff;font:12px/1.35 Consolas,monospace;border-radius:8px;display:none;white-space:pre;max-height:94vh;overflow:hidden}
 </style>
 </head>
@@ -148,6 +179,9 @@ body.touch .mouseonly{display:none}
 <div id="trick"><div class="n" id="tname"></div><div class="p" id="tpts"></div></div>
 <div id="runsum"></div>
 <div id="rtime"></div>
+<div id="coopHud"></div>
+<div id="racebar"><span id="raceTxt"></span><button id="raceYes" type="button" hidden>Race</button><button id="raceNo" class="no" type="button" hidden>Not now</button></div>
+<div id="racebox"></div>
 <div id="runend"><button class="big" id="againBtn" type="button">Ride again</button><button class="ghost quit" id="endQuitBtn" type="button">Quit to title</button></div>
 <div id="fade"></div>
 <div class="overlay on" id="title"><div class="card">
@@ -155,14 +189,19 @@ body.touch .mouseonly{display:none}
   <div class="modes"><button class="big" id="playBtn">Endless</button><button class="big alt" id="bowlBtn">Free-ride Bowl</button><button class="big alt" id="runBtn">Signature Run</button></div>
   <div class="drops" id="drops"><span class="lbl">Bowl drop-in</span></div>
   <div class="drops" id="conds" style="display:none"><span class="lbl">Conditions</span></div>
+  <div class="coop" id="coop"><span class="lbl">Ride with friends · up to 6</span>
+    <div class="row" id="coopOff"><input id="coopName" type="text" maxlength="12" placeholder="Your name" autocomplete="off" spellcheck="false" aria-label="Your name"><button class="ghost" id="coopHost" type="button">Host co-op</button><input id="coopCode" type="text" maxlength="6" placeholder="Code" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Join code"><button class="ghost" id="coopJoin" type="button">Join</button></div>
+    <div class="row" id="coopOn" hidden><span class="code" id="coopCodeBig"></span><span id="coopWho"></span><button class="ghost quit" id="coopLeave" type="button">Leave</button></div>
+    <div class="st" id="coopStatus"></div></div>
   <div class="gear"><button class="ghost" id="boardBtn" type="button">Board</button><button class="ghost" id="riderBtn" type="button">Rider</button><button class="ghost" id="setBtn" type="button">Settings</button></div>
   <div class="best" id="bestLine"></div>
   <a class="sib" href="https://jonbeam1-netizen.github.io/concrete-lines/" target="_top"><svg width="22" height="12" viewBox="0 0 22 12" aria-hidden="true"><rect x="1" y="2" width="20" height="4" rx="2" fill="currentColor"/><circle cx="5" cy="9" r="2.2" fill="currentColor"/><circle cx="17" cy="9" r="2.2" fill="currentColor"/></svg>Also play <b>Concrete Lines</b> &middot; skateboarding &rarr;</a>
-  <div class="sub">Updated November 14, 2026 &middot; Play-test 0.019</div>
+  <div class="sub">Updated November 14, 2026 &middot; Play-test 0.020</div>
 </div></div>
 <div class="overlay" id="pause"><div class="card">
   <h2>Paused</h2>
   <div id="pscore"></div>
+  <div class="coop" id="pcoop" style="display:none"><div class="st" id="pcoopSt"></div><button class="big alt" id="raceBtn" type="button">Start a race?</button><button class="ghost" id="pcoopHost" type="button">Host co-op</button></div>
   <table class="keys tch">
     <tr><td>Stick</td><td>Left thumb anywhere on the left half. Snow: left / right carve, up tuck, down skid. Air: left / right drift</td></tr>
     <tr><td>Trick</td><td>A whole spin or flip by itself, a different kind each press. Push the stick in the air first to choose: left / right spin, up / down flip. Hold for more turns. On the snow it jumps first</td></tr>
@@ -170,7 +209,7 @@ body.touch .mouseonly{display:none}
     <tr><td>Pop</td><td>Snow: hold to crouch and build speed, release for the biggest jump. Pressed in the air: hold it and the stick turns him by hand</td></tr>
     <tr><td>Butter</td><td>Hold to press the tail, stick up for the nose, stick left / right to roll. Also locks onto a rail, box or log</td></tr>
     <tr><td>Right thumb</td><td>Air: drag sideways anywhere on the right half to drift</td></tr>
-    <tr><td>Top left</td><td>Pause, camera, respawn, mute</td></tr>
+    <tr><td>Top left</td><td>Pause, camera, respawn (in co-op: next to the friend furthest ahead), mute</td></tr>
   </table>
   <table class="keys kb">
     <tr><td>A / D</td><td>Carve left / right. Air: drift</td></tr>
@@ -183,7 +222,7 @@ body.touch .mouseonly{display:none}
     <tr><td>Mouse</td><td>Air: move left / right to drift. Left click = E, right click = Q</td></tr>
     <tr><td>Arrows</td><td>Snow: same as W A S D. Air: left / right drift, with no mouse needed</td></tr>
     <tr><td>C</td><td>Camera</td></tr>
-    <tr><td>B</td><td>Respawn</td></tr>
+    <tr><td>B</td><td>Respawn. In co-op it drops you next to the friend furthest ahead</td></tr>
     <tr><td>M</td><td>Mute</td></tr>
     <tr><td>P / Esc</td><td>Pause</td></tr>
   </table>
@@ -7056,12 +7095,16 @@ addEventListener('keydown', ev => {
   if (SETUI.on) { if (ev.code === 'Escape') setClose(); if (ev.code === 'Space' || ev.code.startsWith('Arrow')) { const t = ev.target; if (!(t && t.id === 'setVol')) ev.preventDefault(); } return; }
   if (RP.on) { if (ev.code === 'Escape') rpClose(false); if (ev.code === 'Space' || ev.code.startsWith('Arrow')) ev.preventDefault(); return; }
   if (window.BoardMaker && BoardMaker.isOpen()) return;
+  { const tg = ev.target; if (tg && tg.tagName === 'INPUT' && tg.type === 'text') return; }   // typing a name or a join code
   // (pause and focus loss let go of every key; a hold key that is physically still down comes back through its
   // auto-repeat, so he crouches again without the player having to let go and press once more)
   if (ev.repeat) { if (ev.code === 'Space') ev.preventDefault(); if (state === 'play' && HOLD_KEYS[ev.code] && !keys[ev.code]) keys[ev.code] = true; return; }
   keys[ev.code] = true;
   audioUnlock();
   if (ev.code === 'Space' || ev.code.startsWith('Arrow')) ev.preventDefault();
+  // a race: Y / N answers the host's invite, Enter starts it for the host without waiting for the rest
+  if (state === 'play' && !ev.repeat && RACE.phase === 'asked' && (ev.code === 'KeyY' || ev.code === 'KeyN')) { raceAnswer(ev.code === 'KeyY'); return; }
+  if (state === 'play' && RACE.phase === 'wait' && ev.code === 'Enter') { raceGo(); return; }
   // any key skips the helicopter drop (except pause / mute)
   if (state === 'play' && heliSkippable() && ev.code !== 'KeyP' && ev.code !== 'Escape' && ev.code !== 'KeyM') { skipHeli(); return; }
   if (ev.code === 'KeyP' || (ev.code === 'Escape' && performance.now() - MOUSE.escT > 300)) togglePause();
@@ -8054,12 +8097,18 @@ function respawn(reason) {
   loseCombo();
   if (BOWL) { if (BW.done) return; const sp = bowlRespawnSpot({}); fade.dir = 1; fade.cb = () => { startHeliDrop('respawn', S(sp.bs), sp.d); }; }
   else if (RUNM) { const target = RS.done ? plan.finishS + 40 : RS.cps[RS.cpI]; fade.dir = 1; fade.cb = () => { startHeliDrop('respawn', target); }; }
-  else { const target = (HS.on && HS.s > P.s ? HS.s : P.s) + (reason === 'button' ? 60 : 120);
+  else { const lead = NET.on && reason === 'button' && RACE.phase !== 'on' ? netLeadS() : 0;   // co-op: B catches up with the friend furthest ahead
+    const target = lead > P.s + 150 ? lead + 20 : (HS.on && HS.s > P.s ? HS.s : P.s) + (reason === 'button' ? 60 : 120);
   fade.dir = 1; fade.cb = () => { startHeliDrop('respawn', target); }; }
   if (AUTO) { fade.a = 1; fade.cb(); fade.cb = null; fade.dir = -1; }
 }
 // well down the first slope, so the wide shot looking back up sees snow and the ridge line, not the start edge
-function introDrop() { if (BOWL) startBowlDrop(BW.pick >= 0 ? BW.pick : nextDropIndex(), 'intro'); else startHeliDrop('intro', 95); }
+function introDrop() {
+  if (BOWL) { startBowlDrop(BW.pick >= 0 ? BW.pick : nextDropIndex(), 'intro'); return; }
+  // co-op: dropped next to the others (the rider furthest down), each a little to one side
+  const lead = NET.on && !RUNM ? Math.max(NET.hostS, netLeadS()) : 0, side = NET.on && !NET.host && !RUNM ? (REM.size % 2 ? 1 : -1) * 3 * Math.ceil(REM.size / 2) : 0; NET.hostS = 0;
+  startHeliDrop('intro', lead > 250 ? lead + 25 : 95, side);
+}
 // ---- bowl runs: heli drop at a drop point, ride to the pad, a quiet summary, then the heli lifts you back up
 let dropRng = mulberry(SEED ^ 0x4d0f);
 function nextDropIndex() { if (BW.pick >= 0) return BW.pick; let i; do { i = (dropRng() * DROPS.length) | 0; } while (i === BW.drop && DROPS.length > 1); return i; }
@@ -8166,7 +8215,7 @@ const HS = {
   camOn: false, w0: -0.15, w1: 1.35, fov: 55, washAcc: 0
 };
 const _hp = new V3(), _hc = new V3(), _hl = new V3(), _hq = new THREE.Quaternion();
-function heliSkippable() { return HS.on && HS.camOn && HS.landT < 0; }
+function heliSkippable() { return HS.on && HS.camOn && HS.landT < 0 && !(RACE.phase === 'on' && !RACE.started); }   // (the race drop is the start line: nobody skips it)
 function startHeliDrop(kind, s, d) {
   d = d || 0;
   // a calm spot: not on a cliff band, a kicker deck or its landing
@@ -8633,6 +8682,7 @@ function togglePause() {
     const sum = runSummary(), mode = BOWL ? 'bowl' : RUNM ? 'run' : 'endless';
     if (RUNM) sum.time = RS.t;
     else if (!BOWL) { sum.dist = Math.max(sum.dist, P.s); savePB('endless', P.score); }
+    netUi();
     document.getElementById('pscore').innerHTML = '<table class="sum">' + sumRows(sum, mode).map(r => '<tr><td>' + r[0] + '</td><td>' + esc(r[1]) + '</td></tr>').join('') + '</table>';
   }
   else if (state === 'pause') { state = 'play'; elPause.classList.remove('on'); dropFocus(); showTouch(true); }
@@ -8650,7 +8700,8 @@ function quitToTitle() {
   Object.assign(HS, { on: false, camOn: false, skipped: false, dropped: false, landT: -1 });
   settleRider();
   fade.a = 0; fade.dir = 0; fade.cb = null; elFade.style.opacity = 0;
-  resetWorld(true);
+  raceClear();
+  resetWorld(!NET.on);   // (in co-op the mountain is the host's: it stays)
   // rider / run state
   placeOnCourse(20, 0, 0, 0);
   Object.assign(P, { mode: 'title', speed: 0, holdT: 0, boost: 0, giveBack: 0, scrubbed: 0, prevSpace: false, prevQ: false, prevE: false, qJump: false, eJump: false, trick: null, spaceAir: false, crouch: 0, skid: 0, steerSm: 0, tuck: 0, press: 0, airT: 0, airDrop: false, heliDrop: false,
@@ -8813,7 +8864,7 @@ function rpOpen() {
 }
 function rpClose(save) {
   if (!RP.on) return;
-  if (save) { if (!AUTO) try { localStorage.setItem(OUTFIT_KEY, JSON.stringify(R.getOutfit())); } catch (e) { } }
+  if (save) { if (!AUTO) try { localStorage.setItem(OUTFIT_KEY, JSON.stringify(R.getOutfit())); } catch (e) { } netMe(); }
   else R.setOutfit(RP.before);
   RP.on = false; elRP.classList.remove('on'); elTitle.classList.remove('hide'); elPause.classList.remove('hide');
   (RP.parent || scene).add(R.root); R.root.position.copy(RP.pos); R.root.quaternion.copy(RP.q); R.root.visible = RP.vis;
@@ -8886,6 +8937,8 @@ function frame(dt) {
     updateRiderVisual(dt);
     updateCamera(dt);
     stream(P.s, 1);
+    if (REM.size) remTick(dt);
+    if (RACE.phase === 'on') raceFrame(dt);
     if (BOWL) { BW.refreshT -= dt; if (BW.refreshT <= 0) { BW.refreshT = 0.25; bowlRefresh(); } bowlFinishTick(dt); }
     else if (RUNM) runFrame(dt);
     else { pbT -= dt; if (pbT <= 0) { pbT = 5; savePB('endless', P.score); } }
@@ -8919,9 +8972,10 @@ function loop(t) {
   const dt = lastT ? (t - lastT) / 1000 : 1 / 60; lastT = t;
   if (MOUSE.lock && (state !== 'play' || RP.on || (window.BoardMaker && BoardMaker.isOpen()) || document.querySelector('.overlay.on'))) freeMouse();
   if (P.mode !== 'air') ctl.mouseX = 0; else ctl.mouseX *= Math.exp(-0.8 * Math.min(dt, 0.05));
+  netTick(Math.min(dt, 0.1));   // co-op: my updates go out and the race line is kept, paused or not
   if (RP.on) { rpDraw(dt); return; }
   if (window.BoardMaker && BoardMaker.isOpen()) return; // its own full-screen renderer; the game frame stays frozen behind
-  if (state === 'pause') { renderer.render(scene, camera); return; }
+  if (state === 'pause') { if (REM.size) remTick(Math.min(dt, 0.05)); renderer.render(scene, camera); return; }   // (friends ride on while I am paused)
   const t0 = performance.now();
   frame(dt);
   const t1 = performance.now();
@@ -8944,6 +8998,572 @@ function debugStats(dt, cpu, rnd) {
   el.textContent = 'frame ' + (D.ft / D.n).toFixed(1) + ' ms (worst ' + D.ftMax.toFixed(1) + ')  update ' + (D.cpu / D.n).toFixed(1) + ' (' + D.cpuMax.toFixed(1) + ')  render ' + (D.rnd / D.n).toFixed(1) + ' (' + D.rndMax.toFixed(1) + ')\n' +
     debugText() + '\nmode ' + P.mode + '  ' + Math.round(P.speed * 2.237) + ' mph  s ' + Math.round(P.s) + (sfx.unlocked ? '  audio ' + (userMuted ? 'muted' : 'on') + ' v' + sfx.voices : '  audio locked');
   D.acc = 0; D.n = 0; D.ft = D.ftMax = D.cpu = D.cpuMax = D.rnd = D.rndMax = 0;
+}
+
+// =====================================================================================================
+// Co-op: a join code, up to six riders on the same mountain, and races
+// =====================================================================================================
+// One rider hosts and gets a four-letter code; the others join with it (PeerJS, a star through the host, who relays).
+// Everyone takes the host's seed, so the Endless mountain is the same for all. Each rider sends where he is and the pose
+// he was given about 15 times a second; a friend is one more snow rider, drawn a moment in the past between two updates.
+// A race: the host asks, friends say yes, everyone is dropped off the helicopter side by side at the same place, rides
+// through the gates (a missed gate costs time) to the finish arch, and the best time wins.
+const NET = { peer: null, on: false, host: false, hostConn: null, conns: new Map(), myId: '', code: '', name: '', hostS: 0, sendT: 0, hudT: 0, lib: 0, tap: null, pose: null, landN: 0, landS: 0.5, last: null, hud: '', status: '' };
+try { NET.name = (localStorage.getItem('powderLines.name') || '').slice(0, 12); } catch (e) { }
+const REM = new Map(), REM_POOL = [];
+const NET_MAX = 6, NET_HZ = 15, REM_COL = ['#2e7fd6', '#3aa66a', '#e0a020', '#8a56c8', '#e06aa0', '#28a8a8'];
+const NET_MODES = ['ride', 'air', 'rail', 'bail', 'ragdoll', 'heli', 'title'];
+// the pose a rider is given each frame, as sent: n = number, b = yes / no, s = a short name or nothing
+const POSE_KEYS = ['launch', 'hang', 'landSlope', 'speed', 'edge', 'crouch', 'tuck', 'skid', 'windup', 'air', 'airTime', 'timeToLand', 'spinRate', 'flipRate', 'grab', 'press', 'slide', 'switch', 'slideSpin', 'butterSpin', 'shifty', 'style', 'trick', 'trickDir', 'trickProg', 'trickDone'];
+const POSE_T = 'nnnnnnnnnbnnnnsnsbnnnsnnnb';
+const NET_WEB = 'jonbeam1-netizen.github.io/concrete-lines/snow';
+const netNow = () => AUTO ? simT : performance.now() / 1000;
+const r2 = v => Math.round(v * 100) / 100, r3 = v => Math.round(v * 1000) / 1000;
+const cleanName = n => String(n == null ? '' : n).replace(/[^\w \-'.]/g, '').trim().slice(0, 12) || 'Rider';
+function cleanOutfit(o) {
+  if (!o || typeof o !== 'object') return null;
+  const out = {}; let n = 0;
+  for (const k in o) { const v = o[k]; if (n++ < 24 && /^\w{1,20}$/.test(k) && typeof v === 'string' && /^[#\w \-]{1,24}$/.test(v)) out[k] = v; }
+  return out;
+}
+const netOutfit = () => R.getOutfit ? R.getOutfit() : null;
+// the pose and the landings the game gives its own rider are what the friends are sent
+{ const sp = R.setPose, ld = R.land;
+  R.setPose = s => { if (s) NET.pose = s; return sp(s); };
+  R.land = (a, b) => { NET.landN = (NET.landN + 1) % 1000; NET.landS = a === undefined ? 0.5 : a; return ld(a, b); }; }
+
+const elCoop = document.getElementById('coopHud'), elRaceBar = document.getElementById('racebar'), elRaceTxt = document.getElementById('raceTxt'),
+  elRaceYes = document.getElementById('raceYes'), elRaceNo = document.getElementById('raceNo'), elRaceBox = document.getElementById('racebox');
+function netStatus(t) { NET.status = t || ''; netUi(); }
+function netUi() {
+  const n = REM.size + 1, off = document.getElementById('coopOff'), on = document.getElementById('coopOn');
+  off.hidden = NET.on; on.hidden = !NET.on;
+  document.getElementById('coopCodeBig').textContent = NET.code;
+  document.getElementById('coopWho').textContent = NET.on ? (NET.host ? 'Friends join with this code · ' : 'Joined · ') + n + (n === 1 ? ' rider' : ' riders') : '';
+  document.getElementById('coopStatus').textContent = NET.status;
+  // the pause card
+  const pc = document.getElementById('pcoop'), endless = state !== 'title' && !BOWL && !RUNM, rb = document.getElementById('raceBtn'), hb = document.getElementById('pcoopHost');
+  pc.style.display = NET.on || endless ? '' : 'none';
+  const busy = RACE.phase === 'on' || RACE.phase === 'wait' || (RACE.phase === 'done' && !raceAllIn());
+  document.getElementById('pcoopSt').textContent = NET.on ? 'Co-op code ' + NET.code + ' · ' + n + (n === 1 ? ' rider' : ' riders') + (NET.host ? (endless ? '' : ' · races are run in Endless') : ' · the host starts the races') : NET.status;
+  rb.style.display = NET.on && NET.host && endless ? '' : 'none'; rb.disabled = busy; rb.textContent = busy ? 'Race in progress' : 'Start a race?';
+  hb.style.display = !NET.on && endless ? '' : 'none';
+}
+// a line at the top for a moment ("Sam joined", "+3 s missed gate")
+function netNote(t, bad, secs) { RACE.flash = t; RACE.bad = !!bad; RACE.flashT = netNow() + (secs || 2.4); }
+
+// ---- the link
+function netLib(cb) {
+  if (typeof Peer !== 'undefined') { cb(true); return; }
+  if (NET.lib) return;
+  NET.lib = 1; netStatus('Loading...');
+  const s = document.createElement('script'); s.src = 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
+  s.onload = () => { NET.lib = 0; cb(typeof Peer !== 'undefined'); }; s.onerror = () => { NET.lib = 0; cb(false); };
+  document.head.appendChild(s);
+}
+const netFail = () => netStatus('Online play could not load on this page. It works on the web version: ' + NET_WEB);
+const netErr = err => 'Could not reach the co-op server (' + (err && err.type || 'unknown') + '). The web version works best: ' + NET_WEB;
+const netSend = (c, m) => { try { if (c && c.open) c.send(m); } catch (e) { } };
+function netOut(m, except) {   // to everyone else: straight out from the host, through the host from a friend
+  if (NET.tap) NET.tap(m, except);
+  if (NET.host) NET.conns.forEach((c, id) => { if (id !== except) netSend(c, m); }); else netSend(NET.hostConn, m);
+}
+const netCode = () => { const A = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; let c = ''; for (let i = 0; i < 4; i++) c += A[Math.floor(Math.random() * A.length)]; return c; };
+const netPeerId = code => 'powder-lines-' + code.toLowerCase();
+function netLeave(quiet) {
+  const p = NET.peer; NET.peer = null;
+  try { if (p) p.destroy(); } catch (e) { }
+  NET.on = false; NET.host = false; NET.hostConn = null; NET.conns.clear(); NET.myId = ''; NET.code = ''; NET.hostS = 0;
+  for (const id of Array.from(REM.keys())) remDrop(id);
+  raceClear(); elCoop.classList.remove('on'); NET.hud = '';
+  if (!quiet) netStatus(''); else netUi();
+}
+function netHost() {
+  netLib(ok => {
+    if (!ok) { netFail(); return; }
+    netLeave(true);
+    const code = netCode(), peer = new Peer(netPeerId(code));
+    NET.peer = peer; NET.host = true; netStatus('Starting...');
+    peer.on('open', id => { if (NET.peer !== peer) return; NET.myId = id; NET.on = true; NET.code = code; netStatus(''); });
+    peer.on('connection', conn => {
+      conn.on('open', () => {
+        if (NET.peer !== peer) return;
+        if (NET.conns.size >= NET_MAX - 1) { netSend(conn, { t: 'full' }); setTimeout(() => { try { conn.close(); } catch (e) { } }, 600); return; }
+        NET.conns.set(conn.peer, conn);
+      });
+      conn.on('data', m => { if (NET.peer === peer) netData(conn.peer, m); });
+      conn.on('close', () => { if (NET.peer === peer && NET.conns.delete(conn.peer)) netGone(conn.peer); });
+    });
+    peer.on('disconnected', () => { try { if (NET.peer === peer) peer.reconnect(); } catch (e) { } });   // only the lobby server: riders already linked stay linked
+    peer.on('error', err => { if (NET.peer !== peer) return; if (err && err.type === 'unavailable-id' && !NET.on) { netHost(); return; } if (!NET.on) { netLeave(true); netStatus(netErr(err)); } });
+  });
+}
+function netJoin(raw) {
+  let code = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!/^[A-Z0-9]{4}$/.test(code)) { netStatus('A code is four letters or numbers, like K7QM'); return; }
+  netLib(ok => {
+    if (!ok) { netFail(); return; }
+    netLeave(true);
+    const peer = new Peer(); NET.peer = peer; netStatus('Looking for ' + code + '...');
+    peer.on('open', id => {
+      if (NET.peer !== peer) return;
+      const conn = peer.connect(netPeerId(code), { reliable: true, serialization: 'json' }); NET.hostConn = conn; NET.code = code;
+      conn.on('open', () => netSend(conn, { t: 'hi', n: NET.name, o: netOutfit() }));
+      conn.on('data', m => { if (NET.peer === peer) netData('', m); });
+      conn.on('close', () => { if (NET.peer !== peer) return; const was = NET.on; netLeave(true); netStatus(was ? 'The host left the game' : 'Could not join ' + code); if (was) netNote('The host left the game'); });
+    });
+    peer.on('error', err => { if (NET.peer !== peer) return; const t = err && err.type === 'peer-unavailable' ? 'No game found for ' + code : netErr(err); if (!NET.on) { netLeave(true); netStatus(t); } });
+  });
+}
+function netGone(id) {   // a rider left
+  const r = REM.get(id); if (!r) return;
+  if (NET.host) netOut({ t: 'bye', id });
+  netNote(r.name + ' left'); remDrop(id); raceDropRider(id); netUi();
+}
+// the mountain everyone rides: the host's
+function netWorld(seed) {
+  if (state !== 'title') quitToTitle();
+  if (seed !== BASE_SEED || BOWL || RUNM) { BASE_SEED = seed | 0; resetWorld(false); titleS = 0; }
+}
+function netData(from, m) {
+  if (!m || typeof m !== 'object') return;
+  const H = NET.host, id = H ? from : String(m.id || '');
+  if (m.t === 's') {   // where a rider is
+    if (!id || id === NET.myId) return;
+    const r = REM.get(id); if (r) remState(r, m.d);
+    if (H) netOut({ t: 's', id, d: m.d }, from);
+  } else if (m.t === 'hi' && H) {
+    if (!NET.conns.has(from) || REM.has(from)) return;
+    const n = cleanName(m.n), o = cleanOutfit(m.o);
+    netSend(NET.conns.get(from), { t: 'wel', id: from, seed: BASE_SEED, hs: state !== 'title' && !BOWL && !RUNM ? Math.round(P.s) : 0, host: { id: NET.myId, n: cleanName(NET.name), o: netOutfit() },
+      who: Array.from(REM.values()).map(r => ({ id: r.id, n: r.name, o: r.outfit })) });
+    remGet(from, n, o); netOut({ t: 'join', id: from, n, o }, from); netNote(n + ' joined'); netUi();
+  } else if (m.t === 'wel' && !H && !NET.on) {
+    NET.on = true; NET.myId = String(m.id || ''); NET.hostS = +m.hs > 0 ? +m.hs : 0;
+    if (m.host && typeof m.host === 'object') remGet(String(m.host.id || 'host'), cleanName(m.host.n), cleanOutfit(m.host.o));
+    if (Array.isArray(m.who)) for (const w of m.who.slice(0, NET_MAX)) if (w && typeof w === 'object' && w.id !== NET.myId) remGet(String(w.id), cleanName(w.n), cleanOutfit(w.o));
+    netWorld(m.seed | 0); netStatus('');
+    startGame('endless');   // straight onto the mountain, next to the others
+  } else if (m.t === 'full' && !H) { netLeave(true); netStatus('That game is full (six riders)');
+  } else if (m.t === 'join' && !H) { if (id && id !== NET.myId) { remGet(id, cleanName(m.n), cleanOutfit(m.o)); netNote(cleanName(m.n) + ' joined'); netUi(); }
+  } else if (m.t === 'bye' && !H) { netGone(id);
+  } else if (m.t === 'me') {   // a new name or outfit
+    const r = REM.get(id); if (!r) return;
+    r.name = cleanName(m.n); r.outfit = cleanOutfit(m.o); drawTag(r); try { if (r.outfit) r.rider.setOutfit(r.outfit); } catch (e) { }
+    if (H) netOut({ t: 'me', id, n: r.name, o: r.outfit }, from);
+  } else if (m.t === 'rinv' && !H) raceAsked(m);
+  else if (m.t === 'racc' && H) raceAnswered(from, m);
+  else if (m.t === 'rgo' && !H) raceStart(m);
+  else if (m.t === 'rfin') { if (raceResult(id, m) && H) netOut({ t: 'rfin', id, rid: m.rid, time: m.time, pen: m.pen }, from); }
+}
+function netMe() { if (NET.on) netOut({ t: 'me', id: NET.myId, n: cleanName(NET.name), o: netOutfit() }); }
+
+// ---- what I send
+function netPack() {
+  if (state === 'title' || BOWL || RUNM) return [0];
+  if (RP.on || (window.BoardMaker && BoardMaker.isOpen())) return NET.last || [0];   // (the Rider panel borrows the rider for its preview)
+  const rag = P.mode === 'ragdoll', p = rag ? P.pos : R.root.position, q = R.root.quaternion, v = P.vel, o = NET.pose || IDLE_POSE, pose = [];
+  for (let i = 0; i < POSE_KEYS.length; i++) { const x = o[POSE_KEYS[i]], t = POSE_T[i]; pose.push(t === 'n' ? (typeof x === 'number' && isFinite(x) ? r3(x) : 0) : t === 'b' ? (x ? 1 : 0) : (x || 0)); }
+  return NET.last = [1, r2(p.x), r2(p.y), r2(p.z), r3(q.x), r3(q.y), r3(q.z), r3(q.w), r2(v.x), r2(v.y), r2(v.z), Math.round(P.s), NET_MODES.indexOf(P.mode), NET.landN, r2(NET.landS),
+    P.mode === 'bail' && P.bail ? (P.bail === 'tumble' ? 2 : 1) : 0, pose];
+}
+
+// ---- the other riders
+function drawTag(r) {
+  const cv = r.tag.userData.cv, x = cv.getContext('2d'); x.clearRect(0, 0, 256, 64);
+  x.font = '700 30px Outfit, "Segoe UI", Arial, sans-serif'; const w = Math.min(232, x.measureText(r.name).width + 54), x0 = 128 - w / 2;
+  x.fillStyle = 'rgba(16,36,58,.62)'; x.beginPath(); x.moveTo(x0 + 22, 10); x.arcTo(x0 + w, 10, x0 + w, 54, 22); x.arcTo(x0 + w, 54, x0, 54, 22); x.arcTo(x0, 54, x0, 10, 22); x.arcTo(x0, 10, x0 + w, 10, 22); x.fill();
+  x.fillStyle = r.col; x.beginPath(); x.arc(x0 + 22, 32, 8, 0, 6.3); x.fill();
+  x.fillStyle = '#fff'; x.textAlign = 'left'; x.textBaseline = 'middle'; x.fillText(r.name, x0 + 38, 33, 190);
+  r.tag.material.map.needsUpdate = true;
+}
+function remGet(id, name, outfit) {
+  let r = REM.get(id);
+  if (r) return r;
+  if (REM.size >= NET_MAX - 1) return null;
+  const used = new Set(Array.from(REM.values()).map(q => q.col)), col = REM_COL.find(c => !used.has(c)) || REM_COL[0];
+  let slot = REM_POOL.pop();
+  if (!slot) {
+    const rider = createSnowRider(THREE, { jacket: col });
+    const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64;
+    const tex = new THREE.CanvasTexture(cv); if (THREE.sRGBEncoding && renderer.outputEncoding === THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
+    const tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true })); tag.renderOrder = 40; tag.userData.cv = cv;
+    slot = { rider, tag };
+  }
+  r = { id, name, outfit, col, rider: slot.rider, tag: slot.tag, snaps: [], shown: false, away: true, rag: false, ragT: 0, bail: 0, landN: 0, s: 0, hint: 0, lastT: 0, bad: 0 };
+  try { r.rider.setOutfit(outfit || { jacket: col }); } catch (e) { }
+  r.rider.root.visible = false; r.tag.visible = false; scene.add(r.rider.root, r.tag);
+  drawTag(r); REM.set(id, r);
+  return r;
+}
+function remHide(r) {
+  if (r.rag) { try { r.rider.ragdollEnd(); } catch (e) { } r.rag = false; }
+  r.rider.root.visible = false; r.tag.visible = false; r.shown = false;
+}
+function remDrop(id) {
+  const r = REM.get(id); if (!r) return;
+  remHide(r); scene.remove(r.rider.root, r.tag); REM_POOL.push({ rider: r.rider, tag: r.tag }); REM.delete(id);
+}
+function remState(r, d) {
+  if (!Array.isArray(d)) return;
+  r.lastT = netNow();
+  if (d[0] === 0) { r.away = true; r.snaps.length = 0; return; }   // in the bowl, on the Signature Run or at the title
+  if (d[0] !== 1 || d.length < 17) return;
+  for (let i = 1; i < 16; i++) if (typeof d[i] !== 'number' || !isFinite(d[i])) return;
+  const pa = Array.isArray(d[16]) ? d[16] : [], pose = {};
+  for (let i = 0; i < POSE_KEYS.length; i++) { const x = pa[i], t = POSE_T[i]; pose[POSE_KEYS[i]] = t === 'n' ? (typeof x === 'number' && isFinite(x) ? clamp(x, -1e4, 1e4) : 0) : t === 'b' ? !!x : (typeof x === 'string' && /^[\w\-]{1,16}$/.test(x) ? x : null); }
+  if (pose.grab && GRAB_LIST.indexOf(pose.grab) < 0) pose.grab = null;
+  r.away = false; r.s = d[11];
+  r.snaps.push({ t: r.lastT, x: d[1], y: d[2], z: d[3], qx: d[4], qy: d[5], qz: d[6], qw: d[7], vx: d[8], vy: d[9], vz: d[10], s: d[11], mode: d[12] | 0, landN: d[13] | 0, landS: d[14], bail: d[15] | 0, pose });
+  if (r.snaps.length > 20) r.snaps.shift();
+}
+const _rgr = { h: 0, nx: 0, ny: 1, nz: 0 }, _rq0 = new THREE.Quaternion(), _rq1 = new THREE.Quaternion(), _gqn = new V3();
+function remGround(r, x, z) {   // the snow under a friend's ragdoll (the game's own ground query is left as it was)
+  const h0 = GQ.h, s0 = GQ.s, d0 = GQ.d, i0 = GQ.i, k0 = GQ.kicker; _gqn.copy(GQ.n);
+  const g = ground(x, z, r.hint, true);
+  _rgr.h = g.h; _rgr.nx = g.n.x; _rgr.ny = g.n.y; _rgr.nz = g.n.z; r.hint = GQ.i;
+  GQ.h = h0; GQ.s = s0; GQ.d = d0; GQ.i = i0; GQ.kicker = k0; GQ.n.copy(_gqn);
+  return _rgr;
+}
+function remTick(dt) {
+  if (!REM.size) return;
+  const now = netNow(), rt = now - 0.14, here = state !== 'title' && !BOWL && !RUNM && !RP.on;
+  for (const r of REM.values()) {
+    const S = r.snaps, last = S[S.length - 1];
+    if (!here || r.away || !last || now - last.t > 5 || r.bad > 3) { if (r.shown) remHide(r); continue; }
+    while (S.length > 2 && S[1].t <= rt) S.shift();
+    const a = S[0], b = S[1] || a, span = b.t - a.t;
+    let k = span > 1e-4 ? (rt - a.t) / span : 1;
+    const cur = k >= 1 ? b : a; k = clamp(k, 0, 1.6);   // a touch past the newest update he carries on along the same line
+    const far = Math.abs(b.x - a.x) + Math.abs(b.y - a.y) + Math.abs(b.z - a.z) > 40;   // respawned / dropped somewhere else: no slide across the mountain
+    const x = far ? b.x : a.x + (b.x - a.x) * k, y = far ? b.y : a.y + (b.y - a.y) * k, z = far ? b.z : a.z + (b.z - a.z) * k;
+    const dist = Math.hypot(x - camera.position.x, y - camera.position.y, z - camera.position.z), root = r.rider.root;
+    if (cur.mode === 5 || dist > 900) { if (r.shown) remHide(r); continue; }   // (on his own helicopter's skid, which only he sees: he appears as he steps off)
+    try {
+      if (!r.shown) { root.visible = true; r.tag.visible = true; r.shown = true; r.landN = cur.landN; r.bail = 0; ensureCourse(cur.s + 120); }
+      if (cur.mode === 4) {   // crashed: his ragdoll is run here from the speed he crashed at
+        if (!r.rag) {
+          root.position.set(x, y, z); root.quaternion.set(cur.qx, cur.qy, cur.qz, cur.qw).normalize(); root.updateMatrixWorld(true);
+          r.hint = Math.floor(cur.s / DS); r.rider.ragdoll(new V3(cur.vx, cur.vy, cur.vz), (gx, gz) => remGround(r, gx, gz)); r.rag = true; r.ragT = 0;
+        }
+        r.ragT += dt;
+        let e = null; const n = Math.max(1, Math.ceil(dt / STEP - 1e-6)); for (let i = 0; i < n && dt > 0; i++) e = r.rider.ragdollStep(dt / n);
+        if (e) r.tag.position.set(e.x, e.y + 1.6, e.z);
+      } else {
+        if (r.rag) { r.rider.ragdollEnd(); r.rag = false; }
+        root.position.set(x, y, z);
+        _rq0.set(a.qx, a.qy, a.qz, a.qw); _rq1.set(b.qx, b.qy, b.qz, b.qw); root.quaternion.copy(_rq0).slerp(_rq1, far ? 1 : Math.min(1, k)).normalize();
+        if (cur.bail !== r.bail) { if (cur.bail) r.rider.bail(cur.bail === 2 ? 'tumble' : 'stumble'); else r.rider.recover(); r.bail = cur.bail; }
+        if (cur.landN !== r.landN) { r.landN = cur.landN; r.rider.land(clamp(cur.landS, 0, 1.5), 1); }
+        r.rider.setPose(cur.pose); r.rider.tick(dt);
+        r.tag.position.set(x, y + 2.25, z);
+      }
+      const ts = clamp(dist * 0.03, 0.5, 11); r.tag.scale.set(4 * ts, ts, 1); r.tag.position.y += 0.35 * ts;
+    } catch (err) { r.bad++; if (DEBUG) console.error(err); remHide(r); }
+  }
+}
+// the friend furthest down the mountain (B drops you next to him when he is well ahead)
+function netLeadS() { let m = 0; for (const r of REM.values()) if (!r.away && netNow() - r.lastT < 5) m = Math.max(m, r.s); return m; }
+function netHud() {
+  if (!NET.on || state === 'title') { if (NET.hud) { NET.hud = ''; elCoop.classList.remove('on'); } return; }
+  const rows = [], racing = (RACE.phase === 'on' || RACE.phase === 'done') && RACE.started;
+  if (racing) {
+    const L = [];
+    for (const id in RACE.racers) { const me = id === NET.myId, r = REM.get(id), res = RACE.results[id]; L.push({ n: RACE.racers[id].n, col: me ? '#ffffff' : r ? r.col : '#888', res, s: me ? P.s : r ? r.s : 0 }); }
+    L.sort((p, q) => (p.res ? p.res.time : 1e9) - (q.res ? q.res.time : 1e9) || q.s - p.s);
+    L.forEach((p, i) => rows.push([p.col, (i + 1) + '  ' + p.n, p.res ? fmtT(p.res.time) : Math.max(0, Math.round(RACE.fin - p.s)) + ' m']));
+  } else {
+    rows.push(['#ffffff', cleanName(NET.name), '']);
+    for (const r of REM.values()) { const ds = Math.round(r.s - P.s); rows.push([r.col, r.name, r.away || netNow() - r.lastT > 5 ? 'away' : Math.abs(ds) < 15 ? 'here' : (ds > 0 ? '▲ ' : '▼ ') + Math.abs(ds) + ' m']); }
+  }
+  const h = '<div class="h">' + (racing ? 'Race' : 'Co-op · ' + esc(NET.code)) + '</div>' + rows.map(q => '<div class="r"><span><i style="--c:' + q[0] + '"></i>' + esc(q[1]) + '</span><span>' + esc(q[2]) + '</span></div>').join('');
+  if (h !== NET.hud) { NET.hud = h; elCoop.innerHTML = h; elCoop.classList.add('on'); }
+}
+
+// ---- races
+const RACE = { phase: '', rid: 0, s0: 0, fin: 0, gates: [], gi: 0, pen: 0, miss: 0, t0: 0, armed: false, started: false, time: 0, total: 0, racers: {}, results: {}, acc: {}, waitT: 0, askT: 0, by: '', prevS: 0,
+  flash: '', bad: false, flashT: 0, doneT: 0, boxT: 0, meshes: [], bar: '', box: '' };
+const RACE_LEN = 1600, GATE_GAP = 200, GATE_HW = 4.5, RACE_PEN = 3;
+const raceAllIn = () => { for (const id in RACE.racers) if (!RACE.results[id]) return false; return true; };
+// where a gate or the finish can stand: not on a cliff band, a kicker or its landing (the same rule on every machine)
+function raceClearS(s) {
+  for (let it = 0; it < 4; it++) {
+    for (const c of cliffs) if (s > c.s - 30 && s < c.s + 60) s = c.s + 64;
+    for (const k of kickers) if (s > k.s - k.L - 8 && s < k.s + 24) s = k.s + 26;
+  }
+  return Math.round(s);
+}
+// gates alternate left and right of the middle (so the straight line down misses every one), inside the tree-free lane
+function raceGates(s0, rid) {
+  const rng = mulberry(rid | 0), g = []; let side = rng() < 0.5 ? -1 : 1;
+  ensureCourse(s0 + RACE_LEN + 400);
+  for (let s = s0 + 170; s < s0 + RACE_LEN - 90; s += GATE_GAP) {
+    const gs = raceClearS(s + (rng() - 0.5) * 40), d = r2(side * (6 + 2.5 * rng()));
+    if (!g.length || gs > g[g.length - 1][0] + 70) { g.push([gs, d]); side = -side; }
+  }
+  return g;
+}
+let GATE_GEO = null;
+function gateMesh() {
+  if (!GATE_GEO) {
+    const pole = new THREE.CylinderGeometry(0.1, 0.13, 5.4, 8); pole.translate(0, 2.7, 0);
+    const flag = new THREE.PlaneGeometry(1.7, 1.05); flag.translate(0.9, 4.75, 0);
+    GATE_GEO = { pole, flag, beam: new THREE.BoxGeometry(2 * GATE_HW, 0.14, 0.14) };
+  }
+  const g = new THREE.Group(), poles = [], flags = [];
+  for (let i = 0; i < 2; i++) { const p = new THREE.Mesh(GATE_GEO.pole, SC.featureMaterials.metalRed); const f = new THREE.Mesh(GATE_GEO.flag, flagMats[0]); f.rotation.y = i ? Math.PI : 0; g.add(p, f); poles.push(p); flags.push(f); }
+  const beam = new THREE.Mesh(GATE_GEO.beam, SC.featureMaterials.metal); g.add(beam);
+  return { group: g, poles, flags, beam };
+}
+function placeGate(m, gt, next) {
+  const p = { x: 0, z: 0 }, s = gt[0], d = gt[1]; worldFromSD(s, d, p);
+  const y0 = groundSD(s, d), g = m.group; g.position.set(p.x, y0, p.z); g.rotation.set(0, -thAt(s), 0);
+  let top = -1e9;
+  m.poles.forEach((pl, i) => { const sd = i ? 1 : -1, y = groundSD(s, d + sd * GATE_HW) - y0 - 0.25; pl.position.set(sd * GATE_HW, y, 0); m.flags[i].position.set(sd * GATE_HW, y, 0); m.flags[i].material = flagMats[next ? 0 : 1]; top = Math.max(top, y); });
+  m.beam.position.set(0, top + 5.3, 0);
+  scene.add(g);
+}
+function raceShowGates() {   // the next three gates stand on the snow: orange flags on the next one, blue on the two after
+  for (let i = 0; i < 3; i++) {
+    const gt = RACE.phase === 'on' ? RACE.gates[RACE.gi + i] : null;
+    if (!gt) { if (RACE.meshes[i]) scene.remove(RACE.meshes[i].group); continue; }
+    if (!RACE.meshes[i]) RACE.meshes[i] = gateMesh();
+    placeGate(RACE.meshes[i], gt, i === 0);
+  }
+}
+function raceClear() {
+  const was = RACE.phase;
+  Object.assign(RACE, { phase: '', gates: [], gi: 0, pen: 0, miss: 0, armed: false, started: false, time: 0, racers: {}, results: {}, acc: {}, doneT: 0, boxT: 0 });
+  for (const m of RACE.meshes) if (m) scene.remove(m.group);
+  if ((was === 'on' || was === 'done') && !RUNM && ARCH) scene.remove(ARCH.group);
+  if (RACE.box) { RACE.box = ''; elRaceBox.classList.remove('on'); }
+}
+// the host asks
+function raceInvite() {
+  if (!NET.on || !NET.host || state === 'title' || BOWL || RUNM) return;
+  if (RACE.phase === 'on' || RACE.phase === 'wait' || (RACE.phase === 'done' && !raceAllIn())) return;
+  raceClear();
+  if (state === 'pause') togglePause();
+  RACE.rid = 1 + ((Math.random() * 1e9) | 0); if (AUTO) RACE.rid = 20261114 + (RACE.n = (RACE.n || 0) + 1);
+  RACE.phase = 'wait'; RACE.acc = {}; RACE.waitT = netNow() + 15;
+  netOut({ t: 'rinv', rid: RACE.rid, n: cleanName(NET.name) });
+  if (!REM.size) raceGo();   // nobody else here: a run against the clock
+}
+function raceAsked(m) {   // a friend is asked
+  if (RACE.phase === 'on' || state === 'title' || BOWL || RUNM) { netOut({ t: 'racc', rid: m.rid | 0, y: 0 }); return; }
+  raceClear(); RACE.rid = m.rid | 0; RACE.by = cleanName(m.n); RACE.phase = 'asked'; RACE.askT = netNow() + 15;
+}
+function raceAnswer(yes) {
+  if (RACE.phase !== 'asked') return;
+  netOut({ t: 'racc', rid: RACE.rid, y: yes ? 1 : 0 });
+  RACE.phase = yes ? 'ready' : ''; if (yes) RACE.askT = netNow() + 25;
+}
+function raceAnswered(from, m) {
+  if (RACE.phase !== 'wait' || (m.rid | 0) !== RACE.rid || !REM.has(from)) return;
+  RACE.acc[from] = !!m.y;
+  for (const id of REM.keys()) if (RACE.acc[id] === undefined) return;
+  raceGo();   // everyone has answered
+}
+function raceGo() {   // host: line everyone up below the rider furthest down, and send the course
+  if (RACE.phase !== 'wait') return;
+  const ids = [NET.myId].concat(Array.from(REM.keys()).filter(id => RACE.acc[id])), lanes = {}, names = {};
+  let top = P.s; for (const id of ids) { const r = REM.get(id); if (r && !r.away) top = Math.max(top, r.s); }
+  ensureCourse(top + RACE_LEN + 700);
+  const s0 = raceClearS(top + 160), fin = raceClearS(s0 + RACE_LEN);
+  ids.forEach((id, i) => { lanes[id] = r2((i - (ids.length - 1) / 2) * 5.5); names[id] = id === NET.myId ? cleanName(NET.name) : REM.get(id).name; });
+  const m = { t: 'rgo', rid: RACE.rid, s0, fin, gates: raceGates(s0, RACE.rid), lanes, names };
+  netOut(m); raceStart(m);
+}
+function raceStart(m) {
+  const lane = m.lanes && typeof m.lanes === 'object' ? m.lanes[NET.myId] : undefined, ok = typeof lane === 'number' && isFinite(lane) && isFinite(+m.s0) && isFinite(+m.fin) && Array.isArray(m.gates) && +m.fin > +m.s0 && +m.fin - +m.s0 < 6000;
+  if (!ok || state === 'title' || BOWL || RUNM) { if (RACE.phase === 'on') netNote('A new race started without you'); raceClear(); return; }   // not in this one
+  raceClear();
+  const gates = []; for (const g of m.gates.slice(0, 30)) if (Array.isArray(g) && isFinite(+g[0]) && isFinite(+g[1]) && +g[0] > +m.s0 && +g[0] < +m.fin) gates.push([+g[0], clamp(+g[1], -14, 14)]);
+  Object.assign(RACE, { phase: 'on', rid: m.rid | 0, s0: +m.s0, fin: +m.fin, gates, gi: 0, pen: 0, miss: 0, armed: false, started: false, time: 0, total: 0, racers: {}, results: {}, flashT: 0 });
+  let n = 0; for (const id in m.lanes) if (n++ < NET_MAX) RACE.racers[id] = { n: cleanName(m.names && m.names[id]) };
+  ensureCourse(RACE.fin + 320);
+  if (SETUI.on) setClose(); if (RP.on) rpClose(false);
+  if (state === 'pause') togglePause();
+  const go = () => {
+    elSum.classList.remove('on'); sumT = 0; loseCombo();
+    placeArch(RACE.fin); raceShowGates();
+    startHeliDrop('intro', RACE.s0, clamp(lane, -16, 16)); RACE.armed = true; RACE.prevS = P.s;
+  };
+  fade.dir = 1; fade.cb = go;
+  if (AUTO) { fade.a = 1; go(); fade.cb = null; fade.dir = -1; }
+  netUi();
+}
+function raceFrame(dt) {
+  if (RACE.phase !== 'on' || !RACE.armed) return;
+  const now = netNow();
+  if (!RACE.started) { if (P.mode === 'heli') return; RACE.started = true; RACE.t0 = now; RACE.prevS = P.s; }   // the clock starts as he steps off the skid
+  RACE.time = now - RACE.t0;
+  while (RACE.gi < RACE.gates.length && P.s >= RACE.gates[RACE.gi][0]) {
+    const g = RACE.gates[RACE.gi], through = P.mode !== 'heli' && P.s - RACE.prevS < 30 && Math.abs(P.d - g[1]) <= GATE_HW + 0.6;   // (a respawn that jumps past a gate has missed it)
+    RACE.gi++;
+    if (through) netNote('Gate ' + RACE.gi + ' / ' + RACE.gates.length, false, 1.1);
+    else { RACE.pen += RACE_PEN; RACE.miss++; netNote('Missed gate ' + RACE.gi + '  ·  +' + RACE_PEN + ' s', true, 2.2); camShake(0.2); }
+    raceShowGates();
+  }
+  RACE.prevS = P.s;
+  if (P.s >= RACE.fin && P.mode !== 'heli' && fade.dir !== 1) raceFinish();
+}
+function raceFinish() {
+  RACE.phase = 'done'; RACE.total = RACE.time + RACE.pen; RACE.doneT = netNow();
+  if (P.combo.n) bankCombo();
+  RACE.results[NET.myId] = { time: RACE.total, pen: RACE.pen };
+  netOut({ t: 'rfin', id: NET.myId, rid: RACE.rid, time: r2(RACE.total), pen: RACE.pen });
+  raceShowGates(); raceBox(); netUi();
+}
+function raceResult(id, m) {
+  if ((RACE.phase !== 'on' && RACE.phase !== 'done') || (m.rid | 0) !== RACE.rid || !RACE.racers[id] || RACE.results[id]) return false;
+  const t = +m.time; if (!(t > 5 && t < 3600)) return false;
+  RACE.results[id] = { time: t, pen: clamp(+m.pen || 0, 0, 600) };
+  if (RACE.phase === 'done') raceBox(); else netNote(RACE.racers[id].n + ' finished  ·  ' + fmtT(t), false, 3);
+  netUi(); return true;
+}
+function raceDropRider(id) {
+  if (RACE.phase === 'wait') { delete RACE.acc[id]; let all = true; for (const k of REM.keys()) if (RACE.acc[k] === undefined) all = false; if (all) raceGo(); return; }
+  if (RACE.racers[id] && !RACE.results[id]) { delete RACE.racers[id]; if (RACE.phase === 'done') raceBox(); }
+}
+// the results card: best time first, penalties shown, riders still out on the course listed below
+function raceBox() {
+  const L = []; for (const id in RACE.racers) L.push({ id, n: RACE.racers[id].n, res: RACE.results[id] });
+  L.sort((p, q) => (p.res ? p.res.time : 1e9) - (q.res ? q.res.time : 1e9));
+  const all = raceAllIn(), solo = L.length < 2;
+  const h = '<div class="h">' + (solo ? 'Your run' : all ? esc(L[0].n) + ' wins' : 'Race') + '</div>' +
+    L.map((p, i) => '<div class="r' + (p.id === NET.myId ? ' me' : '') + '"><span>' + (p.res ? (i + 1) + '  ' : '') + esc(p.n) + '</span><span>' + (p.res ? fmtT(p.res.time) + (p.res.pen ? '  (+' + p.res.pen + ' s)' : '') : 'riding') + '</span></div>').join('') +
+    (RACE.miss ? '<div class="r"><span>Gates you missed</span><span>' + RACE.miss + '</span></div>' : '');
+  if (h !== RACE.box) { RACE.box = h; elRaceBox.innerHTML = h; elRaceBox.classList.add('on'); }
+  if (all && !RACE.boxT) RACE.boxT = netNow() + 16;
+}
+// the line at the top: an invite, the wait, the clock and the next gate, a note
+function raceHud() {
+  const now = netNow(); let txt = '', bad = false, yes = '', no = false;
+  if (state === 'title') txt = '';
+  else if (RACE.phase === 'asked') { txt = RACE.by + ' wants to race' + (TOUCH_UI ? '' : '  ·  Y = race,  N = not now') + '  ·  ' + Math.max(0, Math.ceil(RACE.askT - now)); yes = 'Race'; no = true; }
+  else if (RACE.phase === 'ready') txt = 'You are in. Waiting for the others...';
+  else if (RACE.phase === 'wait') { let n = 0; for (const id in RACE.acc) if (RACE.acc[id]) n++; txt = 'Race: ' + n + ' of ' + REM.size + ' in' + (TOUCH_UI ? '' : '  ·  Enter = start now') + '  ·  ' + Math.max(0, Math.ceil(RACE.waitT - now)); yes = 'Start now'; }
+  else if (now < RACE.flashT) { txt = RACE.flash; bad = RACE.bad; }
+  else if (RACE.phase === 'on') {
+    if (!RACE.started) txt = 'Race  ·  ' + RACE.gates.length + ' gates  ·  a missed gate costs ' + RACE_PEN + ' s';
+    else {
+      const g = RACE.gates[RACE.gi], dd = g ? g[1] - P.d : 0;
+      txt = fmtT(RACE.time + RACE.pen) + (RACE.pen ? '  (+' + RACE.pen + ' s)' : '') + '  ·  ' +
+        (g ? (dd < -GATE_HW + 0.8 ? '◀  ' : '') + 'Gate ' + (RACE.gi + 1) + ' / ' + RACE.gates.length + (dd > GATE_HW - 0.8 ? '  ▶' : '') : 'Finish ' + Math.max(0, Math.round(RACE.fin - P.s)) + ' m');
+    }
+  }
+  const key = txt + '|' + bad + '|' + yes + '|' + no;
+  if (key === RACE.bar) return;
+  RACE.bar = key; elRaceTxt.textContent = txt; elRaceBar.classList.toggle('on', !!txt); elRaceBar.classList.toggle('bad', bad);
+  elRaceYes.hidden = !yes; elRaceYes.textContent = yes; elRaceNo.hidden = !no;
+}
+function netTick(dt) {
+  const now = netNow();
+  if (NET.on) {
+    NET.sendT -= dt; if (NET.sendT <= 0) { NET.sendT = Math.max(NET.sendT + 1 / NET_HZ, 0.02); netOut({ t: 's', id: NET.myId, d: netPack() }); }
+    NET.hudT -= dt; if (NET.hudT <= 0) { NET.hudT = 0.25; netHud(); }
+    if (RACE.phase === 'wait' && now > RACE.waitT) raceGo();                       // host: start with whoever said yes
+    if (RACE.phase === 'asked' && now > RACE.askT) raceAnswer(false);              // friend: no answer is a no
+    if (RACE.phase === 'ready' && now > RACE.askT) raceClear();                    // the start never came
+  }
+  if (RACE.phase === 'done' && now > (RACE.boxT || RACE.doneT + 150)) raceClear();
+  raceHud();
+}
+// buttons
+{ const nameIn = document.getElementById('coopName'), codeIn = document.getElementById('coopCode');
+  nameIn.value = NET.name;
+  nameIn.addEventListener('input', () => { NET.name = cleanName(nameIn.value) === 'Rider' && !nameIn.value.trim() ? '' : cleanName(nameIn.value); try { localStorage.setItem('powderLines.name', NET.name); } catch (e) { } });
+  nameIn.addEventListener('change', netMe);
+  document.getElementById('coopHost').addEventListener('click', () => { dropFocus(); netHost(); });
+  document.getElementById('pcoopHost').addEventListener('click', e => { e.stopPropagation(); dropFocus(); netHost(); });
+  document.getElementById('coopJoin').addEventListener('click', () => { dropFocus(); netJoin(codeIn.value); });
+  codeIn.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); dropFocus(); netJoin(codeIn.value); } });
+  document.getElementById('coopLeave').addEventListener('click', () => { dropFocus(); netLeave(); });
+  document.getElementById('raceBtn').addEventListener('click', e => { e.stopPropagation(); dropFocus(); raceInvite(); });
+  elRaceYes.addEventListener('click', e => { e.stopPropagation(); if (RACE.phase === 'asked') raceAnswer(true); else if (RACE.phase === 'wait') raceGo(); });
+  elRaceNo.addEventListener('click', e => { e.stopPropagation(); raceAnswer(false); });
+  addEventListener('pagehide', () => { try { if (NET.peer) NET.peer.destroy(); } catch (e) { } });
+  netUi(); }
+
+// ?test=coop: a friend fed from this rider's own updates (seen, eased, crashed, gone), then two races on a pretend link:
+// one through the gates, one straight down the middle past every gate.
+function coopView() {   // ?test=coop&view=1: a picture of a race with two friends ahead (for the eye, not a check)
+  const dt = 1 / 60; Object.assign(NET, { on: true, host: true, myId: 'me', code: 'K7QM', name: 'Jon' });
+  const f1 = remGet('f1', 'Sam', null), f2 = remGet('f2', 'Riley', null);
+  startAt(600, -2, 15); scripted = () => ({ steer: clamp((-2 - P.d) * 0.05, -1, 1) });
+  const tape = []; for (let i = 0; i < 460; i++) { frame(dt); tape.push(netPack()); }
+  raceStart({ rid: 7, s0: 570, fin: 2100, gates: [[676, 5], [800, -6], [960, 6]], lanes: { me: 0, f1: 3, f2: -3 }, names: { me: 'Jon', f1: 'Sam', f2: 'Riley' } });
+  startAt(+(QS.get('at') || 588), 2.5, 15); scripted = () => ({ steer: clamp((2.5 - P.d) * 0.05, -1, 1) });
+  for (let i = 0; i < 200; i++) { if (i % 4 === 0) { remState(f1, tape[i + 40]); remState(f2, tape[i]); } frame(dt); netTick(dt); }
+  NET.hudT = 0; netTick(0); finishShot();
+}
+function coopTest() {
+  if (QS.has('view')) return coopView();
+  const dt = 1 / 60, out = ['Powder Lines co-op test  seed ' + SEED]; let fails = 0, errors = 0;
+  const ok = (name, cond, extra) => { out.push((cond ? 'ok    ' : 'FAIL  ') + name + (extra !== undefined ? '  (' + extra + ')' : '')); if (!cond) fails++; };
+  const sent = []; NET.tap = m => sent.push(m);
+  const run = (s, each, until) => { for (let i = 0, n = Math.round(s / dt); i < n; i++) { try { frame(dt); netTick(dt); if (each) each(i); } catch (e) { errors++; if (errors < 4) { console.error(e); out.push('ERROR ' + e.message + '  ' + String(e.stack || '').split('\n')[1]); } } if (until && until()) break; } };
+  Object.assign(NET, { on: true, host: true, myId: 'me', code: 'TEST', name: 'Me' });
+  startAt(200, 0, 14); scripted = () => ({ steer: clamp(-P.d * 0.05, -1, 1) });
+  // 1) a friend who rides this rider's own line a second behind
+  let fr = remGet('f1', 'Sam', null); const tape = [], hist = []; let worst = 0, off = 0, seen = 0; const prev = new V3(); let had = false;
+  run(6, i => {
+    tape.push(netPack()); hist.push(R.root.position.clone());
+    if (i % 4 === 0 && tape.length > 60) remState(fr, tape[tape.length - 61]);
+    if (fr.shown) { const p = fr.rider.root.position; if (had) worst = Math.max(worst, p.distanceTo(prev) / dt); prev.copy(p); had = true; seen++;
+      const j = hist.length - 1 - 60 - Math.round(0.14 / dt); if (j >= 0 && i > 200) off = Math.max(off, p.distanceTo(hist[j])); }
+  });
+  ok('a friend is drawn on the mountain', fr.shown && fr.rider.root.visible && fr.tag.visible && seen > 200, seen + ' frames');
+  ok('he rides the line he sent, a moment behind', off < 1.2, 'furthest from his own track ' + off.toFixed(2) + ' m');
+  ok('no jumps between updates', worst < P.speed * 2 + 6, 'fastest he moved ' + worst.toFixed(1) + ' m/s, riding at ' + P.speed.toFixed(1));
+  const st = sent.filter(m => m.t === 's'), big = Math.max(...st.map(m => JSON.stringify(m).length));
+  ok('about 15 updates a second go out, each small', st.length > 80 && st.length < 100 && big < 700, st.length + ' in 6 s, largest ' + big + ' characters');
+  // 2) the friend crashes and gets up
+  { const base = tape[tape.length - 1].slice(); base[12] = 4; base[8] = 9; base[9] = 1; base[10] = -6; let rag = false;
+    run(1.2, i => { if (i % 4 === 0) remState(fr, base); if (fr.rag && fr.rider.isRagdoll()) rag = true; });
+    const b2 = base.slice(); b2[12] = 0; run(0.6, i => { if (i % 4 === 0) remState(fr, b2); });
+    ok('a friend who crashes tumbles here too, then stands', rag && !fr.rag && !fr.rider.isRagdoll(), 'ragdoll seen ' + rag); }
+  // 3) bad data is dropped
+  { const n0 = fr.snaps.length; remState(fr, [1, NaN, 2, 3]); remState(fr, 'x'); remState(fr, [1, 1, 2, 3, 0, 0, 0, 1, 0, 0, 0, 5, 0, 0, 0, 0, ['<b>', {}, 'zz']]); const p = fr.snaps[fr.snaps.length - 1].pose;
+    ok('broken updates are dropped or cleaned', fr.snaps.length === n0 + 1 && p.launch === 0 && p.grab === null, 'grab ' + p.grab); }
+  // 4) he leaves
+  { const rr = fr.rider.root, tg = fr.tag; remDrop('f1'); ok('a friend who leaves is taken off the mountain', !rr.parent && !tg.parent && !REM.size); }
+  // 5) a race through the gates
+  fr = remGet('f1', 'Sam', null); sent.length = 0;
+  const race = (label, bot) => {
+    raceInvite(); const inv = sent.find(m => m.t === 'rinv');
+    netData('f1', { t: 'racc', rid: RACE.rid, y: 1 });
+    const go = sent.filter(m => m.t === 'rgo').pop();
+    ok(label + ': asking, a yes, and everyone is on the helicopter', !!inv && !!go && RACE.phase === 'on' && P.mode === 'heli' && HS.on && !heliSkippable() && Object.keys(go.lanes).length === 2 && go.lanes.me !== go.lanes.f1, RACE.gates.length + ' gates, start ' + RACE.s0 + ', finish ' + RACE.fin);
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyW', key: 'w', bubbles: true })); document.body.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyW', key: 'w', bubbles: true }));
+    const stillHeli = P.mode === 'heli';
+    scripted = bot; let simSecs = 0, respawns = 0; const t0 = simT;
+    run(400, () => { if (P.stillT > 4 && P.mode === 'ride') { respawn('button'); respawns++; } }, () => RACE.phase !== 'on');
+    simSecs = simT - t0;
+    return { stillHeli, simSecs, respawns, gates: go.gates.length, fin: sent.filter(m => m.t === 'rfin').pop() };
+  };
+  // (the bots steer for a line across the hill with the sideways speed damped, or they weave themselves to a stop)
+  let pd = 0; const aim = d => { const vd = (P.d - pd) / dt; pd = P.d; return { steer: P.mode === 'ride' ? clamp((d - P.d) * 0.12 - vd * 0.35, -1, 1) : 0, space: P.mode === 'ride' }; };
+  const a = race('race 1', () => { const g = RACE.gates[RACE.gi]; return aim(g ? g[1] : 0); });
+  ok('race 1: a key does not skip the race drop', a.stillHeli);
+  ok('race 1: rides the gates to the finish', RACE.phase === 'done' && a.fin && RACE.miss <= 2, 'missed ' + RACE.miss + ' of ' + a.gates + ', time ' + fmtT(RACE.total) + ', ' + a.simSecs.toFixed(0) + ' s ridden, respawns ' + a.respawns);
+  ok('race 1: the time is the clock plus the penalties', Math.abs(RACE.total - (RACE.time + RACE_PEN * RACE.miss)) < 1e-6 && a.fin && Math.abs(a.fin.time - RACE.total) < 0.01 && RACE.time > 20 && RACE.time < a.simSecs, fmtT(RACE.time) + ' + ' + RACE.pen + ' s');
+  const mine = RACE.total;
+  netData('f1', { t: 'rfin', rid: RACE.rid, time: mine - 4, pen: 0 });
+  ok('race 1: the best time wins', RACE.box.indexOf('Sam wins') >= 0 && RACE.box.indexOf('Sam') < RACE.box.indexOf('Me'), elRaceBox.textContent);
+  ok('race 1: the gates are gone, the card is up', elRaceBox.classList.contains('on') && RACE.meshes.every(m => !m || m.group.parent !== scene));
+  // 6) straight down the middle: every gate missed
+  const b = race('race 2', () => aim(0));
+  ok('race 2: down the middle misses the gates and is dinged for each', RACE.phase === 'done' && RACE.miss >= b.gates - 1 && RACE.pen === RACE_PEN * RACE.miss, 'missed ' + RACE.miss + ' of ' + b.gates + ', +' + RACE.pen + ' s, total ' + fmtT(RACE.total));
+  // 7) all away again
+  { const rr = fr.rider.root; raceClear(); remDrop('f1');
+    ok('nothing left on the mountain after', !rr.parent && RACE.meshes.every(m => !m || !m.group.parent) && !(ARCH && ARCH.group.parent) && !elRaceBox.classList.contains('on')); }
+  out.push('errors ' + errors + '   checks failed ' + fails);
+  out.push(fails || errors ? 'COOP FAIL' : 'COOP PASS');
+  const pre = document.getElementById('dbg'); pre.style.display = 'block'; pre.textContent = out.join('\n');
+  console.log(out.join('\n'));
+  finishShot();
 }
 
 // =====================================================================================================
@@ -9465,6 +10085,7 @@ function runTest() {
   if (TEST === 'states') return statesTest();
   if (TEST === 'cycles') return cyclesTest();
   if (TEST === 'run') return runModeTest();
+  if (TEST === 'coop') return coopTest();
   const secs = parseFloat(QS.get('t') || '90'), dt = 1 / 60;
   startAt(20, 0, 10);
   const speeds = [];
@@ -10128,7 +10749,8 @@ if (DEBUG) {
     step(dt) { frame(dt || 1 / 60); renderer.render(scene, camera); },
     setSpeed(v) { const l = P.vel.length(); if (l > 0.01) P.vel.multiplyScalar(v / l); else P.vel.copy(P.heading).multiplyScalar(v); },
     setPos(s, d) { placeOnCourse(s, d || 0, 0, P.vel.length()); P.mode = 'ride'; camSnap = true; stream(s, 99); },
-    start: startAt, ground, heightSD, worldFromSD, project, sfx, frame, keys
+    start: startAt, ground, heightSD, worldFromSD, project, sfx, frame, keys,
+    NET, REM, RACE, netData, netTick, netPack, remGet, remState, netHost, netJoin, raceInvite, raceAnswer, get state() { return state; }
   };
 }
 

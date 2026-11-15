@@ -149,7 +149,7 @@ button.ghost:hover{background:rgba(58,143,208,.14)}
   <div class="gear"><button class="ghost" id="boardBtn" type="button">Board</button><button class="ghost" id="riderBtn" type="button">Rider</button></div>
   <div class="best" id="bestLine"></div>
   <a class="sib" href="https://jonbeam1-netizen.github.io/concrete-lines/" target="_top"><svg width="22" height="12" viewBox="0 0 22 12" aria-hidden="true"><rect x="1" y="2" width="20" height="4" rx="2" fill="currentColor"/><circle cx="5" cy="9" r="2.2" fill="currentColor"/><circle cx="17" cy="9" r="2.2" fill="currentColor"/></svg>Also play <b>Concrete Lines</b> &middot; skateboarding &rarr;</a>
-  <div class="sub">Updated November 14, 2026 &middot; Play-test 0.006</div>
+  <div class="sub">Updated November 14, 2026 &middot; Play-test 0.007</div>
 </div></div>
 <div class="overlay" id="pause"><div class="card">
   <h2>Paused</h2>
@@ -5836,17 +5836,39 @@ function courseRight(s, out) { const th = thAt(s); return out.set(Math.cos(th), 
 // world (x,z) -> (s,d). hint = sample index to start from.
 const PJ = { s: 0, d: 0, i: 0 };
 function project(x, z, hint) {
-  let i = clamp(hint | 0, 0, CL.n - 2), along = 0;
-  for (let it = 0; it < 12; it++) {
-    const th = CL.th[i]; along = (x - CL.x[i]) * Math.sin(th) - (z - CL.z[i]) * Math.cos(th);
-    const step = Math.floor(along / DS);
-    if (step === 0) break;
+  // Segment i owns the points ahead of node i (measured along node i's own direction) and behind node i + 1. Neighbours
+  // share that boundary exactly, and inside a segment (s, d) is the true inverse of worldFromSD (direction blended between
+  // the two nodes), so s runs on smoothly across every node on a bend. (Each segment used to be a straight slab along its
+  // first node's direction: off the centre line on the outside of a bend the slabs left a wedge at every node where the
+  // search flipped between the two and came out a whole DS off, and on the inside they overlapped so s skipped ahead.
+  // The ground height came from the wrong spot for a step, every 2 m of travel: the rider twitched up and down.)
+  let i = clamp(hint | 0, 0, CL.n - 2), a0 = 0, a1 = -1, inside = false;
+  for (let it = 0; it < 16; it++) {
+    let th = CL.th[i], step;
+    a0 = (x - CL.x[i]) * Math.sin(th) - (z - CL.z[i]) * Math.cos(th);
+    if (a0 < 0) step = Math.floor(a0 / DS);
+    else {
+      th = CL.th[i + 1]; a1 = (x - CL.x[i + 1]) * Math.sin(th) - (z - CL.z[i + 1]) * Math.cos(th);
+      if (a1 < 0) { inside = true; break; }
+      step = 1 + Math.floor(a1 / DS);
+    }
     const ni = clamp(i + step, 0, CL.n - 2); if (ni === i) break; i = ni;
   }
-  const t = clamp(along / DS, 0, 1);
-  const th = CL.th[i] + (CL.th[i + 1] - CL.th[i]) * t;
-  const px = CL.x[i] + (CL.x[i + 1] - CL.x[i]) * t, pz = CL.z[i] + (CL.z[i + 1] - CL.z[i]) * t;
-  PJ.i = i; PJ.s = i * DS + clamp(along, -DS * 4, DS * 4);
+  let t, th, px, pz;
+  if (inside) {
+    t = a0 / (a0 - a1);
+    for (let k = 0; k < 2; k++) {
+      th = CL.th[i] + (CL.th[i + 1] - CL.th[i]) * t; px = CL.x[i] + (CL.x[i + 1] - CL.x[i]) * t; pz = CL.z[i] + (CL.z[i + 1] - CL.z[i]) * t;
+      t = clamp(t + ((x - px) * Math.sin(th) - (z - pz) * Math.cos(th)) / (a0 - a1), 0, 1);
+    }
+    PJ.s = (i + t) * DS;
+  } else { // off either end of the built centre line: carry on straight from the end segment
+    th = CL.th[i]; const along = (x - CL.x[i]) * Math.sin(th) - (z - CL.z[i]) * Math.cos(th);
+    t = clamp(along / DS, 0, 1); PJ.s = i * DS + clamp(along, -DS * 4, DS * 4);
+  }
+  th = CL.th[i] + (CL.th[i + 1] - CL.th[i]) * t;
+  px = CL.x[i] + (CL.x[i + 1] - CL.x[i]) * t; pz = CL.z[i] + (CL.z[i + 1] - CL.z[i]) * t;
+  PJ.i = i;
   PJ.d = (x - px) * Math.cos(th) + (z - pz) * Math.sin(th);
   return PJ;
 }
@@ -6817,7 +6839,7 @@ function bowlBarrier() {
   _bb.normalize(); const k = Math.min(1, depth);
   const out = P.vel.x * _bb.x + P.vel.z * _bb.z;
   if (out > 0) { P.vel.x -= _bb.x * out * (0.04 + 0.2 * k); P.vel.z -= _bb.z * out * (0.04 + 0.2 * k); }
-  P.vel.x -= _bb.x * 9 * k * STEP; P.vel.z -= _bb.z * 9 * k * STEP;
+  P.vel.x -= _bb.x * 9 * k * stepDt; P.vel.z -= _bb.z * 9 * k * stepDt;
   if (P.mode === 'ride' && P.vel.lengthSq() > 1) { _w.copy(P.vel).normalize(); P.heading.lerp(_w, 0.05 * k).normalize(); }
   if (out > 0) P.stats.edgeBumps++;
 }
@@ -7116,7 +7138,7 @@ function stepRide(dt) {
   const g2 = ground(P.pos.x, P.pos.z, P.hint, true);
   const gap = P.pos.y - g2.h;
   const thr = 0.5 * G * g2.n.y * dt * dt * 1.25 + 0.0015;
-  if (gap > thr && P.vel.dot(g2.n) > -0.5) {
+  if (gap > thr && P.vel.dot(g2.n) > -0.5 && (onKicker || !briefHop())) {
     if (onKicker && P.kickPopPend) { P.vel.addScaledVector(n, P.kickPopPend); P.popT = 0; sfx.pop(0.6 + 0.4 * P.popCharge); }
     P.kickPopPend = 0;
     if (onKicker) kickerLaunch(kick);
@@ -7129,6 +7151,19 @@ function stepRide(dt) {
   tryRail();
 }
 
+// A crest that only just outruns gravity: he would be back on the snow within a few frames, a centimetre or two up at
+// most. Those hops used to count as airs, and each one fired the pop animation (legs snap straight, arms swing up), so
+// at speed over rolling snow he twitched again and again. If the free flight from here is that short, he stays on the snow.
+const HOP_MIN = 0.16;
+function briefHop() {
+  let x = P.pos.x, y = P.pos.y, z = P.pos.z, vy = P.vel.y, h = P.hint; const st = 0.02;
+  for (let t = st; t < HOP_MIN + 1e-6; t += st) {
+    vy -= G * st; x += P.vel.x * st; y += vy * st; z += P.vel.z * st;
+    project(x, z, h); h = PJ.i;
+    if (y <= groundSD(PJ.s, PJ.d) + 0.004) return true;
+  }
+  return false;
+}
 function stepButter(dt, on) {
   if (on) P.butterEnd = P.press < 0 ? -1 : 1;
   const target = on ? -Math.sign(ctl.steer) * 4.2 : 0;
@@ -7407,8 +7442,11 @@ function hitObstacles() {
     const dist = Math.sqrt(dx * dx + dz * dz) || 0.01;
     _o.set(dx / dist, 0, dz / dist); // from obstacle to rider
     const into = -P.vel.dot(_o), spd = P.vel.length();
+    // brushed past: eased out of it (a brush never sinks in further than this clears in one step). Found deep inside,
+    // as when the no-hit time after a crash runs out next to a trunk, he slides clear over a few frames instead of
+    // jumping half a metre sideways in one.
+    if (into < 2.5) { const push = Math.min(rr - dist, 7 * stepDt + 0.01); P.pos.x += _o.x * push; P.pos.z += _o.z * push; P.vel.addScaledVector(_o, into + 0.5); continue; }
     P.pos.x = o.x + _o.x * rr; P.pos.z = o.z + _o.z * rr;
-    if (into < 2.5) { P.vel.addScaledVector(_o, into + 0.5); continue; } // brushed past
     const headOn = into / Math.max(spd, 0.01);
     if (o.kind === 'tree' || o.kind === 'stump') sfx.treeHit(clamp01(0.4 + spd / 25));
     if (spd > 18 && headOn > 0.62 && R.ragdoll) {
@@ -8195,7 +8233,7 @@ function updateHud(dt) {
 // =====================================================================================================
 // States, menus, main loop
 // =====================================================================================================
-let state = 'title', perfNow = 0, simT = 0, acc = 0;
+let state = 'title', perfNow = 0, simT = 0, lastSteps = 0, stepDt = 1 / 120;
 const elTitle = document.getElementById('title'), elPause = document.getElementById('pause');
 function showTouch(on) { if (TOUCH_UI) document.getElementById('touch').classList.toggle('on', on); }
 function startGame(mode) {
@@ -8248,7 +8286,7 @@ function quitToTitle() {
   // camera back to the fly-over
   camSnap = true; Object.assign(cam, { kick: 0, shake: 0, dip: 0, dipV: 0, roll: 0, rollV: 0, air: 0, side: 0, ragW: 0, fov: CAM0.fov });
   camera.fov = CAM0.fov; camera.near = CAM0.near; camera.updateProjectionMatrix(); camera.up.set(0, 1, 0);
-  titleS = 0; hudMph = 0; shownMph = -1; acc = 0;
+  titleS = 0; hudMph = 0; shownMph = -1;
   state = 'title'; R.root.visible = false;
   elPause.classList.remove('on'); elGauge.classList.remove('on'); elTitle.classList.add('on'); showTouch(false); dropFocus();
   bestLine(); applyMute();
@@ -8423,12 +8461,15 @@ function applyConditions(name, secs) {
 let titleS = 0, pbT = 5;
 function frame(dt) {
   dt = dt > 0 ? Math.min(dt, 0.05) : 0; // background tab / alt-tab spikes clamp; NaN or negative never reaches the physics
-  if (!(acc >= 0 && acc < 1)) acc = 0;
   simT += dt; perfNow += dt * 1000;
   if (state === 'play') {
     readControls(simT);
-    acc += dt; let n = 0;
-    while (acc >= STEP && n < 8) { physStep(STEP); acc -= STEP; n++; }
+    // the physics covers exactly this frame's time, in equal steps no longer than STEP. (A fixed 1/120 step with the
+    // remainder carried over left the drawn rider a whole step ahead or behind from frame to frame on any display that is
+    // not an exact 60 or 120 Hz: he shook against the chase camera. 1/60 still gives two 1/120 steps, as the suites expect.)
+    const n = dt > 0 ? Math.max(1, Math.ceil(dt / STEP - 1e-6)) : 0; stepDt = n ? dt / n : STEP;
+    for (let i = 0; i < n; i++) physStep(stepDt);
+    lastSteps = n;
     if (P.mode === 'air') P.timeToLand = estimateLanding();
     updateHeliVisual(dt);
     updateRiderVisual(dt);
@@ -9213,7 +9254,7 @@ function statesTest() {
     startAt(z.s0 + 10, 0, 0); scripted = () => ({}); run(1); ok('standing start rolls away', P.speed > 1.2, P.speed.toFixed(1) + ' m/s'); }
   scripted = null;
   // 10) dt spikes: a background tab, NaN, negative, zero
-  frame(5); frame(NaN); frame(-1); frame(0); frame(1e9); run(0.2); ok('dt spikes keep everything finite', finite() && isFinite(acc));
+  frame(5); frame(NaN); frame(-1); frame(0); frame(1e9); run(0.2); ok('dt spikes keep everything finite', finite() && isFinite(stepDt));
   // 11) a NaN in the physics recovers
   P.vel.x = NaN; run(0.2); ok('NaN velocity recovers', finite() && (P.stats.nan || 0) > 0, 'nan ' + (P.stats.nan || 0));
   // 12) quit to title from the pause card, then a Bowl run and quit again
@@ -9390,6 +9431,92 @@ function feelTest() {
   console.log(lines.join('\n'));
   document.title = 'done';
 }
+// ?test=smooth: the frame loop under real display timings (every other suite steps at a perfect 1/60). Measures how
+// steadily the drawn rider sits in the chase view: frame-to-frame change of his distance ahead of the lens and of his
+// place on screen, the physics steps per frame, and the short hops off plain snow.
+function smoothTest() {
+  state = 'play'; elTitle.classList.remove('on');
+  ensurePlan(5000); ensureCourse(5000);
+  const lines = ['Powder Lines smoothness test  seed ' + SEED, pad('display', 20) + pad('steps/frame 0 1 2 3 4+', 30) + pad('ahead cm rms/max', 20) + pad('screen px rms/max', 20) + 'hops (short) / air frames'];
+  let sd = 7; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  const hz = (f, jit) => () => 1 / f + (rnd() - 0.5) * 2 * (jit || 0);
+  const profiles = [['60 Hz exact', hz(60)], ['60 Hz real', hz(60, 0.0006)], ['59.94 Hz', hz(59.94, 0.0002)], ['75 Hz', hz(75, 0.0003)], ['90 Hz', hz(90, 0.0003)],
+    ['120 Hz', hz(120, 0.0003)], ['144 Hz', hz(144, 0.0003)], ['165 Hz', hz(165, 0.0003)], ['240 Hz', hz(240, 0.0002)], ['45 fps (slow pc)', hz(45, 0.003)], ['30 fps', hz(30, 0.002)]];
+  const mini = plan.zones.find(z => z.type === 'mini') || plan.zones[1];
+  const speeds = (QS.get('speeds') || '12,24').split(',').map(Number), DETAIL = parseInt(QS.get('detail') || '0', 10), DUR = parseFloat(QS.get('t') || '9');
+  if (QS.has('only')) profiles.splice(0, profiles.length, ...profiles.filter(q => q[0].indexOf(QS.get('only')) >= 0));
+  let worst = 0;
+  for (const v of speeds) {
+    lines.push('-- ' + v + ' m/s (' + Math.round(v * 2.237) + ' mph), gentle carves');
+    for (const [name, next] of profiles) {
+      sd = 7; startAt(mini.s0 + 5, 0, v); P.invuln = 99;
+      scripted = tt => { const o = carvePattern(tt); o.steer = clamp(o.steer * 0.5 - P.d * 0.04, -1, 1); return o; };
+      const hist = [0, 0, 0, 0, 0]; let t = 0, n = 0, sA = 0, mA = 0, sP = 0, mP = 0, hops = 0, shortHops = 0, airF = 0, pa = 0, px = 0, py = 0, pv = 0, was = 'ride', airStart = 0;
+      const H = 720, bad = []; let prevMode = 'ride';
+      while (t < DUR) {
+        const dt = next(); t += dt;
+        if (P.mode === 'ride') { const l = P.vel.length(); if (l > 0.1) P.vel.multiplyScalar(v / l); }   // hold the speed: the wobble scales with it
+        frame(dt);
+        if (P.mode !== 'ride' && P.mode !== 'air') { startAt(mini.s0 + 5, 0, v); P.invuln = 99; pv = 0; continue; }
+        camera.updateMatrixWorld();
+        const rp = R.root.position, ahead = (rp.x - camera.position.x) * cam.dir.x + (rp.z - camera.position.z) * cam.dir.z;
+        _v.copy(rp).project(camera); const sx = _v.x * H / 2 * camera.aspect, sy = _v.y * H / 2;
+        if (P.mode === 'air' && was !== 'air') { hops++; airStart = t; }
+        if (P.mode !== 'air' && was === 'air' && t - airStart < 0.2) shortHops++;
+        if (P.mode === 'air') airF++;
+        was = P.mode;
+        if (t > 1 && pv) {
+          hist[Math.min(4, lastSteps)]++; n++;
+          const da = (ahead - pa) * 100, dp = Math.hypot(sx - px, sy - py);
+          sA += da * da; mA = Math.max(mA, Math.abs(da)); sP += dp * dp; mP = Math.max(mP, dp);
+          if (DETAIL) bad.push({ t, da, dp, m: prevMode + '>' + P.mode, s: P.s, airT: P.airT, k: cam.kick, dip: cam.dip, cu: cam.catchUp || 0, bl: cam.blockT || 0 });
+        }
+        prevMode = P.mode;
+        pa = ahead; px = sx; py = sy; pv = 1;
+      }
+      scripted = null;
+      const rA = Math.sqrt(sA / Math.max(1, n)), rP = Math.sqrt(sP / Math.max(1, n)); worst = Math.max(worst, rP);
+      lines.push(pad(name, 20) + pad(hist.join(' '), 30) + pad(rA.toFixed(2) + ' / ' + mA.toFixed(1), 20) + pad(rP.toFixed(2) + ' / ' + mP.toFixed(1), 20) + hops + ' (' + shortHops + ') / ' + airF);
+      if (DETAIL) { bad.sort((a, b) => b.dp - a.dp); for (const b of bad.slice(0, DETAIL)) lines.push('    t ' + b.t.toFixed(3) + '  ' + pad(b.m, 10) + ' px ' + b.dp.toFixed(1) + '  ahead ' + b.da.toFixed(1) + ' cm  s ' + b.s.toFixed(0) + '  airT ' + b.airT.toFixed(2) + '  kick ' + b.k.toFixed(1) + ' dip ' + b.dip.toFixed(2) + ' catch ' + b.cu.toFixed(2) + ' block ' + b.bl); }
+    }
+  }
+  lines.push('worst screen rms ' + worst.toFixed(2) + ' px');
+  // 2) a long free ride down the run at a real 60 Hz and at 144 Hz: sudden changes (frame-to-frame jerk) of the drawn
+  // rider's place on screen and of his body angle while on the snow, and every short hop off it
+  const LONG = parseFloat(QS.get('long') || '60');
+  for (const [name, next] of profiles.filter(q => q[0] === '60 Hz real' || q[0] === '144 Hz')) {
+    if (!(LONG > 0)) break;
+    sd = 7; startAt(20, 0, 10); P.invuln = 0;
+    scripted = tt => { const o = carvePattern(tt); o.steer = P.mode === 'ride' ? clamp(o.steer * 0.6 - P.d * 0.04, -1, 1) : 0; if (QS.has('skidbot') && tt % 6 > 4.6) o.s = true; if (QS.has('spacebot') && tt % 7 > 3) o.space = true; return o; };
+    const H = 720, q0 = new THREE.Quaternion(), bad = [], hopsAt = [], rp1 = new V3(), cp1 = new V3(), trace = [], TR = parseFloat(QS.get('trace') || '0');
+    let t = 0, n = 0, x1 = 0, y1 = 0, x2 = 0, y2 = 0, a1 = 0, have = 0, sJ = 0, mJ = 0, sR = 0, mR = 0, was = 'ride', airStart = 0, hops = 0, shortHops = 0, rideF = 0, hopK = '', hopV = 0, hopH = 0;
+    while (t < LONG) {
+      const dt = next(); t += dt; frame(dt); camera.updateMatrixWorld();
+      _v.copy(R.root.position).project(camera); const sx = _v.x * H / 2 * camera.aspect, sy = _v.y * H / 2;
+      const ang = have ? 2 * Math.acos(Math.min(1, Math.abs(q0.dot(R.root.quaternion)))) * 57.3 : 0; q0.copy(R.root.quaternion);
+      if (P.mode === 'air' && was !== 'air') { hops++; airStart = t; hopK = P.leftKickerT < 0.05 ? 'K' : P.popT < 0.05 ? 'P' : ''; hopV = P.speed; hopH = 0; }
+      if (P.mode === 'air') hopH = Math.max(hopH, P.pos.y - groundSD(P.s, P.d));
+      if (P.mode !== 'air' && was === 'air' && t - airStart < 0.2) { shortHops++; hopsAt.push(Math.round(P.s) + ((plan.zones.find(z => P.s >= z.s0 && P.s < z.s1) || { type: '?' }).type.slice(0, 3)) + (t - airStart).toFixed(2) + hopK + '/' + hopV.toFixed(0) + 'ms/' + (hopH * 100).toFixed(0) + 'cm'); }
+      if (have >= 2 && P.mode === 'ride' && was === 'ride') {
+        const j = Math.hypot(sx - 2 * x1 + x2, sy - 2 * y1 + y2), r = Math.abs(ang - a1);
+        sJ += j * j; mJ = Math.max(mJ, j); sR += r * r; mR = Math.max(mR, r); rideF++;
+        bad.push({ t, j, r, s: P.s, z: (plan.zones.find(z => P.s >= z.s0 && P.s < z.s1) || { type: '?' }).type, v: P.speed, skid: P.skid,
+          x: ' d ' + P.d.toFixed(1) + ' rider moved ' + (R.root.position.distanceTo(rp1) * 100).toFixed(0) + ' cm (v dt ' + (P.speed * dt * 100).toFixed(0) + ') cam moved ' + (camera.position.distanceTo(cp1) * 100).toFixed(0) + ' cm  block ' + (cam.blockT || 0) + ' inv ' + P.invuln.toFixed(1) + ' bumps ' + P.stats.edgeBumps + ' oob ' + P.stats.oob + ' stuck ' + P.stats.stuck });
+      } else if (P.mode !== 'ride') have = Math.min(have, 0);
+      if (TR && P.s > TR && P.s < TR + 9 && trace.length < 80) trace.push(P.s.toFixed(2) + ' ' + P.mode + (P.rail ? '[' + P.rail.kind + ' ' + P.railD.toFixed(2) + '/' + P.rail.len.toFixed(1) + ' v' + P.railSpd.toFixed(1) + ']' : '') + ' h ' + (P.pos.y - groundSD(P.s, P.d)).toFixed(2) + ' vy ' + P.vel.y.toFixed(1) + ' d ' + P.d.toFixed(1) + ' moved ' + (R.root.position.distanceTo(rp1) * 100).toFixed(0));
+      x2 = x1; y2 = y1; x1 = sx; y1 = sy; a1 = ang; have++; was = P.mode; rp1.copy(R.root.position); cp1.copy(camera.position);
+    }
+    scripted = null;
+    lines.push('-- long ride ' + LONG + ' s, ' + name + ': to s ' + Math.round(P.s) + '  ride frames ' + rideF + '  jerk px rms/max ' + Math.sqrt(sJ / Math.max(1, rideF)).toFixed(2) + ' / ' + mJ.toFixed(1) + '  turn jerk deg rms/max ' + Math.sqrt(sR / Math.max(1, rideF)).toFixed(2) + ' / ' + mR.toFixed(1) + '  airs ' + hops + ' (short ' + shortHops + ')  stumbles ' + P.stats.stumbles + ' tumbles ' + P.stats.tumbles);
+    if (trace.length) lines.push(trace.join('\n'));
+    if (hopsAt.length) lines.push('    short hops at ' + hopsAt.slice(0, 40).join(' '));
+    if (DETAIL) { bad.sort((a, b) => b.j - a.j); for (const b of bad.slice(0, DETAIL)) lines.push('    px  t ' + b.t.toFixed(2) + ' jerk ' + b.j.toFixed(1) + ' px  turn ' + b.r.toFixed(1) + '  s ' + b.s.toFixed(0) + ' ' + b.z + '  ' + b.v.toFixed(0) + ' m/s skid ' + b.skid.toFixed(2) + b.x);
+      bad.sort((a, b) => b.r - a.r); for (const b of bad.slice(0, DETAIL)) lines.push('    rot t ' + b.t.toFixed(2) + ' turn ' + b.r.toFixed(1) + ' deg  jerk ' + b.j.toFixed(1) + '  s ' + b.s.toFixed(0) + ' ' + b.z + '  ' + b.v.toFixed(0) + ' m/s skid ' + b.skid.toFixed(2)); }
+  }
+  const pre = document.getElementById('dbg'); pre.style.display = 'block'; pre.textContent = lines.join('\n');
+  console.log(lines.join('\n'));
+  document.title = 'done';
+}
 function pad(s, n) { s = String(s); while (s.length < n) s += ' '; return s; }
 
 if (DEBUG) {
@@ -9406,6 +9533,7 @@ if (DEBUG) {
 if (WANT_BOWL) enterBowl(); else if (WANT_RUN) resetWorld(false, true); else { ensureCourse(1200); stream(0, 99); }
 if (SHOT) { setTimeout(() => runShot(SHOT), 30); }
 else if (TEST === 'feel') { setTimeout(feelTest, 30); }
+else if (TEST === 'smooth') { setTimeout(smoothTest, 30); }
 else if (TEST) { setTimeout(runTest, 30); }
 else requestAnimationFrame(loop);
 })();

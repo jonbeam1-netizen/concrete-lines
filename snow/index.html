@@ -149,7 +149,7 @@ button.ghost:hover{background:rgba(58,143,208,.14)}
   <div class="gear"><button class="ghost" id="boardBtn" type="button">Board</button><button class="ghost" id="riderBtn" type="button">Rider</button></div>
   <div class="best" id="bestLine"></div>
   <a class="sib" href="https://jonbeam1-netizen.github.io/concrete-lines/" target="_top"><svg width="22" height="12" viewBox="0 0 22 12" aria-hidden="true"><rect x="1" y="2" width="20" height="4" rx="2" fill="currentColor"/><circle cx="5" cy="9" r="2.2" fill="currentColor"/><circle cx="17" cy="9" r="2.2" fill="currentColor"/></svg>Also play <b>Concrete Lines</b> &middot; skateboarding &rarr;</a>
-  <div class="sub">Updated November 14, 2026 &middot; Play-test 0.008</div>
+  <div class="sub">Updated November 14, 2026 &middot; Play-test 0.009</div>
 </div></div>
 <div class="overlay" id="pause"><div class="card">
   <h2>Paused</h2>
@@ -803,17 +803,20 @@ function createSnowRider(THREE, opts) {
     // B space: +X chest/toe edge, nose -Z, the chase camera sits off the tail (+Z) and above. Nose-down pitch turns the
     // teal base toward the camera; yaw gives the board a diagonal silhouette instead of an end-on stick.
     // Free arm: out, soft elbow (target well inside full reach). One leg boned, one tucked.
-    // (pass 8, unfinished: an opt-in "squared" path exists - sq: 1 + tilt / ap / lw, see alignBoard - but no grab uses it yet;
-    // the experiment's table is in review/grabs/squared-grabs-wip.js)
-    indy: { h: [1], p: [[HW, 0.006, 0.1]], bone: [-0.7, STANCE], f: { hipY: 0.98, by: 0.28, bx: 0.04, bYaw: -0.62, bPitch: -0.16, bRoll: 0.6, bend: 0.3, twist: -0.12, hipYaw: 0.2, side: 0.08, headYaw: 1.35, headPitch: -0.12, a0x: 0.14, a0y: 0.32, a0o: 0.5 } },
-    mute: { h: [0], p: [[HW, 0.006, -0.12]], bone: [0.72, -STANCE], f: { hipY: 0.98, by: 0.24, bx: 0.06, bYaw: -0.6, bPitch: -0.12, bRoll: 1.55, bend: 0.4, twist: 0.32, hipYaw: 0.0, side: -0.14, headYaw: 1.1, headPitch: -0.15, a1x: -0.32, a1y: 0.06, a1o: 0.44 } },
+    // pass 9, sq: 1 = the plain air tuck made compact (by / hipY / bend / hipPitch), board tweaked <= ~25 deg off the tuck,
+    // the look from tilt = [pitch, yaw, roll] of the whole rider + board (switch-mirrored) and the bone; splay = knees out over
+    // the feet; reach = extra forearm stretch (m, <= 0.05) for the grabbing arm. No pull of the board to the hand.
+    // Checked with rider-preview ?grabcheck=1 (PASS = ankles within 15 deg of the plain tuck, body penetration <= 2 cm, hand <= 4 cm).
+    // melon, method, stalefish, japan keep the old pose (did not pass yet).
+    indy: { sq: 1, reach: 0.05, splay: 0.35, h: [1], p: [[HW, 0.006, 0.06]], tilt: [-0.6, 0, 0.35], f: { by: 0.56, hipY: 0.92, bend: 1.0, hipPitch: 0.42, twist: -0.2, side: 0.12, bRoll: -0.25, hipYaw: 0.2, headYaw: 1.3, headPitch: -0.12, a0x: 0.14, a0y: 0.32, a0o: 0.5 } },
+    mute: { sq: 1, reach: 0.05, splay: 0.35, h: [0], p: [[HW, 0.006, -0.1]], tilt: [-0.6, 0.3, -0.3], f: { by: 0.56, hipY: 0.92, bend: 1.0, hipPitch: 0.42, twist: 0.25, side: -0.12, bRoll: -0.25, hipYaw: 0.15, headYaw: 1.1, headPitch: -0.15, a1x: -0.32, a1y: 0.06, a1o: 0.44 } },
     melon: { h: [0], p: [[-HW, 0.006, -0.1]], bone: [-0.6, STANCE], hint: [-0.2, -0.3, 1.0], f: { hipY: 1.02, by: 0.12, bx: -0.46, bYaw: 1.2, bPitch: -0.3, bRoll: -1.05, bend: 0.5, twist: 0.5, hipYaw: 0.45, side: -0.34, headYaw: 1.2, headPitch: -0.1, a1x: -0.05, a1y: 0.2, a1o: 0.56 } },
     method: { h: [0], p: [[-HW, 0.006, -0.04]], hint: [-0.3, -0.1, 1.0], f: { hipY: 0.98, by: 0.64, bx: -0.52, bYaw: 0.95, bPitch: -0.6, bRoll: -1.4, bend: -0.32, hipPitch: -0.14, twist: 0.42, side: -0.16, headYaw: 1.45, headPitch: 0.24, a1x: -0.12, a1y: 0.42, a1o: 0.5 } },
     stalefish: { h: [1], p: [[-HW, 0.006, 0.1]], bone: [0.68, -STANCE], hint: [-0.7, 0.1, 0.7], f: { hipY: 0.98, by: 0.24, bx: -0.04, bYaw: 0.9, bPitch: 0.05, bRoll: -0.9, bend: 0.36, twist: -0.32, hipYaw: 0.1, side: 0.18, headYaw: 1.25, a0x: 0.3, a0y: 0.12, a0o: 0.38 } },
-    nose: { h: [0], p: [[0, 0.006, -0.7]], bone: [0.45, -STANCE], f: { hipY: 0.98, by: 0.24, bx: 0.12, bYaw: -0.62, bPitch: 0.2, bRoll: 1.5, bend: 0.46, twist: 0.36, hipYaw: 0.0, side: -0.22, headYaw: 1.05, headPitch: -0.1, a1x: -0.34, a1y: 0.1, a1o: 0.44 } },
-    tail: { h: [1], p: [[0, 0.006, 0.7]], bone: [-0.5, STANCE], f: { hipY: 1.0, by: 0.26, bx: 0.06, bYaw: 0.85, bPitch: -0.32, bRoll: -0.3, bend: 0.22, twist: -0.4, hipYaw: 0.08, side: 0.2, headYaw: 1.3, headPitch: 0.05, a0x: 0.36, a0y: 0.16, a0o: 0.38 } },
+    nose: { sq: 1, reach: 0.05, splay: 0.35, h: [0], p: [[0, 0.006, -0.7]], bone: [0.35, -STANCE], tilt: [-0.3, -0.3, 0], f: { by: 0.56, hipY: 0.92, bend: 1.0, hipPitch: 0.42, bPitch: 0.3, twist: 0.35, side: -0.3, bRoll: -0.2, hipYaw: 0.0, headYaw: 1.05, headPitch: -0.1, a1x: -0.34, a1y: 0.1, a1o: 0.44 } },
+    tail: { sq: 1, reach: 0.05, splay: 0.15, h: [1], p: [[0, 0.006, 0.7]], bone: [-0.35, STANCE], tilt: [-0.3, 0.3, 0], f: { by: 0.56, hipY: 0.92, bend: 1.0, hipPitch: 0.42, bPitch: -0.3, twist: -0.4, side: 0.3, bRoll: -0.2, hipYaw: 0.08, headYaw: 1.3, headPitch: 0.05, a0x: 0.36, a0y: 0.16, a0o: 0.38 } },
     japan: { h: [0], p: [[HW, 0.006, -0.16]], f: { hipY: 0.93, by: 0.46, bx: -0.15, bYaw: -0.3, bPitch: -0.6, bRoll: 0.6, bend: 0.6, twist: 0.2, headYaw: 0.5, headPitch: -0.3, a1x: -0.25, a1y: 0.16, a1o: 0.36 } },
-    rocket: { h: [0, 1], p: [[-0.04, 0.013, -0.66], [0.04, 0.013, -0.6]], bone: [0.35, -STANCE], f: { hipY: 1.0, by: 0.16, bx: 0.14, bYaw: -0.55, bPitch: 0.55, bRoll: 1.45, bend: 0.55, twist: 0.3, hipYaw: 0.02, side: -0.15, headYaw: 0.95, headPitch: -0.05 } },
+    rocket: { sq: 1, reach: 0.05, splay: 0.35, h: [0, 1], p: [[-0.04, 0.013, -0.66], [0.04, 0.013, -0.6]], bone: [0.4, -STANCE], tilt: [0.2, 0, 0], f: { by: 0.56, hipY: 0.92, bend: 1.0, hipPitch: 0.42, bPitch: 0.4, twist: 0.35, side: -0.4, bRoll: -0.2, hipYaw: 0.02, headYaw: 0.95, headPitch: -0.05 } },
     crail: { h: [1], p: [[HW, 0.006, -0.48]], bone: [0.6, -STANCE], f: { hipY: 0.97, by: 0.3, bx: 0.08, bYaw: -0.6, bPitch: 0.05, bRoll: 1.5, bend: 0.45, twist: 0.36, hipYaw: 0.0, side: -0.15, headYaw: 1.05, a0x: -0.18, a0y: 0.16, a0o: 0.4 } },
     roastbeef: { h: [1], p: [[-HW, 0.006, 0.0]], hint: [0.6, -0.5, 0.3], f: { hipY: 0.94, by: 0.38, bYaw: -0.55, bRoll: -0.4, bend: 0.5, twist: 0.05, headYaw: 1.0, a0x: 0.26, a0y: 0.12, a0o: 0.4 } },
   };
@@ -903,7 +906,14 @@ function createSnowRider(THREE, opts) {
     const cr = S.crouch;
     if (cr > 0) {   // load the spring: deep knees, chest over them, arms swung down and back, eyes up on the lip. Harder at speed.
       const ck = cr * (0.8 + 0.25 * fs), nt = 1 - 0.5 * tk;
-      T.hipY = lerp(T.hipY, 0.7 - 0.04 * fs, ck * nt); T.bend += 0.38 * ck * (1 - tk); T.hipPitch += 0.2 * ck; T.headPitch += 0.42 * ck; T.hipX -= 0.02 * ck;
+      // The crouch folds him forward only up to a ceiling. It used to add its full fold on top of whatever was already
+      // there (the forward lean at speed, a hard carve, a skid, the tuck), so at speed or mid-carve he doubled over with
+      // his head below his shoulders. Now the load reads through the legs (hips drop as before) and the chest stops at
+      // the same fold as a plain crouch at cruising speed. The eyes-up head tilt follows the fold actually added.
+      const b0 = T.bend, p0 = T.hipPitch, wantB = 0.38 * ck * (1 - tk), wantP = 0.2 * ck;
+      T.bend = Math.min(b0 + wantB, Math.max(b0, lerp(0.56, 0.85, tk))); T.hipPitch = Math.min(p0 + wantP, Math.max(p0, 0.3));
+      const got = wantB + wantP > 1e-4 ? (T.bend - b0 + T.hipPitch - p0) / (wantB + wantP) : 1;
+      T.hipY = lerp(T.hipY, 0.7 - 0.04 * fs, ck * nt); T.headPitch += 0.42 * ck * lerp(0.35, 1, got); T.hipX -= 0.02 * ck;
       mixArm(0, -0.22, -0.46, 0.14, ck * (1 - tk)); mixArm(1, -0.3, -0.42, 0.12, ck * (1 - tk));
       T.a0y += 0.012 * ck * Math.sin(clock * 9); T.hipY += 0.006 * ck * Math.sin(clock * 9 + 1);   // a little tension bounce
     }
@@ -1454,7 +1464,7 @@ function createSnowRider(THREE, opts) {
     const gw = clamp(gVis, 0, 1.2), G = grabName ? GRABS[grabName] : null, gz = curSw ? -1 : 1;   // switch: mirrored hand + grab point
     // grabs (pass 8): the whole body and board tilt together (G.tilt), and the board is squared to the shins (alignBoard) so
     // the feet stay in a boot's range; the knees point over the toes
-    const al = G && G.sq && gw > 0.001 && air0() ? Math.min(1, gw) : 0;   // opt-in per grab (none yet)
+    const al = G && G.sq && gw > 0.001 && air0() ? Math.min(1, gw) : 0;   // opt-in per grab (G.sq)
     if (al && G.tilt) {
       const t = G.tilt; eul.set(gz * t[0] * al, gz * t[1] * al, t[2] * al, 'YXZ'); qA.setFromEuler(eul);
       tmpA.addVectors(pelvis.position, boardPivot.position).multiplyScalar(0.5);
@@ -1485,7 +1495,7 @@ function createSnowRider(THREE, opts) {
         pelvis.position.addScaledVector(tmpC, gr); boardPivot.position.addScaledVector(tmpC, -(1 - gr)); boardPivot.updateMatrix();
         if (gr > 0.01) torsoMatrices();
       }
-      if (al) alignBoard(al, G);
+      if (al && G.align) alignBoard(al, G);
     }
     torsoMatrices();
     // leg IK (knees toward the pelvis front and a little out; grabbing: over the toes)
@@ -1493,7 +1503,8 @@ function createSnowRider(THREE, opts) {
     for (let i = 0; i < 2; i++) {
       const lg = legs[i]; hipOf(i, hipP); ankleOf(i, ankP);
       hint.copy(tmpD).addScaledVector(_z, lg.s * lerp(0.08, 0.3, gr)).normalize();
-      if (al) { toeDir(i, tmpB); hint.lerp(tmpB, al).normalize(); }
+      if (al && G.kh) { toeDir(i, tmpB); hint.lerp(tmpB, al * G.kh).normalize(); }
+      if (al && G.splay) hint.addScaledVector(_z, lg.s * G.splay * al).normalize();   // knees out over the feet (less nose / tail lean of the shins)
       ik2(hipP, ankP, hint, L1, L2, kneeP, endP);
       setBone(lg.thigh, hipP, kneeP, hint); setBone(lg.shin, kneeP, endP, hint);
     }
@@ -1514,10 +1525,12 @@ function createSnowRider(THREE, opts) {
         }
       }
       hint.set(hx2, hy2, hz2 * sgn).normalize().applyQuaternion(qHi);
-      ik2(shW[i], tmpA, hint, A1, A2 + 0.06, kneeP, endP);
+      // squared grabs (G.reach, <= 0.05 m): the grabbing forearm may stretch a few centimetres to close the last gap
+      const ex = al && G.reach && G.h.indexOf(curSw ? 1 - i : i) >= 0 ? Math.min(0.05, G.reach) * al : 0;
+      ik2(shW[i], tmpA, hint, A1, A2 + 0.06 + ex, kneeP, endP);
       setBone(a.up, shW[i], kneeP, hint);
-      tmpC.subVectors(endP, kneeP).normalize(); endP.copy(kneeP).addScaledVector(tmpC, A2);
-      setBone(a.lo, kneeP, endP, hint);
+      tmpC.subVectors(endP, kneeP).normalize(); endP.copy(kneeP).addScaledVector(tmpC, A2 + ex);
+      setBone(a.lo, kneeP, endP, hint); a.lo.scale.y = 1 + ex / A2;
       a.hand.position.copy(endP); a.hand.quaternion.copy(a.lo.quaternion);
       handPose(a, i, rw, G && gw > 0.001 && G.h.indexOf(curSw ? 1 - i : i) >= 0 ? Math.min(1, gw) : 0);
       if (R && R._dbgOn) { tmpB.copy(endP).addScaledVector(tmpC, 0.07); R._dbg['e' + i] = tmpB.distanceTo(tmpA).toFixed(2); }
@@ -1565,7 +1578,7 @@ function createSnowRider(THREE, opts) {
   // toe / heel, roll = toward nose / tail, twist = the knee against the toes), the worst board penetration into the legs,
   // hips, torso and arms (capsules a little inside the clothes), and how far each grabbing palm is from its grab point
   function grabProbe() {
-    const D = 180 / PI, out = { ankles: [], pen: 0, penAt: '', hands: [] };
+    const D = 180 / PI, out = { ankles: [], pen: 0, penAt: '', penB: 0, penBAt: '', hands: [] };
     boardPivot.updateMatrix(); torsoMatrices();
     const bInv = new THREE.Matrix4().copy(boardPivot.matrix).invert();
     const fx = new V3(), fy = new V3(), fz = new V3(), s = new V3(), k = new V3(), q = new THREE.Quaternion(), a = new V3(), h = new V3(), kn = new V3();
@@ -1592,6 +1605,7 @@ function createSnowRider(THREE, opts) {
       for (let j = 0; j <= n; j++) {
         const u = j / n, d = u * L0; if (d < (skip0 || 0) || d > L0 - (skip1 || 0)) continue;
         const pen = r - sdf(h.lerpVectors(p0, p1, u)); if (pen > out.pen) { out.pen = pen; out.penAt = name; }
+        if (name.indexOf('arm') < 0 && pen > out.penB) { out.penB = pen; out.penBAt = name; }
       }
     };
     const hp = [new V3(), new V3()], ak = [new V3(), new V3()];

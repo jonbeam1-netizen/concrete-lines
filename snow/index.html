@@ -37,8 +37,8 @@ table.keys td:first-child{font-weight:600;white-space:nowrap;color:var(--glacier
 #pscore{font-size:14px;color:var(--ink-soft);margin-bottom:6px}
 #touch{position:fixed;inset:0;display:none;pointer-events:none}
 #touch.on{display:block}
-#stickBase{position:fixed;width:120px;height:120px;border-radius:60px;border:2px solid rgba(255,255,255,.55);display:none;pointer-events:none}
-#stickKnob{position:absolute;left:35px;top:35px;width:50px;height:50px;border-radius:25px;background:rgba(255,255,255,.6)}
+#stickBase,#stickBase2{position:fixed;width:120px;height:120px;border-radius:60px;border:2px solid rgba(255,255,255,.55);display:none;pointer-events:none}
+#stickKnob,#stickKnob2{position:absolute;left:35px;top:35px;width:50px;height:50px;border-radius:25px;background:rgba(255,255,255,.6)}
 #tbtns{position:fixed;right:14px;bottom:14px;display:grid;grid-template-columns:72px 72px;gap:10px;pointer-events:auto}
 #tbtns div{width:72px;height:72px;border-radius:36px;background:rgba(255,255,255,.28);border:2px solid rgba(255,255,255,.6);color:#fff;font-weight:600;font-size:14px;display:flex;align-items:center;justify-content:center;text-shadow:var(--shadow)}
 #tbtns div.down{background:rgba(255,255,255,.55)}
@@ -149,27 +149,30 @@ button.ghost:hover{background:rgba(58,143,208,.14)}
   <div class="gear"><button class="ghost" id="boardBtn" type="button">Board</button><button class="ghost" id="riderBtn" type="button">Rider</button></div>
   <div class="best" id="bestLine"></div>
   <a class="sib" href="https://jonbeam1-netizen.github.io/concrete-lines/" target="_top"><svg width="22" height="12" viewBox="0 0 22 12" aria-hidden="true"><rect x="1" y="2" width="20" height="4" rx="2" fill="currentColor"/><circle cx="5" cy="9" r="2.2" fill="currentColor"/><circle cx="17" cy="9" r="2.2" fill="currentColor"/></svg>Also play <b>Concrete Lines</b> &middot; skateboarding &rarr;</a>
-  <div class="sub">Updated November 14, 2026 &middot; Play-test 0.007</div>
+  <div class="sub">Updated November 14, 2026 &middot; Play-test 0.008</div>
 </div></div>
 <div class="overlay" id="pause"><div class="card">
   <h2>Paused</h2>
   <div id="pscore"></div>
   <table class="keys tch">
-    <tr><td>Stick</td><td>Left thumb anywhere on the left half. Left / right carve, up tuck, down skid</td></tr>
-    <tr><td>Pop</td><td>Hold to crouch and build speed, release to pop</td></tr>
-    <tr><td>Grab</td><td>Air: hold, the stick picks the grab. Snow: Grab + stick = butter</td></tr>
-    <tr><td>Spin</td><td>Air: hold to rotate. Stick left / right spin, up front flip, down back flip</td></tr>
-    <tr><td>Rail</td><td>Lock onto a rail, box or log. On a rail, stick up / down = nose / tail press</td></tr>
+    <tr><td>Stick</td><td>Left thumb anywhere on the left half. Snow: left / right carve, up tuck, down skid. Air: left / right spin, up / down flip</td></tr>
+    <tr><td>Pop</td><td>Hold to crouch and build speed, release for the biggest jump</td></tr>
+    <tr><td>Grab</td><td>Snow: jump, already grabbing. Air: hold to grab, the stick picks it. Slide the button sideways to drift</td></tr>
+    <tr><td>Wild</td><td>Snow: jump. Air: hold with the stick for corks, misty and rodeo</td></tr>
+    <tr><td>Butter</td><td>Hold to press the tail, stick up for the nose, stick left / right to roll. Also locks onto a rail, box or log</td></tr>
+    <tr><td>Right thumb</td><td>Air: drag sideways anywhere on the right half to drift</td></tr>
     <tr><td>Top left</td><td>Pause, camera, respawn, mute</td></tr>
   </table>
   <table class="keys kb">
-    <tr><td>A / D</td><td>Carve left / right</td></tr>
-    <tr><td>W</td><td>Lean forward / tuck</td></tr>
-    <tr><td>S</td><td>Skid, slow down</td></tr>
-    <tr><td>Space</td><td>Hold to crouch and build speed, release to pop</td></tr>
-    <tr><td>Q</td><td>Air: grab (hold). Direction picks it: none Indy, W Nose, S Tail, A Melon, D Mute, W+A Method, W+D Japan, S+A Stalefish, S+D Rocket. Ground: butter (W+Q nose)</td></tr>
-    <tr><td>E</td><td>Air: rotate while held. A/D spin, W front flip, S back flip, both = cork</td></tr>
-    <tr><td>R</td><td>Lock onto a rail, box or log. On a rail W/S = nose/tail press</td></tr>
+    <tr><td>A / D</td><td>Carve left / right. Air: spin</td></tr>
+    <tr><td>W</td><td>Lean forward / tuck. Air: front flip</td></tr>
+    <tr><td>S</td><td>Skid, slow down. Air: back flip</td></tr>
+    <tr><td>Space</td><td>Hold to crouch and build speed, release for the biggest jump</td></tr>
+    <tr><td>Q</td><td>Jump, already grabbing. Air: hold to grab. The direction held picks it: none Indy, W Nose, S Tail, A Melon, D Mute, W+A Method, W+D Japan, S+A Stalefish, S+D Rocket</td></tr>
+    <tr><td>E</td><td>Jump. Air: hold with a direction to go wild: A/D cork, W misty, S rodeo</td></tr>
+    <tr><td>R</td><td>Butter: hold to press the tail, W+R nose, A/D+R to roll. Also locks onto a rail, box or log; on a rail W/S = nose/tail press</td></tr>
+    <tr><td>Mouse</td><td>Air: move left / right to drift. Left click = E, right click = Q</td></tr>
+    <tr><td>In the air</td><td>A direction you were already holding at takeoff counts once you press it again</td></tr>
     <tr><td>C</td><td>Camera</td></tr>
     <tr><td>B</td><td>Respawn</td></tr>
     <tr><td>M</td><td>Mute</td></tr>
@@ -184,8 +187,8 @@ button.ghost:hover{background:rgba(58,143,208,.14)}
     <div class="body" id="rpBody"></div>
     <div class="foot"><button type="button" class="btn" id="rpReset">Default</button><button type="button" class="btn pri" id="rpSave">Save and wear</button></div></div>
 </div></div>
-<div id="touch"><div id="stickBase"><div id="stickKnob"></div></div>
-  <div id="tbtns"><div data-k="KeyQ">Grab</div><div data-k="KeyE">Spin</div><div data-k="KeyR">Rail</div><div data-k="Space">Pop</div></div>
+<div id="touch"><div id="stickBase"><div id="stickKnob"></div></div><div id="stickBase2"><div id="stickKnob2"></div></div>
+  <div id="tbtns"><div data-k="KeyQ">Grab</div><div data-k="KeyE">Wild</div><div data-k="KeyR">Butter</div><div data-k="Space">Pop</div></div>
   <div id="tsys"><div id="tpause" aria-label="Pause">II</div>
     <div id="tcam" aria-label="Camera"><svg viewBox="0 0 24 24"><path d="M3 8h3.5l2-2.5h7l2 2.5H21v11H3z"/><circle cx="12" cy="13" r="3.4"/></svg></div>
     <div id="tresp" aria-label="Respawn"><svg viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4v4h-4"/></svg></div>
@@ -405,6 +408,15 @@ function createSnowRider(THREE, opts) {
 
   // ---------------------------------------------------------------- board
   const kick = z => { const a = Math.abs(z); return a > 0.56 ? 0.075 * Math.pow((a - 0.56) / (BOARD_L / 2 - 0.56), 1.8) : 0.004 * (1 - Math.pow(a / 0.56, 2)); };
+  // nose / tail press: how far the board's centre must rise so that its lowest point sits on the snow. The board tips
+  // about wherever its base is lowest for that pitch, which is out on the upturned end, not at the 0.56 m where the
+  // upturn starts (lifting for that point alone left the end itself several centimetres under the surface).
+  const pressLift = pitch => {
+    const a = Math.abs(pitch); if (a < 1e-4) return 0;
+    const sn = Math.sin(a), cs = Math.cos(a), z1 = BOARD_L / 2 - 0.02; let low = 0;
+    for (let i = 0; i <= 10; i++) { const z = 0.4 + (z1 - 0.4) * i / 10, y = kick(z) * cs - z * sn; if (y < low) low = y; }
+    return -low + 0.012 * Math.min(1, a / 0.2);
+  };
   const halfW = z => {
     const a = Math.abs(z), c = 0.585, end = BOARD_L / 2;
     if (a <= c) return 0.124 + 0.013 * Math.pow(a / c, 2);   // sidecut: waist 0.248, contact 0.274
@@ -791,6 +803,8 @@ function createSnowRider(THREE, opts) {
     // B space: +X chest/toe edge, nose -Z, the chase camera sits off the tail (+Z) and above. Nose-down pitch turns the
     // teal base toward the camera; yaw gives the board a diagonal silhouette instead of an end-on stick.
     // Free arm: out, soft elbow (target well inside full reach). One leg boned, one tucked.
+    // (pass 8, unfinished: an opt-in "squared" path exists - sq: 1 + tilt / ap / lw, see alignBoard - but no grab uses it yet;
+    // the experiment's table is in review/grabs/squared-grabs-wip.js)
     indy: { h: [1], p: [[HW, 0.006, 0.1]], bone: [-0.7, STANCE], f: { hipY: 0.98, by: 0.28, bx: 0.04, bYaw: -0.62, bPitch: -0.16, bRoll: 0.6, bend: 0.3, twist: -0.12, hipYaw: 0.2, side: 0.08, headYaw: 1.35, headPitch: -0.12, a0x: 0.14, a0y: 0.32, a0o: 0.5 } },
     mute: { h: [0], p: [[HW, 0.006, -0.12]], bone: [0.72, -STANCE], f: { hipY: 0.98, by: 0.24, bx: 0.06, bYaw: -0.6, bPitch: -0.12, bRoll: 1.55, bend: 0.4, twist: 0.32, hipYaw: 0.0, side: -0.14, headYaw: 1.1, headPitch: -0.15, a1x: -0.32, a1y: 0.06, a1o: 0.44 } },
     melon: { h: [0], p: [[-HW, 0.006, -0.1]], bone: [-0.6, STANCE], hint: [-0.2, -0.3, 1.0], f: { hipY: 1.02, by: 0.12, bx: -0.46, bYaw: 1.2, bPitch: -0.3, bRoll: -1.05, bend: 0.5, twist: 0.5, hipYaw: 0.45, side: -0.34, headYaw: 1.2, headPitch: -0.1, a1x: -0.05, a1y: 0.2, a1o: 0.56 } },
@@ -1213,7 +1227,7 @@ function createSnowRider(THREE, opts) {
     gX.crossVectors(gE, gD).normalize();
     const da = gD.dot(gOut), db = -gD.dot(gN); if (gX.dot(gOut) * db + gX.dot(gN) * da > 0) gX.negate();
     gY.copy(gD).negate(); gZ.crossVectors(gX, gY);
-    gM.makeBasis(gX, gY, gZ); gq[i].setFromRotationMatrix(gM);
+    gM.makeBasis(gX, gY, gZ); gq[i].setFromRotationMatrix(gM); grabP[i].copy(gC);
     out.copy(GRIP_L).sub(WRIST_P).applyQuaternion(gq[i]); return out.subVectors(gC, out);
   }
   function torsoMatrices() {
@@ -1248,6 +1262,38 @@ function createSnowRider(THREE, opts) {
   }
   const hipOf = (i, out) => out.set(0, -0.07, legs[i].s * 0.1).applyMatrix4(pelvis.matrix);
   const ankleOf = (i, out) => out.copy(footAnkle[i]).applyMatrix4(boardPivot.matrix);
+  // grabs: square the board to the shins. Solve the legs on the current board, average the shins (G.lw weights the legs), and
+  // turn the board about the ankles' midpoint so its normal follows them: fully across the board (toe / heel), G.ap of the way
+  // along it (nose / tail, so a poked or nose-up board keeps some of its pitch). w blends over the 5 passes.
+  const qBind = [0, 1].map(i => new THREE.Quaternion().setFromRotationMatrix(bootRest[i]));
+  // knee hint for a grab: the toes' heading in the pelvis' horizontal plane (so rolling the board to the shins cannot feed back
+  // into the knees), blended with the pelvis front
+  const _pu = new V3(), _pf = new V3();
+  const toeDir = (i, out) => {
+    out.set(1, 0, 0).applyQuaternion(qBind[i]).applyQuaternion(boardPivot.quaternion);
+    _pu.set(0, 1, 0).applyQuaternion(pelvis.quaternion); _pf.set(1, 0, 0).applyQuaternion(pelvis.quaternion);
+    out.addScaledVector(_pu, -out.dot(_pu)); if (out.lengthSq() < 1e-4 || out.dot(_pf) < 0) out.copy(_pf); out.normalize();
+    _pu.set(0, 0, 1).applyQuaternion(pelvis.quaternion);   // and a little out over each foot, so the knees never cross
+    return out.add(_pf).addScaledVector(_pu, legs[i].s * 0.35).normalize();
+  };
+  const air0 = () => S.air && bailMode === 0 && !RAG.on;
+  const GRAB_PULL = 0.0;   // squared grabs: share of a reach shortfall closed by moving the board (the pose itself should reach)
+  const _sA = new V3(), _mA = new V3(), _yA = new V3(), qAl = new THREE.Quaternion(), Y_UP = new V3(0, 1, 0);
+  function alignBoard(w, G) {
+    boardPivot.updateMatrix(); _sA.set(0, 0, 0);
+    for (let i = 0; i < 2; i++) {
+      hipOf(i, hipP); ankleOf(i, ankP); toeDir(i, hint); ik2(hipP, ankP, hint, L1, L2, kneeP, endP);
+      tmpA.subVectors(kneeP, endP).normalize(); _sA.addScaledVector(tmpA, G.lw ? G.lw[i] : 1);
+    }
+    qAl.copy(boardPivot.quaternion).invert(); _sA.normalize().applyQuaternion(qAl);
+    _sA.z *= G.ap === undefined ? 1 : G.ap; _sA.normalize();
+    // at most ~0.5 rad per pass, so a deep fold can't flip the board over in one go
+    const ang = Math.acos(clamp(_sA.y, -1, 1)), lim = Math.min(ang, 0.5) * (1 - Math.pow(1 - Math.min(w, 0.999), 1 / 8));
+    if (ang < 1e-4) return;
+    _yA.set(_sA.x, 0, _sA.z).normalize().multiplyScalar(Math.sin(lim)); _yA.y = Math.cos(lim); qAl.setFromUnitVectors(Y_UP, _yA);
+    _mA.addVectors(footAnkle[0], footAnkle[1]).multiplyScalar(0.5); tmpA.copy(_mA).applyMatrix4(boardPivot.matrix);
+    boardPivot.quaternion.multiply(qAl); boardPivot.position.copy(tmpA).sub(_mA.applyQuaternion(boardPivot.quaternion)); boardPivot.updateMatrix();
+  }
 
   function step(dt) {
     clock += dt;
@@ -1387,7 +1433,7 @@ function createSnowRider(THREE, opts) {
     pelvis.position.set(ex + hx * c - F.hipY * s, hx * s + F.hipY * c, F.hipZ);
     // board: on the snow it rides on its loaded edge / pressed end, so lift the centre to keep the contact at the surface
     const gr = clamp(F.ground, 0, 1);
-    boardPivot.position.set(F.bx, F.by + gr * (HW * Math.abs(Math.sin(F.bRoll)) + 0.56 * Math.abs(Math.sin(F.bPitch))), F.bz);
+    boardPivot.position.set(F.bx, F.by + gr * (HW * Math.abs(Math.sin(F.bRoll)) + pressLift(F.bPitch)), F.bz);
     eul.set(F.bPitch, F.bYaw, F.bRoll, 'YXZ'); boardPivot.quaternion.setFromEuler(eul);
     { const G0 = grabName ? GRABS[grabName] : null, g0 = clamp(gVis, 0, 1.15);
       if (G0 && G0.bone && g0 > 0.001) {   // bone/poke: pitch about the tucked foot's binding so the other leg straightens
@@ -1406,12 +1452,27 @@ function createSnowRider(THREE, opts) {
     // grab assist: if the grab point is out of reach, bring the board up to the hand (knees fold more); then make sure the legs
     // reach the bindings: on the snow the hips come down to the board, in the air the board comes up to the hips
     const gw = clamp(gVis, 0, 1.2), G = grabName ? GRABS[grabName] : null, gz = curSw ? -1 : 1;   // switch: mirrored hand + grab point
-    for (let it = 0; it < 3; it++) {
+    // grabs (pass 8): the whole body and board tilt together (G.tilt), and the board is squared to the shins (alignBoard) so
+    // the feet stay in a boot's range; the knees point over the toes
+    const al = G && G.sq && gw > 0.001 && air0() ? Math.min(1, gw) : 0;   // opt-in per grab (none yet)
+    if (al && G.tilt) {
+      const t = G.tilt; eul.set(gz * t[0] * al, gz * t[1] * al, t[2] * al, 'YXZ'); qA.setFromEuler(eul);
+      tmpA.addVectors(pelvis.position, boardPivot.position).multiplyScalar(0.5);
+      pelvis.position.sub(tmpA).applyQuaternion(qA).add(tmpA); pelvis.quaternion.premultiply(qA);
+      boardPivot.position.sub(tmpA).applyQuaternion(qA).add(tmpA); boardPivot.quaternion.premultiply(qA); boardPivot.updateMatrix();
+      torsoMatrices();
+    }
+    for (let it = 0; it < (al ? 8 : 3); it++) {
       if (G && gw > 0.001) {
         for (let j = 0; j < G.h.length; j++) {
           const ai = curSw ? 1 - G.h[j] : G.h[j]; tmpA.set(G.p[j][0], G.p[j][1], gz * G.p[j][2]).applyMatrix4(boardPivot.matrix);
           tmpB.subVectors(shW[ai], tmpA); const d = tmpB.length(), reach = A1 + A2 + 0.05;
-          if (d > reach) { boardPivot.position.addScaledVector(tmpB, (d - reach) / d * Math.min(1, gw)); boardPivot.updateMatrix(); }
+          if (d > reach) {
+            // squared grabs: the body folds down onto the board (hips toward it, so the knees come up), the board only follows a little
+            if (al) { boardPivot.position.addScaledVector(tmpB, (d - reach) / d * GRAB_PULL * al); }
+            else boardPivot.position.addScaledVector(tmpB, (d - reach) / d * Math.min(1, gw));
+            boardPivot.updateMatrix();
+          }
         }
       }
       tmpC.set(0, 0, 0); let worst = 0;
@@ -1424,13 +1485,15 @@ function createSnowRider(THREE, opts) {
         pelvis.position.addScaledVector(tmpC, gr); boardPivot.position.addScaledVector(tmpC, -(1 - gr)); boardPivot.updateMatrix();
         if (gr > 0.01) torsoMatrices();
       }
+      if (al) alignBoard(al, G);
     }
     torsoMatrices();
-    // leg IK (knees toward the pelvis front and a little out)
+    // leg IK (knees toward the pelvis front and a little out; grabbing: over the toes)
     _z.set(0, 0, 1).applyQuaternion(pelvis.quaternion); tmpD.set(1, 0, 0).applyQuaternion(pelvis.quaternion);
     for (let i = 0; i < 2; i++) {
       const lg = legs[i]; hipOf(i, hipP); ankleOf(i, ankP);
       hint.copy(tmpD).addScaledVector(_z, lg.s * lerp(0.08, 0.3, gr)).normalize();
+      if (al) { toeDir(i, tmpB); hint.lerp(tmpB, al).normalize(); }
       ik2(hipP, ankP, hint, L1, L2, kneeP, endP);
       setBone(lg.thigh, hipP, kneeP, hint); setBone(lg.shin, kneeP, endP, hint);
     }
@@ -1496,6 +1559,61 @@ function createSnowRider(THREE, opts) {
         a.glove.position.copy(WRIST).sub(tmpB.copy(WRIST).applyQuaternion(a.glove.quaternion));
       }
     }
+  }
+
+  // grab check (preview ?grabcheck=1; debug only): ankle angles of each foot (the shin against its boot: pitch = toward the
+  // toe / heel, roll = toward nose / tail, twist = the knee against the toes), the worst board penetration into the legs,
+  // hips, torso and arms (capsules a little inside the clothes), and how far each grabbing palm is from its grab point
+  function grabProbe() {
+    const D = 180 / PI, out = { ankles: [], pen: 0, penAt: '', hands: [] };
+    boardPivot.updateMatrix(); torsoMatrices();
+    const bInv = new THREE.Matrix4().copy(boardPivot.matrix).invert();
+    const fx = new V3(), fy = new V3(), fz = new V3(), s = new V3(), k = new V3(), q = new THREE.Quaternion(), a = new V3(), h = new V3(), kn = new V3();
+    for (let i = 0; i < 2; i++) {
+      mFoot[i].extractBasis(fx, fy, fz); fx.normalize(); fy.normalize(); fz.normalize();
+      ankleOf(i, a); kn.copy(legs[i].shin.position); s.subVectors(kn, a).normalize();
+      const pitch = Math.atan2(s.dot(fx), s.dot(fy)) * D, roll = Math.atan2(s.dot(fz), s.dot(fy)) * D;
+      q.setFromUnitVectors(fy, s); const tx = fx.clone().applyQuaternion(q);
+      k.set(1, 0, 0).applyQuaternion(legs[i].shin.quaternion); k.addScaledVector(s, -k.dot(s)).normalize();
+      const tw = Math.atan2(new V3().crossVectors(tx, k).dot(s), tx.dot(k)) * D;
+      out.ankles.push([pitch, roll, tw]);
+    }
+    // board SDF (board space): a slab following the kick, sidecut width
+    const P = new V3();
+    const sdf = (pBody) => {
+      P.copy(pBody).applyMatrix4(bInv);
+      const z = clamp(P.z, -BOARD_L / 2, BOARD_L / 2), yc = kick(z) + BT / 2;
+      const dx = Math.abs(P.x) - halfW(z), dy = Math.abs(P.y - yc) - BT / 2, dz = Math.abs(P.z) - BOARD_L / 2;
+      const ox = Math.max(dx, 0), oy = Math.max(dy, 0), oz = Math.max(dz, 0);
+      return Math.sqrt(ox * ox + oy * oy + oz * oz) + Math.min(Math.max(dx, dy, dz), 0);
+    };
+    const seg = (name, p0, p1, r, skip0, skip1) => {   // skip0 / skip1: metres left out at either end
+      const L0 = p0.distanceTo(p1), n = 24;
+      for (let j = 0; j <= n; j++) {
+        const u = j / n, d = u * L0; if (d < (skip0 || 0) || d > L0 - (skip1 || 0)) continue;
+        const pen = r - sdf(h.lerpVectors(p0, p1, u)); if (pen > out.pen) { out.pen = pen; out.penAt = name; }
+      }
+    };
+    const hp = [new V3(), new V3()], ak = [new V3(), new V3()];
+    for (let i = 0; i < 2; i++) {
+      hipOf(i, hp[i]); ankleOf(i, ak[i]); const nm = i ? 'back' : 'front';
+      seg(nm + ' thigh', hp[i], legs[i].shin.position, 0.1);
+      seg(nm + ' shin', legs[i].shin.position, ak[i], 0.09, 0, 0.16);
+    }
+    seg('hips', hp[0], hp[1], 0.14);
+    const c0 = new V3(0, -0.12, 0).applyMatrix4(pelvis.matrix), c1 = new V3(0, 0.3, 0).applyMatrix4(mHi);
+    seg('torso', c0, c1, 0.17);
+    const G = grabName && gVis > 0.3 ? GRABS[grabName] : null;
+    for (let i = 0; i < 2; i++) {
+      const ar = arms[i], grabbing = G && G.h.indexOf(curSw ? 1 - i : i) >= 0, nm = i ? 'back arm' : 'front arm';
+      seg(nm, shW[i], ar.lo.position, 0.065, 0.06, 0); seg(nm, ar.lo.position, ar.hand.position, 0.055, 0, grabbing ? 0.14 : 0);
+      if (grabbing) {
+        ar.hand.updateMatrix(); ar.glove.updateMatrix();
+        const palm = GRIP_L.clone().applyMatrix4(ar.glove.matrix).applyMatrix4(ar.hand.matrix);
+        out.hands.push([i, palm.distanceTo(grabP[i])]);
+      }
+    }
+    return out;
   }
 
   // ---------------------------------------------------------------- ragdoll (position-based, ported from Concrete Lines)
@@ -1893,7 +2011,7 @@ function createSnowRider(THREE, opts) {
       return out;
     },
     // extras (not in the interface, harmless): current pose state for debugging
-    _state: S, _parts: { head, hands: arms.map(a => a.hand), board: boardPivot, forearms: arms.map(a => a.lo), shafts: SH.mesh, ankle: (i, out) => { body.updateMatrix(); boardPivot.updateMatrix(); return out.copy(footAnkle[i]).applyMatrix4(boardPivot.matrix).applyMatrix4(body.matrix).applyMatrix4(root.matrixWorld); } },
+    _state: S, _grabProbe: grabProbe, _parts: { head, hands: arms.map(a => a.hand), board: boardPivot, forearms: arms.map(a => a.lo), shafts: SH.mesh, ankle: (i, out) => { body.updateMatrix(); boardPivot.updateMatrix(); return out.copy(footAnkle[i]).applyMatrix4(boardPivot.matrix).applyMatrix4(body.matrix).applyMatrix4(root.matrixWorld); } },
   };
   // start in a settled riding stance
   if (opts.outfit) setOutfit(opts.outfit);
@@ -5929,13 +6047,16 @@ function heightSD(s, d) {
     h += rise + (fall - rise) * op;
     if (e > 25) h += vnoise(s * 0.008 + 3, d * 0.008) * 7 * smooth(25, 90, e);
   }
-  const amp = 0.2 + 0.45 * smooth(6, 28, ad) + (ad > hw ? 0.9 : 0);
+  // (the extra roughness off the run used to switch on at the edge line itself: up to 0.8 m of height jump there,
+  // and the rider snapped up or down as he crossed it)
+  const amp = 0.2 + 0.45 * smooth(6, 28, ad) + 0.9 * smooth(hw, hw + 6, ad);
   h += vnoise(s * 0.05, d * 0.05) * amp + vnoise(s * 0.13 + 7.1, d * 0.13) * amp * 0.35;
   h += bumpH(s, d) + cliffH(s, d);
   if (gullies.length) h += gullyH(s, d);
   return h;
 }
 let lastKicker = null, lastKU = 0;
+function kickSkirt(h) { return 0.15 + 0.85 * h; }   // width of a kicker's side bank where the ramp is h high
 function kickerH(s, d) {
   lastKicker = null;
   let h = 0, i = lowerBound(kickers, s - 4);
@@ -5944,9 +6065,11 @@ function kickerH(s, d) {
     let u = s - k.s, v = d - k.d;
     if (k.yaw) { const c = Math.cos(k.yaw), sn = Math.sin(k.yaw), uu = u * c + v * sn; v = v * c - u * sn; u = uu; } // a hip: the ramp turned across the run
     if (u > 0 || u < -k.L) continue;
-    if (Math.abs(v) > k.W * 0.5) continue;
-    const kh = k.H * Math.pow((u + k.L) / k.L, k.p);
-    if (kh > h) { h = kh; lastKicker = k; lastKU = u; }
+    let kh = k.H * Math.pow((u + k.L) / k.L, k.p), side = false;
+    // the sides are banks, not walls: riding into the side of a ramp used to put him on top of it in one frame
+    const over = Math.abs(v) - k.W * 0.5;
+    if (over > 0) { const sk = kickSkirt(kh); if (over >= sk) continue; kh *= 1 - over / sk; side = true; }
+    if (kh > h) { h = kh; lastKicker = side ? null : k; lastKU = u; }
   }
   return h;
 }
@@ -6191,7 +6314,10 @@ function buildKicker(k, group, geos) {
     for (const v of [-W2, W2]) {
       const ks = k.s + u * yc - v * ys, kd = k.d + u * ys + v * yc;
       worldFromSD(ks, kd, p); const b = heightSD(ks, kd);
-      verts.push([p.x, b + h, p.z], [p.x, b - 0.5, p.z]);
+      verts.push([p.x, b + h, p.z]);
+      // the foot of the side bank (same width as the physics), sunk a little into the snow
+      const vo = v + Math.sign(v) * kickSkirt(h), os = k.s + u * yc - vo * ys, od = k.d + u * ys + vo * yc;
+      worldFromSD(os, od, p); verts.push([p.x, heightSD(os, od) - 0.1, p.z]);
     }
   }
   const out = [];
@@ -6860,18 +6986,21 @@ function bowlRespawnSpot(out) {
 // Input
 // =====================================================================================================
 const keys = {};
-const ctl = { steer: 0, w: false, s: false, a: false, d: false, space: false, q: false, e: false, r: false, stickX: 0, stickY: 0 };
+const ctl = { steer: 0, w: false, s: false, a: false, d: false, space: false, q: false, e: false, r: false, stickX: 0, stickY: 0, drift: 0, mouseX: 0, padX: 0 };
 let scripted = null; // function(t) -> partial ctl, for shots/tests
+const HOLD_KEYS = { Space: 1, KeyW: 1, KeyA: 1, KeyS: 1, KeyD: 1, KeyR: 1, ArrowUp: 1, ArrowDown: 1, ArrowLeft: 1, ArrowRight: 1 };
 addEventListener('keydown', ev => {
   if (RP.on) { if (ev.code === 'Escape') rpClose(false); if (ev.code === 'Space' || ev.code.startsWith('Arrow')) ev.preventDefault(); return; }
   if (window.BoardMaker && BoardMaker.isOpen()) return;
-  if (ev.repeat) { if (ev.code === 'Space') ev.preventDefault(); return; }
+  // (pause and focus loss let go of every key; a hold key that is physically still down comes back through its
+  // auto-repeat, so he crouches again without the player having to let go and press once more)
+  if (ev.repeat) { if (ev.code === 'Space') ev.preventDefault(); if (state === 'play' && HOLD_KEYS[ev.code] && !keys[ev.code]) keys[ev.code] = true; return; }
   keys[ev.code] = true;
   audioUnlock();
   if (ev.code === 'Space' || ev.code.startsWith('Arrow')) ev.preventDefault();
   // any key skips the helicopter drop (except pause / mute)
   if (state === 'play' && heliSkippable() && ev.code !== 'KeyP' && ev.code !== 'Escape' && ev.code !== 'KeyM') { skipHeli(); return; }
-  if (ev.code === 'KeyP' || ev.code === 'Escape') togglePause();
+  if (ev.code === 'KeyP' || (ev.code === 'Escape' && performance.now() - MOUSE.escT > 300)) togglePause();
   if (ev.code === 'KeyM') { userMuted = !userMuted; applyMute(); }
   if (ev.code === 'KeyC') camMode = (camMode + 1) % 2;
   if (ev.code === 'KeyB' && state === 'play') respawn('button');
@@ -6883,6 +7012,33 @@ addEventListener('keydown', ev => {
   if (state !== 'title' && (ev.code === 'Space' || ev.code === 'Enter')) ev.preventDefault();
 });
 addEventListener('keyup', ev => { keys[ev.code] = false; if (state !== 'title' && !RP.on && ev.code === 'Space') ev.preventDefault(); });
+// mouse: moving it left / right in the air drifts (a softly sprung virtual stick), left button = E, right button = Q.
+// A click on the run captures the cursor so it cannot wander off the game while strafing; Esc (or pausing) lets it go.
+const MOUSE = { lock: false, byGame: false, escT: -1e9, touchT: -1e9, b0: false, b2: false };
+addEventListener('touchstart', () => { MOUSE.touchT = performance.now(); }, { passive: true, capture: true });
+addEventListener('touchend', () => { MOUSE.touchT = performance.now(); }, { passive: true, capture: true });
+// (a tap on a phone also sends made-up mouse events a moment later: those are not the mouse)
+const realMouse = () => performance.now() - MOUSE.touchT > 900;
+const mouseOnRun = ev => state === 'play' && !RP.on && !(window.BoardMaker && BoardMaker.isOpen()) && realMouse() &&
+  !(ev.target && ev.target.closest && ev.target.closest('button, a, .overlay.on, #rp, #touch'));
+addEventListener('mousedown', ev => {
+  if ((ev.button !== 0 && ev.button !== 2) || !mouseOnRun(ev)) return;
+  keys[ev.button === 2 ? 'KeyQ' : 'KeyE'] = true; MOUSE['b' + ev.button] = true;
+  if (!AUTO && canvas.requestPointerLock && document.pointerLockElement !== canvas) { try { const pr = canvas.requestPointerLock(); if (pr && pr.catch) pr.catch(() => { }); } catch (e) { } }
+});
+addEventListener('mouseup', ev => {
+  if (ev.button === 0 && MOUSE.b0) { MOUSE.b0 = false; keys.KeyE = false; }
+  if (ev.button === 2 && MOUSE.b2) { MOUSE.b2 = false; keys.KeyQ = false; }
+});
+addEventListener('mousemove', ev => { if (state === 'play' && P.mode === 'air' && realMouse()) ctl.mouseX = clamp(ctl.mouseX + (ev.movementX || 0) / 140, -1, 1); });
+addEventListener('contextmenu', ev => { if (state === 'play' && !(ev.target && ev.target.closest && ev.target.closest('.overlay.on, #rp'))) ev.preventDefault(); });
+document.addEventListener('pointerlockchange', () => {
+  const on = document.pointerLockElement === canvas;
+  // the cursor was let go with Esc (that key press never reaches the page): pause, as Esc does
+  if (!on && MOUSE.lock && !MOUSE.byGame && state === 'play') { MOUSE.escT = performance.now(); togglePause(); }
+  MOUSE.lock = on; MOUSE.byGame = false;
+});
+function freeMouse() { if (document.pointerLockElement === canvas) { MOUSE.byGame = true; try { document.exitPointerLock(); } catch (e) { } } }
 // a tap skips the heli drop, except on the phone's pause / camera / respawn / mute row (pause must not also skip)
 const onSysBtn = t => !!(t && t.closest && t.closest('#tsys'));
 addEventListener('pointerdown', ev => { audioUnlock(); if (state === 'play' && heliSkippable() && !onSysBtn(ev.target)) skipHeli(); });
@@ -6901,12 +7057,15 @@ function readControls(t) {
   ctl.s = !!(k.KeyS || k.ArrowDown) || ctl.stickY > 0.45;
   ctl.space = !!k.Space; ctl.q = !!k.KeyQ; ctl.e = !!k.KeyE; ctl.r = !!k.KeyR;
   // a Space press that skipped the heli drop must not also charge / pop
-  if (P.ignoreSpace) { if (!k.Space) P.ignoreSpace = false; else ctl.space = false; }
+  // (a tap that skips must not charge or pop; one that stays held is a deliberate hold: it counts after a moment)
+  if (P.ignoreSpace) { if (!k.Space || t - P.ignoreT > 0.4) P.ignoreSpace = false; else ctl.space = false; }
   ctl.steer = Math.abs(ctl.stickX) > 0.12 ? clamp(ctl.stickX * 1.3, -1, 1) : (ctl.d ? 1 : 0) - (ctl.a ? 1 : 0);
+  ctl.drift = clamp(ctl.mouseX + ctl.padX, -1, 1);   // air drift: the mouse, or the phone's right thumb
   if (scripted) {
     const o = scripted(t);
     ctl.a = !!o.a; ctl.d = !!o.d; ctl.w = !!o.w; ctl.s = !!o.s; ctl.space = !!o.space; ctl.q = !!o.q; ctl.e = !!o.e; ctl.r = !!o.r;
     ctl.steer = o.steer !== undefined ? o.steer : (ctl.d ? 1 : 0) - (ctl.a ? 1 : 0);
+    ctl.drift = o.drift || 0;
   }
 }
 // touch: floating stick on the left, buttons on the right
@@ -6915,29 +7074,41 @@ let touchRelease = () => {};
   if (!TOUCH_UI) return;
   document.body.classList.add('touch');
   const base = document.getElementById('stickBase'), knob = document.getElementById('stickKnob');
+  const base2 = document.getElementById('stickBase2'), knob2 = document.getElementById('stickKnob2');
   let sid = null, ox = 0, oy = 0;
+  // right thumb = air drift: a second floating pad anywhere on the right half that is not a button (pid), or the Grab
+  // button itself, held and slid sideways (gid), so one thumb can grab and drift together
+  let pid = null, px0 = 0, gid = null, gx0 = 0;
   addEventListener('touchstart', ev => {
     for (const t of ev.changedTouches) {
-      if (sid === null && t.clientX < innerWidth * 0.5 && state === 'play' && !onSysBtn(t.target)) {
+      if (state !== 'play' || onSysBtn(t.target)) continue;
+      if (sid === null && t.clientX < innerWidth * 0.5) {
         sid = t.identifier; ox = t.clientX; oy = t.clientY;
         base.style.display = 'block'; base.style.left = (ox - 60) + 'px'; base.style.top = (oy - 60) + 'px';
+      } else if (pid === null && t.clientX >= innerWidth * 0.5 && !(t.target && t.target.closest && t.target.closest('#tbtns'))) {
+        pid = t.identifier; px0 = t.clientX;
+        base2.style.display = 'block'; base2.style.left = (px0 - 60) + 'px'; base2.style.top = (t.clientY - 60) + 'px';
       }
     }
   }, { passive: true });
   addEventListener('touchmove', ev => {
-    for (const t of ev.changedTouches) if (t.identifier === sid) {
-      const dx = clamp((t.clientX - ox) / 50, -1, 1), dy = clamp((t.clientY - oy) / 50, -1, 1);
-      ctl.stickX = dx; ctl.stickY = dy; knob.style.left = (35 + dx * 35) + 'px'; knob.style.top = (35 + dy * 35) + 'px';
+    for (const t of ev.changedTouches) {
+      if (t.identifier === sid) {
+        const dx = clamp((t.clientX - ox) / 50, -1, 1), dy = clamp((t.clientY - oy) / 50, -1, 1);
+        ctl.stickX = dx; ctl.stickY = dy; knob.style.left = (35 + dx * 35) + 'px'; knob.style.top = (35 + dy * 35) + 'px';
+      } else if (t.identifier === pid) { ctl.padX = clamp((t.clientX - px0) / 50, -1, 1); knob2.style.left = (35 + ctl.padX * 35) + 'px'; }
+      else if (t.identifier === gid) ctl.padX = clamp((t.clientX - gx0) / 50, -1, 1);
     }
   }, { passive: true });
+  const releasePad = () => { pid = null; gid = null; ctl.padX = 0; base2.style.display = 'none'; knob2.style.left = '35px'; };
   const release = () => { sid = null; ctl.stickX = ctl.stickY = 0; base.style.display = 'none'; knob.style.left = knob.style.top = '35px'; };
-  const end = ev => { for (const t of ev.changedTouches) if (t.identifier === sid) release(); };
+  const end = ev => { for (const t of ev.changedTouches) { if (t.identifier === sid) release(); if (t.identifier === pid || t.identifier === gid) releasePad(); } };
   addEventListener('touchend', end); addEventListener('touchcancel', end);
   // pause / focus loss: let go of the stick and every button (their touchend may never arrive)
-  touchRelease = () => { release(); for (const b of document.querySelectorAll('#tbtns div, #tsys>div')) b.classList.remove('down'); };
+  touchRelease = () => { release(); releasePad(); for (const b of document.querySelectorAll('#tbtns div, #tsys>div')) b.classList.remove('down'); };
   for (const b of document.querySelectorAll('#tbtns div')) {
     const code = b.dataset.k;
-    b.addEventListener('touchstart', ev => { ev.preventDefault(); keys[code] = true; b.classList.add('down'); });
+    b.addEventListener('touchstart', ev => { ev.preventDefault(); keys[code] = true; b.classList.add('down'); if (code === 'KeyQ' && pid === null) { gid = ev.changedTouches[0].identifier; gx0 = ev.changedTouches[0].clientX; } });
     const up = ev => { ev.preventDefault(); keys[code] = false; b.classList.remove('down'); };
     b.addEventListener('touchend', up); b.addEventListener('touchcancel', up);
   }
@@ -6957,7 +7128,7 @@ let touchRelease = () => {};
 const P = {
   pos: new V3(), vel: new V3(), heading: new V3(0, 0, -1), n: new V3(0, 1, 0),
   mode: 'title', s: 0, d: 0, hint: 0, speed: 0,
-  holdT: 0, prevSpace: false, prevQ: false, crouch: 0, skid: 0, skidSide: 1, steerSm: 0, lastSide: 1, tuck: 0, press: 0,
+  holdT: 0, prevSpace: false, prevQ: false, prevE: false, qJump: false, airLatch: { a: false, d: false, w: false, s: false }, crouch: 0, skid: 0, skidSide: 1, steerSm: 0, lastSide: 1, tuck: 0, press: 0,
   airT: 0, airDrop: false, spin: 0, flip: 0, spinRate: 0, flipRate: 0, grab: null, grabT: 0, grabTotal: 0, sw: false, takeoffSw: false,
   baseQ: new THREE.Quaternion(), rootQ: new THREE.Quaternion(), ragSlide: new V3(), butterYaw: 0, butterRate: 0, shifty: 0, style: null, timeToLand: -1, windup: 0, leftKickerT: 9, popT: 9,
   rail: null, railD: 0, railSign: 1, railSpd: 0, slide: null, slideT: 0, goodS: 20,
@@ -6985,14 +7156,14 @@ function placeOnCourse(s, d, above, speed) {
 
 function physStep(dt) {
   if (HS.on) stepHeli(dt);
-  if (P.mode === 'heli') { P.prevSpace = ctl.space; P.prevQ = ctl.q; P.speed = 0; return; } // standing on the skid
-  P.invuln = Math.max(0, P.invuln - dt);
+  if (P.mode === 'heli') { P.prevSpace = ctl.space; P.prevQ = ctl.q; P.prevE = ctl.e; P.speed = 0; return; } // standing on the skid
+  P.invuln = Math.max(0, P.invuln - dt); P.railOffT = Math.max(0, (P.railOffT || 0) - dt);
   if (P.mode === 'ride') stepRide(dt);
   else if (P.mode === 'air') stepAir(dt);
   else if (P.mode === 'rail') stepRail(dt);
   else if (P.mode === 'bail') stepBail(dt);
   else if (P.mode === 'ragdoll') stepRagdoll(dt);
-  P.prevSpace = ctl.space; P.prevQ = ctl.q;
+  P.prevSpace = ctl.space; P.prevQ = ctl.q; P.prevE = ctl.e;
   // NaN guard: a bad step must never poison the run; put him back on the snow at the last good spot and respawn
   if (!(isFinite(P.pos.x) && isFinite(P.pos.y) && isFinite(P.pos.z) && isFinite(P.vel.x) && isFinite(P.vel.y) && isFinite(P.vel.z))) {
     P.stats.nan = (P.stats.nan || 0) + 1;
@@ -7037,8 +7208,11 @@ const FEEL = {
   kickCapAt: [13, 11, 9.5], kickCapY: [9, 9.8, 9.4], kickCapK: [0.6, 0.8, 1.0], kickCapMin: [4, 2.5, 1.5], kickScrubAt: 15, kickScrub: 0.65,
   kickPop: 0.8,                       // ollie multiplier when popped on a kicker (the ramp does most of the work)
   hang: 0.4, hangV: 3.4,              // air gravity drops by up to 40% when |vy| < ~3.4 m/s (apex float)
-  airSteer: 0.45,                     // rad/s of drift steering in the air (no E / Q held)
-  spin: 7.8, flip: 6.0, corkSpin: 6.4, corkFlip: 4.9, rotAcc: 60,
+  airSteer: 0.45,                     // rad/s of drift steering in the air (mouse / right thumb)
+  tapCharge: 0.6,                     // E / Q jump: an instant hop at this much of a full Space charge
+  // air rotation, rad/s. Plain directions = relaxed and flat (also while grabbing with Q); two axes at once = a slow cork;
+  // E held = wild: off-axis and faster
+  tameSpin: 5.8, tameFlip: 5.2, corkSpin: 5.4, corkFlip: 4.7, wildSpin: 7.0, wildFlip: 5.5, rotAcc: 60,
   buildT: 5, buildAcc: 2.7, buildDrag: 0.65, buildCap: 19, vMax: 32
 };
 function airG(vy) { return G * (1 - FEEL.hang * Math.exp(-(vy * vy) / (FEEL.hangV * FEEL.hangV))); }
@@ -7058,8 +7232,9 @@ function kickerLaunch(k) {
 
 function stepRide(dt) {
   const g = ground(P.pos.x, P.pos.z, P.hint, true), n = P.n.copy(g.n);
-  // Q + A/D on the snow: a nose / tail roll (butter spin) instead of a carve
-  const butterIn = ctl.q && Math.abs(ctl.steer) > 0.3 && P.vel.length() < 22;
+  // R + A/D on the snow: a nose / tail roll (butter spin) instead of a carve. R is the press key, like the manual key
+  // in Concrete Lines: R alone = tail press, R + W = nose press
+  const butterIn = ctl.r && Math.abs(ctl.steer) > 0.3 && P.vel.length() < 22;
   const steer = butterIn ? 0 : ctl.steer;
   // snappy edge engagement; reversing edges is quickest
   const flipping = steer * P.steerSm < 0;
@@ -7067,11 +7242,11 @@ function stepRide(dt) {
   if (Math.abs(steer) > 0.2) P.lastSide = Math.sign(steer);
   // space: crouch + speed build
   if (ctl.space) { P.holdT += dt; P.crouch = Math.min(1, P.crouch + dt * 4); } else P.crouch = Math.max(0, P.crouch - dt * 6);
-  P.tuck += ((ctl.w && !ctl.q ? 1 : 0) - P.tuck) * Math.min(1, dt * 5);
-  const wantSkid = ctl.s && !ctl.q ? 1 : 0;
+  P.tuck += ((ctl.w && !ctl.r ? 1 : 0) - P.tuck) * Math.min(1, dt * 5);
+  const wantSkid = ctl.s && !ctl.r ? 1 : 0;
   if (wantSkid && P.skid < 0.05) { P.skidSide = P.lastSide; if (P.vel.length() > 8) { P.skidBurst = 1; P.skidCue = 1; } }
   P.skid += (wantSkid - P.skid) * Math.min(1, dt * (wantSkid ? 9 : 5));
-  P.press += ((ctl.q ? (ctl.w ? -1 : 1) : 0) - P.press) * Math.min(1, dt * 6);
+  P.press += ((ctl.r ? (ctl.w ? -1 : 1) : 0) - P.press) * Math.min(1, dt * 6);
   stepButter(dt, butterIn);
   // heading lives in the snow plane; steer rotates it about the normal
   projPlane(P.heading, n).normalize();
@@ -7111,11 +7286,13 @@ function stepRide(dt) {
   } else if (e < 0.25) P.carveLoad = Math.max(0, (P.carveLoad || 0) - dt * 2);
   let ns = Math.max(0, spd - dec * dt) + acc * dt;
   if (spd > 0.01) P.vel.multiplyScalar(ns / spd); else P.vel.copy(P.heading).multiplyScalar(ns);
-  // pop on Space release
+  // pop: Space released (charged), or E / Q pressed (an instant hop; Q leaves the snow already grabbing)
   const kick = g.kicker, onKicker = !!kick;
   if (!onKicker) P.kickPopPend = 0;
-  if (!ctl.space && P.prevSpace) {
-    const charge = clamp01(P.holdT / FEEL.popFull);
+  const tapE = ctl.e && !P.prevE, tapQ = ctl.q && !P.prevQ;
+  if ((!ctl.space && P.prevSpace) || tapE || tapQ) {
+    const charge = tapE || tapQ ? Math.max(FEEL.tapCharge, clamp01(P.holdT / FEEL.popFull)) : clamp01(P.holdT / FEEL.popFull);
+    if (tapQ) P.qJump = true;
     let pv = FEEL.popBase + FEEL.popCharge * charge;
     if (onKicker) pv *= FEEL.kickPop;
     P.holdT = 0;
@@ -7185,6 +7362,10 @@ function takeoff() {
   P.shifty = 0; P.shiftyT = 0; P.style = null;
   P.mode = 'air'; P.airT = 0; P.spin = 0; P.flip = 0; P.spinRate = 0; P.flipRate = 0; P.grab = null; P.grabT = 0; P.grabTotal = 0;
   P.takeoffSw = P.sw; P.airRotSet = false; lastGrabUsed = null; P.spin = bY; // a roll that pops off keeps its yaw
+  // a direction held as he leaves the snow (carving off a lip, tucking) must not spin or flip him: it counts again once
+  // it has been let go and pressed in the air
+  { const L = P.airLatch; L.a = ctl.a; L.d = ctl.d; L.w = ctl.w; L.s = ctl.s; }
+  ctl.mouseX = 0;
   // base orientation = current board frame without the skid twist
   _z.copy(P.heading); _y.copy(P.n); _x.crossVectors(_y, _z).normalize(); _z.crossVectors(_x, _y);
   P.baseQ.setFromRotationMatrix(_m4.makeBasis(_x, _y, _z));
@@ -7198,10 +7379,12 @@ function takeoff() {
 
 function stepAir(dt) {
   P.airT += dt; P.leftKickerT += dt; P.popT += dt;
-  // late pop (coyote window): releasing Space just after leaving the snow (a lip, a roller) still pops
-  if (!ctl.space && P.prevSpace) {
+  // late pop (coyote window): releasing Space, or tapping E / Q, just after leaving the snow (a lip, a roller) still pops
+  const tapAir = (ctl.e && !P.prevE) || (ctl.q && !P.prevQ);
+  if ((!ctl.space && P.prevSpace) || tapAir) {
     if (!P.airDrop && P.popT > 0.3 && (P.leftKickerT < 0.18 || P.airT < 0.15)) {
-      const pv = (FEEL.popBase + FEEL.popCharge * clamp01(P.holdT / FEEL.popFull)) * (P.leftKickerT < 0.18 ? FEEL.kickPop : 1);
+      const ch = clamp01(P.holdT / FEEL.popFull);
+      const pv = (FEEL.popBase + FEEL.popCharge * (tapAir ? Math.max(FEEL.tapCharge, ch) : ch)) * (P.leftKickerT < 0.18 ? FEEL.kickPop : 1);
       const vy0 = P.vel.y;
       P.vel.y += Math.max(0, pv - Math.max(0, P.vel.y) * 0.35); P.popT = 0; P.popCharge = 1; sfx.pop(0.8);
       if (P.leftKickerT < 0.18 && P.kickCapY !== undefined) P.vel.y = Math.min(P.vel.y, Math.max(vy0, P.kickCapY)); // a late pop off a fast kicker obeys the same cap
@@ -7212,23 +7395,26 @@ function stepAir(dt) {
   }
   if (ctl.space) P.holdT += dt;
   P.crouch = Math.max(0, P.crouch - dt * 5);
-  // a little drift steering in the air (lines up landings and rails), not while spinning or grabbing
-  // shifty: A/D without E / Q turns the board under the hips (and scores a little)
-  P.shifty = !ctl.e && !ctl.q && !P.airDrop ? -ctl.steer : 0;
+  // drift steering in the air (lines up landings and rails) has its own input: the mouse, or the right thumb on a phone.
+  // On its own (no spin, no grab) it also turns the board under the hips: a shifty, which scores a little.
+  const drifting = Math.abs(ctl.drift) > 0.05 && !P.airDrop;
+  P.shifty = drifting && !P.grab && Math.abs(P.spinRate) < 1 && Math.abs(P.flipRate) < 1 ? -ctl.drift : 0;
   if (Math.abs(P.shifty) > 0.3) P.shiftyT = (P.shiftyT || 0) + dt;
-  if (!ctl.e && !ctl.q && Math.abs(ctl.steer) > 0.05 && !P.airDrop) {
-    _qa.setFromAxisAngle(AY, -ctl.steer * FEEL.airSteer * dt);
+  if (drifting) {
+    _qa.setFromAxisAngle(AY, -ctl.drift * FEEL.airSteer * dt);
     const vy = P.vel.y; P.vel.y = 0; P.vel.applyQuaternion(_qa); P.vel.y = vy; P.baseQ.premultiply(_qa);
   }
-  // rotation (E held), spot the landing when released
-  if (ctl.e && !P.airDrop) {
-    let sp = 0, fl = 0;
-    const side = ctl.a ? 1 : ctl.d ? -1 : 0;
-    if (ctl.w) fl = 1; else if (ctl.s) fl = -1;
-    if (side === 0 && fl === 0) sp = -P.lastSide; else sp = side;
-    const cork = sp !== 0 && fl !== 0;
+  // rotation: A / D spin and W / S flip directly, relaxed and flat; holding Q (a grab) changes nothing about that.
+  // Holding E makes the same directions wild: off-axis and faster (A / D = cork, W = misty, S = rodeo). E alone is just
+  // a jump. Released: the landing is spotted (pulled to the nearest landable angle).
+  const L = P.airLatch; if (!ctl.a) L.a = false; if (!ctl.d) L.d = false; if (!ctl.w) L.w = false; if (!ctl.s) L.s = false;
+  let sp = ctl.a && !L.a ? 1 : ctl.d && !L.d ? -1 : 0, fl = ctl.w && !L.w ? 1 : ctl.s && !L.s ? -1 : 0;
+  if ((sp !== 0 || fl !== 0) && !P.airDrop) {
+    const wild = ctl.e;
+    if (wild) { if (fl === 0) fl = -1; else if (sp === 0) sp = fl > 0 ? -P.lastSide : -R.toeSide; }
+    const both = sp !== 0 && fl !== 0;
     if (fl !== 0 && !P.style) P.style = sp === 0 ? 'flip' : fl > 0 ? 'misty' : (sp * R.toeSide < 0 ? 'rodeo' : 'cork');
-    const tS = sp * (cork ? FEEL.corkSpin : FEEL.spin), tF = fl * (cork ? FEEL.corkFlip : FEEL.flip);
+    const tS = sp * (wild ? FEEL.wildSpin : both ? FEEL.corkSpin : FEEL.tameSpin), tF = fl * (wild ? FEEL.wildFlip : both ? FEEL.corkFlip : FEEL.tameFlip);
     P.spinRate += clamp(tS - P.spinRate, -FEEL.rotAcc * dt, FEEL.rotAcc * dt);
     P.flipRate += clamp(tF - P.flipRate, -FEEL.rotAcc * dt, FEEL.rotAcc * dt);
   } else {
@@ -7241,8 +7427,8 @@ function stepAir(dt) {
   }
   P.spin += P.spinRate * dt; P.flip += P.flipRate * dt;
   // grabs (Q held), picked by direction at the moment Q goes down
-  if (ctl.q && !P.prevQ && !P.airDrop) { P.grab = pickGrab(); lastGrabUsed = P.grab; }
-  if (!ctl.q) P.grab = null;
+  if (!ctl.q) { P.grab = null; P.qJump = false; }
+  if (ctl.q && (!P.prevQ || P.qJump) && !P.airDrop) { P.grab = pickGrab(); lastGrabUsed = P.grab; P.qJump = false; }
   if (P.grab) { P.grabT += dt; P.grabTotal += dt; }
   // ballistic (light air drag so long drops don't run away)
   { const sp = P.vel.length(); if (sp > 1) P.vel.multiplyScalar(Math.max(0, sp - 0.006 * sp * sp * dt) / sp); }
@@ -7298,7 +7484,7 @@ function landNow(g) {
   if (tang > 0.5) P.heading.copy(_v).normalize(); else { downDir(P.s, P.heading, P.pos.x, P.pos.z); projPlane(P.heading, n).normalize(); }
   if (P.heliDrop) { downDir(P.s, _w, P.pos.x, P.pos.z); projPlane(_w, n).normalize(); P.heading.lerp(_w, 0.6).normalize(); keepSp = Math.max(keepSp, 7.5); }
   P.vel.copy(P.heading).multiplyScalar(keepSp);
-  P.mode = 'ride'; P.comboGroundT = 0; P.snapRoot = true;
+  P.mode = 'ride'; P.comboGroundT = 0; P.snapRoot = true; P.qJump = false;
   const air = P.airT;
   // after long airs the chase camera catches up faster for a moment (it trails a falling rider)
   cam.catchUp = Math.max(cam.catchUp || 0, clamp01((air - 1.0) / 1.8));
@@ -7369,6 +7555,7 @@ function tryRail() {
   if (P.mode === 'rail') return false;
   const spd = P.vel.length(); if (spd < 3) return false;
   for (const rail of activeRails) {
+    if (rail === P.railOff && P.railOffT > 0) continue; // just hopped off this one
     if (P.pos.x < rail.minx - 1.2 || P.pos.x > rail.maxx + 1.2 || P.pos.z < rail.minz - 1.2 || P.pos.z > rail.maxz + 1.2) continue;
     railClosest(rail, P.pos.x, P.pos.z, RC);
     const cap = rail.capture + (ctl.r ? 0.45 : 0);
@@ -7416,7 +7603,8 @@ function stepRail(dt) {
   if (!P.slideBase || P.slideBase === '5050') P.slide = ctl.w ? 'nosepress' : ctl.s ? 'tailpress' : '5050';
   else P.slide = ctl.w ? 'nose-slide' : ctl.s ? 'tail-slide' : P.slideBase;
   if (ctl.space) { P.holdT += dt; P.crouch = Math.min(1, P.crouch + dt * 4); } else P.crouch = Math.max(0, P.crouch - dt * 6);
-  const popped = !ctl.space && P.prevSpace;
+  const popped = (!ctl.space && P.prevSpace) || (ctl.e && !P.prevE) || (ctl.q && !P.prevQ);
+  if (ctl.q && !P.prevQ) P.qJump = true;
   const ended = P.railD <= 0 || P.railD >= rail.len || P.railSpd < 0.8;
   railPoint(rail, P.railD, _rp, _rd); _rd.multiplyScalar(P.railSign);
   P.pos.copy(_rp); P.pos.y += rail.top;
@@ -7425,6 +7613,9 @@ function stepRail(dt) {
   if (ended || popped) {
     slideDone();
     P.vel.y += popped ? 4.2 : 1.0;
+    // a hop off a rail that runs steeply downhill still has him sinking, only slower than the rail: without a moment's
+    // grace the rail caught him again in the same frame and the hop never happened
+    if (popped) { P.railOff = rail; P.railOffT = 0.3; }
     if (popped) sfx.pop(0.7);
     P.mode = 'ride'; P.holdT = 0; takeoff(); P.popT = 0;
     P.pos.addScaledVector(P.vel, dt); P.pos.y += 0.05;
@@ -7892,7 +8083,7 @@ function skipHeli() {
   if (!HS.dropped) { HS.dropped = true; HS.leaveT = HS.t; HS.endT = HS.t + 4; sfx.heliDrop(); }
   // straight onto the snow, riding away
   placeOnCourse(HS.s, HS.d, 0, 8); P.mode = 'ride'; P.airDrop = false; P.heliDrop = false; P.airT = 0; P.snapRoot = true;
-  P.ignoreSpace = true; HS.skipped = true;
+  P.ignoreSpace = true; P.ignoreT = simT; P.prevE = true; P.prevQ = true; HS.skipped = true;
   R.land(0.7, 1);
   HS.landT = HS.t - 5; HS.camOn = false; camSnap = true; cam.air = 0;
 }
@@ -8250,7 +8441,7 @@ function startGame(mode) {
 function togglePause() {
   if (RP.on || (window.BoardMaker && BoardMaker.isOpen())) return; // the panels own the keys (and Escape) while open
   if (state === 'play') {
-    state = 'pause'; elPause.classList.add('on'); sfx.heliStop(); clearKeys(); showTouch(false);
+    state = 'pause'; elPause.classList.add('on'); sfx.heliStop(); clearKeys(); showTouch(false); freeMouse();
     // the run so far (bowl: this run from the drop; Endless: since the start)
     const sum = runSummary(), mode = BOWL ? 'bowl' : RUNM ? 'run' : 'endless';
     if (RUNM) sum.time = RS.t;
@@ -8275,7 +8466,7 @@ function quitToTitle() {
   resetWorld(true);
   // rider / run state
   placeOnCourse(20, 0, 0, 0);
-  Object.assign(P, { mode: 'title', speed: 0, holdT: 0, prevSpace: false, prevQ: false, crouch: 0, skid: 0, steerSm: 0, tuck: 0, press: 0, airT: 0, airDrop: false, heliDrop: false,
+  Object.assign(P, { mode: 'title', speed: 0, holdT: 0, prevSpace: false, prevQ: false, prevE: false, qJump: false, crouch: 0, skid: 0, steerSm: 0, tuck: 0, press: 0, airT: 0, airDrop: false, heliDrop: false,
     spin: 0, flip: 0, spinRate: 0, flipRate: 0, grab: null, rail: null, slide: null, bail: null, bailT: 0, tumbleAng: 0, invuln: 0, stillT: 0, ragKeep: 0, goodS: 20,
     butterYaw: 0, butterRate: 0, ignoreSpace: false, score: 0, comboGroundT: 0 });
   P.vel.set(0, 0, 0); loseCombo(); P.combo.last = '';
@@ -8343,7 +8534,7 @@ addEventListener('pagehide', () => { if (!BOWL && state !== 'title') savePB('end
 document.getElementById('resumeBtn').addEventListener('click', togglePause);
 
 // ---- Board button (title + pause): the board maker swallows every key while open, Escape closes it
-function clearKeys() { for (const k in keys) keys[k] = false; touchRelease(); }
+function clearKeys() { for (const k in keys) keys[k] = false; MOUSE.b0 = MOUSE.b2 = false; ctl.mouseX = 0; touchRelease(); }
 function openBoardMaker(extra) {
   if (!window.BoardMaker || BoardMaker.isOpen() || RP.on) return;
   BoardMaker.open(Object.assign({ kind: 'snow', THREE, onSave: applyBoardDesign, onClose: () => { clearKeys(); dropFocus(); } }, extra || {}));
@@ -8506,6 +8697,8 @@ let lastT = 0;
 function loop(t) {
   requestAnimationFrame(loop);
   const dt = lastT ? (t - lastT) / 1000 : 1 / 60; lastT = t;
+  if (MOUSE.lock && (state !== 'play' || RP.on || (window.BoardMaker && BoardMaker.isOpen()) || document.querySelector('.overlay.on'))) freeMouse();
+  if (P.mode !== 'air') ctl.mouseX = 0; else ctl.mouseX *= Math.exp(-0.8 * Math.min(dt, 0.05));
   if (RP.on) { rpDraw(dt); return; }
   if (window.BoardMaker && BoardMaker.isOpen()) return; // its own full-screen renderer; the game frame stays frozen behind
   if (state === 'pause') { renderer.render(scene, camera); return; }
@@ -8580,7 +8773,7 @@ function runShot(name) {
     let airSeen = -1;
     scripted = tt => {
       const o = { steer: clamp((k.d - P.d) * 0.25, -1, 1) * (P.mode === 'ride' ? 1 : 0), space: tt < 1.75 };
-      if (name === 'air' && P.mode === 'air') { if (airSeen < 0) airSeen = tt; o.e = tt - airSeen < 0.55; o.a = true; o.q = tt - airSeen > 0.1; o.steer = 0; }
+      if (name === 'air' && P.mode === 'air') { if (airSeen < 0) airSeen = tt; o.a = tt - airSeen > 0.05 && tt - airSeen < 0.75; o.q = tt - airSeen > 0.1; o.steer = 0; }
       return o;
     };
     if (name === 'kicker') riderRun(1.0, dt);
@@ -8652,7 +8845,7 @@ function runShot(name) {
     } else { // botched landing: a big kicker, spin held far too long
       const z = firstZone('jumps'); const k = kickers.find(kk => kk.s > z.s0 && kk.size === 2) || kickers.find(kk => kk.s > z.s0);
       startAt(k.s - 30, k.d, v); let tA = -1;
-      scripted = tt => { if (P.mode === 'air' && tA < 0) tA = tt; return { steer: P.mode === 'ride' ? clamp((k.d - P.d) * 0.3, -1, 1) : 0, space: P.mode === 'ride' && P.s < k.s - 0.5, e: tA >= 0 && P.mode === 'air', a: tA >= 0 }; };
+      scripted = tt => { if (P.mode === 'air' && tA < 0) tA = tt; return { steer: P.mode === 'ride' ? clamp((k.d - P.d) * 0.3, -1, 1) : 0, space: P.mode === 'ride' && P.s < k.s - 0.5, a: tA >= 0 && tt - tA > 0.03 && P.mode === 'air' }; };
     }
     let hitT = -1, endT = -1, upT = -1, tt = 0;
     for (let i = 0; i < 60 * 12; i++) {
@@ -8982,7 +9175,7 @@ function runTest() {
     const c = tt % 14;
     if (c > 4 && c < 8) o.space = true;
     if (tt % 23 > 19) o.s = true;
-    if (P.mode === 'air') { if (airSeen < 0) { airSeen = tt; airBig = P.timeToLand > 0.9 || P.timeToLand < 0; } o.e = airBig && tt - airSeen < 0.45; o.a = true; o.q = airBig; } else airSeen = -1;
+    if (P.mode === 'air') { if (airSeen < 0) { airSeen = tt; airBig = P.timeToLand > 0.9 || P.timeToLand < 0; } o.a = airBig && tt - airSeen > 0.03 && tt - airSeen < 0.62; o.q = airBig; o.s = o.w = false; } else airSeen = -1;
     // keep near the clear line: steer the travel direction toward a carve offset from the fall line (like a player would)
     const want = clamp(o.steer * 0.9 - P.d * 0.03, -0.8, 0.8);
     courseDir(P.s, _ca); const vx = P.vel.x, vz = P.vel.z;
@@ -9023,7 +9216,7 @@ function runBot(tt) {
   const o = carvePattern(tt), c = tt % 14;
   if (c > 4 && c < 8) o.space = true;
   if (tt % 23 > 19) o.s = true;
-  if (P.mode === 'air') { if (rbAir < 0) { rbAir = tt; rbBig = P.timeToLand > 0.9 || P.timeToLand < 0; } o.e = rbBig && tt - rbAir < 0.45; o.a = true; o.q = rbBig; } else rbAir = -1;
+  if (P.mode === 'air') { if (rbAir < 0) { rbAir = tt; rbBig = P.timeToLand > 0.9 || P.timeToLand < 0; } o.a = rbBig && tt - rbAir > 0.03 && tt - rbAir < 0.62; o.q = rbBig; o.s = o.w = false; } else rbAir = -1;
   let cd = 0; for (const g of gullies) if (P.s > g.s0 && P.s < g.s1) cd = gullyC(g, P.s);
   const want = clamp(o.steer * 0.9 - (P.d - cd) * 0.03, -0.8, 0.8);
   courseDir(P.s, _ca); const vx = P.vel.x, vz = P.vel.z;
@@ -9099,7 +9292,7 @@ function soakTest() {
     if (c > 4 && c < 8) o.space = true;
     if (tt % 23 > 19) o.s = true;
     if (tt % 17 > 15) o.r = true;
-    if (P.mode === 'air') { if (airSeen < 0) { airSeen = tt; airBig = P.timeToLand > 0.9 || P.timeToLand < 0; } o.e = airBig && tt - airSeen < 0.45; o.a = true; o.q = airBig; } else airSeen = -1;
+    if (P.mode === 'air') { if (airSeen < 0) { airSeen = tt; airBig = P.timeToLand > 0.9 || P.timeToLand < 0; } o.a = airBig && tt - airSeen > 0.03 && tt - airSeen < 0.62; o.q = airBig; o.s = o.w = false; } else airSeen = -1;
     const want = clamp(o.steer * 0.9 - P.d * 0.03, -0.8, 0.8);
     courseDir(P.s, _ca); const vx = P.vel.x, vz = P.vel.z;
     const cur = Math.atan2(-(_ca.z * vx - _ca.x * vz), _ca.x * vx + _ca.z * vz);
@@ -9166,8 +9359,16 @@ function statesTest() {
   for (let i = 0; i < 400 && !heliSkippable(); i++) run(dt);
   const p0 = pops; key('keydown', 'Space');
   ok('Space skips the heli drop', P.mode === 'ride' && HS.skipped);
-  run(0.6); ok('held skip-Space does not charge', P.holdT === 0, 'holdT ' + P.holdT.toFixed(2));
-  key('keyup', 'Space'); run(0.2); ok('releasing it does not pop', pops === p0, 'pops ' + (pops - p0));
+  run(0.3); ok('skip-Space does not charge at once', P.holdT === 0, 'holdT ' + P.holdT.toFixed(2));
+  run(0.5); ok('still held, it crouches and charges after a moment', P.holdT > 0.2 && P.crouch > 0.5, 'holdT ' + P.holdT.toFixed(2) + ' crouch ' + P.crouch.toFixed(2));
+  key('keyup', 'Space'); run(0.2); ok('releasing that hold pops', pops === p0 + 1, 'pops ' + (pops - p0));
+  // a quick tap to skip neither charges nor pops
+  { run(1.5); respawn('button'); for (let i = 0; i < 400 && !heliSkippable(); i++) run(dt); const p2 = pops; key('keydown', 'Space'); run(0.1); key('keyup', 'Space'); run(0.3);
+    ok('a tap that skips does not pop', pops === p2 && P.holdT === 0, 'pops ' + (pops - p2)); }
+  // paused with Space still down: its auto-repeat brings the hold back
+  { run(1.0); key('keydown', 'Space'); run(0.2); press('KeyP'); const lost = !keys.Space; press('KeyP');
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', key: ' ', repeat: true, bubbles: true, cancelable: true })); run(0.3);
+    ok('a held Space survives a pause (auto-repeat)', lost && keys.Space && P.crouch > 0.5, 'crouch ' + P.crouch.toFixed(2)); key('keyup', 'Space'); run(0.5); }
   run(1.5);
   { const s1 = P.s, m1 = P.mode; key('keydown', 'Enter'); key('keyup', 'Enter'); ok('Enter in a run does nothing', state === 'play' && P.mode !== 'heli' && Math.abs(P.s - s1) < 1, m1 + ' -> ' + P.mode); }
   // 3) focus loss with keys held
@@ -9385,20 +9586,49 @@ function feelTest() {
   }
   // 2b) spins off the big kicker at 18 m/s, popped: hold E+A for a while, release, spot; report the landed rotation
   { const k = kickers.find(kk => kk.size === 2 && plan.zones.some(z => z.type === 'jumps' && kk.s > z.s0 && kk.s < z.s1));
-    for (const [hold, fl] of [[0.9, 0], [1.3, 0], [1.8, 0], [2.3, 0], [1.1, 1], [1.4, -1]]) {
+    for (const [hold, fl, wild] of [[0.9, 0], [1.3, 0], [1.8, 0], [2.3, 0], [1.3, 1], [1.3, -1], [1.3, 0, 1], [2.4, 0, 1], [1.3, 1, 1], [1.3, -1, 1]]) {
       setup(k.s - 30, k.d, 18); let tAir = -1, deg = 0, flips = 0, air = 0, bailed = false;
       sim(9, t => {
         if (P.mode === 'air' && tAir < 0) tAir = t;
         const inAir = P.mode === 'air' && tAir >= 0;
-        return { steer: P.mode === 'ride' ? clamp((k.d - P.d) * 0.3, -1, 1) : 0, space: P.s < k.s - 0.5 && P.mode === 'ride', e: inAir && t - tAir < hold, a: inAir && !fl, w: inAir && fl > 0, s: inAir && fl < 0 };
+        return { steer: P.mode === 'ride' ? clamp((k.d - P.d) * 0.3, -1, 1) : 0, space: P.s < k.s - 0.5 && P.mode === 'ride', e: inAir && !!wild && t - tAir < hold, a: inAir && !fl && t - tAir > 0.02 && t - tAir < hold, w: inAir && fl > 0 && t - tAir > 0.02 && t - tAir < hold, s: inAir && fl < 0 && t - tAir > 0.02 && t - tAir < hold };
       }, () => (tAir >= 0 && P.mode !== 'air') , t => {
         if (P.mode === 'ride' && P.s < k.s - 5) { const l = P.vel.length(); if (l > 0.1) P.vel.multiplyScalar(18 / l); }
         if (P.mode === 'air') { deg = Math.round(P.spin / Math.PI) * 180; flips = Math.round(P.flip / (2 * Math.PI)); air = P.airT; }
         if (P.mode === 'bail') bailed = true;
       });
       const L = P.lastLand || {};
-      lines.push(pad('spin E ' + hold + (fl ? ' flip' + fl : ''), 18) + 'landed ' + Math.abs(deg) + ' deg ' + (flips ? Math.abs(flips) + ' flip ' : '') + ' air ' + air.toFixed(2) + ' s  ' + (bailed || P.mode === 'bail' ? 'BAIL' : 'q ' + (L.quality !== undefined ? L.quality.toFixed(2) : '-')));
+      lines.push(pad((wild ? 'wild ' : 'spin ') + (fl > 0 ? 'W ' : fl < 0 ? 'S ' : 'A ') + hold, 18) + (P.style ? P.style + ' ' : '') + 'landed ' + Math.abs(deg) + ' deg ' + (flips ? Math.abs(flips) + ' flip ' : '') + ' air ' + air.toFixed(2) + ' s  ' + (bailed || P.mode === 'bail' ? 'BAIL' : 'q ' + (L.quality !== undefined ? L.quality.toFixed(2) : '-')));
     } }
+  // 2c) the control scheme: E / Q jump at once, Q leaves already grabbing, a direction held through takeoff does nothing
+  // until pressed again, plain directions spin, E alone does not, the drift axis steers without spinning, butters are on R
+  { const chk = (name, ok, extra) => lines.push((ok ? 'ok    ' : 'FAIL  ') + name + (extra ? '  (' + extra + ')' : ''));
+    let s0 = br.s0 + 10; for (let q = br.s0 + 4; q < br.s1 - 20; q += 1) { let ok = true; for (let u = 0; u < 16; u++) if (bumpH(q + u, 0) > 0.01) ok = false; if (ok) { s0 = q; break; } }
+    const hop = (ctlFn, each) => { setup(s0, 0, 9); P.prevE = P.prevQ = false; P.qJump = false; let airOn = false, apex = 0, y0 = P.pos.y, tAir = -1;
+      sim(5, t => ctlFn(t, tAir), t => airOn && P.mode !== 'air', t => { if (P.mode === 'air') { if (!airOn) { airOn = true; tAir = t; } apex = Math.max(apex, P.pos.y - y0); if (each) each(t - tAir); } });
+      return { airOn, apex, tAir, air: P.airT }; };
+    let r = hop(t => ({ e: t > 0.1 && t < 0.2 }));
+    chk('E press jumps at once', r.airOn && r.tAir < 0.1 + 3 * STEP, 'left the snow ' + ((r.tAir - 0.1) * 1000).toFixed(0) + ' ms after the press, apex ' + r.apex.toFixed(2) + ' m, air ' + r.air.toFixed(2) + ' s');
+    let grabAt = -1, grabName = '';
+    r = hop(t => ({ q: t > 0.1 }), ta => { if (P.grab && grabAt < 0) { grabAt = ta; grabName = P.grab; } });
+    chk('Q press jumps into a grab', r.airOn && grabAt >= 0 && grabAt < 0.05, grabName + ' ' + (grabAt * 1000).toFixed(0) + ' ms into the air');
+    let maxSpin = 0;
+    r = hop(t => ({ e: t > 0.1 && t < 0.2, a: true, steer: 0 }), () => { maxSpin = Math.max(maxSpin, Math.abs(P.spin)); });
+    chk('A held through takeoff does not spin', r.airOn && maxSpin < 0.05, 'max ' + (maxSpin * 57.3).toFixed(0) + ' deg');
+    maxSpin = 0; r = hop((t, ta) => ({ e: t > 0.1 && t < 0.2, a: ta >= 0 && t - ta > 0.05 && t - ta < 0.5 }), () => { maxSpin = Math.max(maxSpin, Math.abs(P.spin)); });
+    chk('A pressed in the air spins', maxSpin > 1.5, 'max ' + (maxSpin * 57.3).toFixed(0) + ' deg');
+    maxSpin = 0; let maxFlip = 0; r = hop(t => ({ e: t > 0.1 }), () => { maxSpin = Math.max(maxSpin, Math.abs(P.spin)); maxFlip = Math.max(maxFlip, Math.abs(P.flip)); });
+    chk('E held alone is just a jump', r.airOn && maxSpin < 0.05 && maxFlip < 0.05);
+    maxSpin = 0; let h0 = 0, h1 = 0, shT = 0; r = hop((t, ta) => ({ e: t > 0.1 && t < 0.2, drift: ta >= 0 ? 1 : 0 }), ta => { const h = Math.atan2(P.vel.x, -P.vel.z); if (ta < 2 * STEP) h0 = h; h1 = h; maxSpin = Math.max(maxSpin, Math.abs(P.spin)); shT = P.shiftyT || 0; });
+    chk('drift steers without spinning', Math.abs(h1 - h0) > 0.15 && maxSpin < 0.05 && shT > 0.2, 'heading ' + ((h1 - h0) * 57.3).toFixed(0) + ' deg, shifty ' + shT.toFixed(2) + ' s');
+    setup(s0, 0, 9); let br1 = 0, pr1 = 0; sim(0.6, () => ({ r: true, steer: 1, d: true }), null, () => { br1 = Math.max(br1, Math.abs(P.butterRate)); pr1 = Math.max(pr1, Math.abs(P.press)); });
+    chk('R + direction butters on the snow', P.mode === 'ride' && br1 > 1 && pr1 > 0.5, 'roll ' + br1.toFixed(1) + ' rad/s, press ' + pr1.toFixed(2));
+    for (const [lbl, o] of [['wild E + A', { a: 1 }], ['wild E + W', { w: 1 }], ['wild E + S', { s: 1 }], ['plain A + W', { a: 1, w: 1, tame: 1 }]]) {
+      setup(s0, 0, 9); P.prevE = P.prevQ = false; let ta = -1; P.style = null; let st = null;
+      sim(1.2, t => { if (P.mode === 'air' && ta < 0) ta = t; const on = ta >= 0 && t - ta > 0.03; return { e: (t > 0.1 && t < 0.2) || (on && !o.tame), a: on && !!o.a, w: on && !!o.w, s: on && !!o.s }; }, null, () => { if (P.style) st = P.style; });
+      chk(lbl + ' goes off-axis', Math.abs(P.spinRate) > 3 && Math.abs(P.flipRate) > 3, (st || '-') + '  spin ' + P.spinRate.toFixed(1) + ' flip ' + P.flipRate.toFixed(1) + ' rad/s');
+    }
+  }
   // 3) turn rate: full steer from straight, yaw rate of the velocity after 0.15/0.3/1.0 s, speed after 1 s
   const run = plan.zones.find(z => z.type === 'mini' && z.s0 > 300) || mini;
   for (const v of [4, 8, 14, 20, 28]) {
@@ -9486,7 +9716,7 @@ function smoothTest() {
   const LONG = parseFloat(QS.get('long') || '60');
   for (const [name, next] of profiles.filter(q => q[0] === '60 Hz real' || q[0] === '144 Hz')) {
     if (!(LONG > 0)) break;
-    sd = 7; startAt(20, 0, 10); P.invuln = 0;
+    sd = 7; startAt(20, 0, 10); P.invuln = 0; P.stats.stumbles = P.stats.tumbles = 0; P.stats.why = '';
     scripted = tt => { const o = carvePattern(tt); o.steer = P.mode === 'ride' ? clamp(o.steer * 0.6 - P.d * 0.04, -1, 1) : 0; if (QS.has('skidbot') && tt % 6 > 4.6) o.s = true; if (QS.has('spacebot') && tt % 7 > 3) o.space = true; return o; };
     const H = 720, q0 = new THREE.Quaternion(), bad = [], hopsAt = [], rp1 = new V3(), cp1 = new V3(), trace = [], TR = parseFloat(QS.get('trace') || '0');
     let t = 0, n = 0, x1 = 0, y1 = 0, x2 = 0, y2 = 0, a1 = 0, have = 0, sJ = 0, mJ = 0, sR = 0, mR = 0, was = 'ride', airStart = 0, hops = 0, shortHops = 0, rideF = 0, hopK = '', hopV = 0, hopH = 0;
@@ -9507,7 +9737,7 @@ function smoothTest() {
       x2 = x1; y2 = y1; x1 = sx; y1 = sy; a1 = ang; have++; was = P.mode; rp1.copy(R.root.position); cp1.copy(camera.position);
     }
     scripted = null;
-    lines.push('-- long ride ' + LONG + ' s, ' + name + ': to s ' + Math.round(P.s) + '  ride frames ' + rideF + '  jerk px rms/max ' + Math.sqrt(sJ / Math.max(1, rideF)).toFixed(2) + ' / ' + mJ.toFixed(1) + '  turn jerk deg rms/max ' + Math.sqrt(sR / Math.max(1, rideF)).toFixed(2) + ' / ' + mR.toFixed(1) + '  airs ' + hops + ' (short ' + shortHops + ')  stumbles ' + P.stats.stumbles + ' tumbles ' + P.stats.tumbles);
+    lines.push('-- long ride ' + LONG + ' s, ' + name + ': to s ' + Math.round(P.s) + '  ride frames ' + rideF + '  jerk px rms/max ' + Math.sqrt(sJ / Math.max(1, rideF)).toFixed(2) + ' / ' + mJ.toFixed(1) + '  turn jerk deg rms/max ' + Math.sqrt(sR / Math.max(1, rideF)).toFixed(2) + ' / ' + mR.toFixed(1) + '  airs ' + hops + ' (short ' + shortHops + ')  stumbles ' + P.stats.stumbles + ' tumbles ' + P.stats.tumbles + '  why ' + (P.stats.why || '-'));
     if (trace.length) lines.push(trace.join('\n'));
     if (hopsAt.length) lines.push('    short hops at ' + hopsAt.slice(0, 40).join(' '));
     if (DETAIL) { bad.sort((a, b) => b.j - a.j); for (const b of bad.slice(0, DETAIL)) lines.push('    px  t ' + b.t.toFixed(2) + ' jerk ' + b.j.toFixed(1) + ' px  turn ' + b.r.toFixed(1) + '  s ' + b.s.toFixed(0) + ' ' + b.z + '  ' + b.v.toFixed(0) + ' m/s skid ' + b.skid.toFixed(2) + b.x);

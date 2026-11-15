@@ -158,7 +158,7 @@ body.touch .mouseonly{display:none}
   <div class="gear"><button class="ghost" id="boardBtn" type="button">Board</button><button class="ghost" id="riderBtn" type="button">Rider</button><button class="ghost" id="setBtn" type="button">Settings</button></div>
   <div class="best" id="bestLine"></div>
   <a class="sib" href="https://jonbeam1-netizen.github.io/concrete-lines/" target="_top"><svg width="22" height="12" viewBox="0 0 22 12" aria-hidden="true"><rect x="1" y="2" width="20" height="4" rx="2" fill="currentColor"/><circle cx="5" cy="9" r="2.2" fill="currentColor"/><circle cx="17" cy="9" r="2.2" fill="currentColor"/></svg>Also play <b>Concrete Lines</b> &middot; skateboarding &rarr;</a>
-  <div class="sub">Updated November 14, 2026 &middot; Play-test 0.013</div>
+  <div class="sub">Updated November 14, 2026 &middot; Play-test 0.014</div>
 </div></div>
 <div class="overlay" id="pause"><div class="card">
   <h2>Paused</h2>
@@ -1043,7 +1043,8 @@ function createSnowRider(THREE, opts) {
     const popW = (1 - smoothT((at - 0.04) / 0.16)) * (0.55 + 0.45 * pp);
     const spot = ttl >= 0 ? smoothT((0.5 + 0.25 * big - ttl) / (0.3 + 0.15 * big)) : smoothT((at - 0.9) / 0.4) * 0.5;
     const reach = ttl >= 0 ? smoothT((0.24 - ttl) / 0.18) : 0;
-    const floatW = smoothT((at - 0.5) / 0.6) * big * (1 - spot);
+    const trOn = S.trick && !S.trickDone ? 1 : 0;   // an E trick is turning him: hold one steady shape (no breathing, no opening at the apex)
+    const floatW = smoothT((at - 0.5) / 0.6) * big * (1 - spot) * (1 - trOn);
     // base: tucked, knees up, board pulled under the hips, chest over the knees, arms out front and back for balance
     const lk = launchK, tk = lerp(0.62, 1, big) * (0.85 + 0.2 * pp) * (1 + 0.28 * lk);
     T.hipY = 0.97; T.hipX = 0; T.hipZ = 0; T.hipYaw = 0.25; T.hipPitch = 0.14 + 0.1 * tk; T.hipRoll = 0; T.lean = 0;
@@ -1082,31 +1083,7 @@ function createSnowRider(THREE, opts) {
     // flips / corks: a tight ball, head thrown back for a backflip, chin tucked for a frontflip
     const fr = S.flipRate, f = clamp(Math.abs(fr) / 5, 0, 1), fsg = fr > 0 ? 1 : -1;
     if (f > 0) { T.by += 0.22 * f; T.bend += 0.4 * f; T.hipPitch += 0.2 * f; T.headPitch += (fsg > 0 ? -0.45 : 0.35) * f; mixArm(0, 0.3, -0.3, 0.06, f); mixArm(1, 0.3, -0.3, -0.02, f); }
-    // E tricks (S.trick): a trick has a start, a middle and an end instead of one tucked ball from takeoff to landing.
-    // Start: thrown with the head and shoulders, which run ahead of the board. Middle: held compact, arms in. End: he
-    // opens up as it comes round (legs lengthen, chest lifts, arms go wide, eyes on the landing) and rides that opened
-    // shape for the rest of the air.
-    let trOpen = 0;
-    if (S.trick) {
-      const tp = clamp(S.trickProg, 0, 1), td = S.trickDir || 0, gk = 1 - Math.min(1, gVis);
-      const lead = 1 - smoothT((tp - 0.04) / 0.3), mid = smoothT(tp / 0.14) * (1 - smoothT((tp - 0.7) / 0.22));
-      trOpen = (S.trickDone ? 1 : smoothT((tp - 0.76) / 0.22)) * gk;
-      if (S.trick === 1) {
-        T.twist += 0.55 * td * lead; T.headYaw += 0.5 * td * (0.8 * lead + 0.35 * mid); T.hipYaw += 0.12 * td * lead;
-        T.by += 0.1 * mid; T.bend += 0.1 * mid;
-        mixArm(0, 0.24, -0.18, 0.12 - 0.22 * td, 0.85 * mid * gk); mixArm(1, 0.18, -0.24, 0.08 + 0.2 * td, 0.85 * mid * gk);
-        mixArm(0, 0.3, 0.02, 0.3 - 0.3 * td, 0.7 * lead * gk * (1 - mid));   // the throw: the lead arm swings across with the turn
-      } else {
-        T.headPitch += (td > 0 ? -0.3 : 0.3) * lead; T.by += 0.08 * mid; T.bend += 0.14 * mid;
-      }
-    }
     // spot: from the top of the arc open up a little, arms go out wide to balance, eyes on the landing
-    if (trOpen > 0.001) {
-      // (relaxed, not a scarecrow: knees still soft, arms out but low and bent)
-      T.by = lerp(T.by, 0.25, trOpen * 0.85); T.bend = lerp(T.bend, 0.24, trOpen * 0.8); T.hipPitch = lerp(T.hipPitch, 0.11, trOpen * 0.8);
-      mixArm(0, 0.3, -0.14, 0.36, trOpen * 0.85); mixArm(1, 0.05, -0.16, 0.4, trOpen * 0.85); T.headPitch -= 0.06 * trOpen;
-      const u = at; T.a0y += 0.05 * trOpen * Math.sin(u * 2.3); T.a1y += 0.05 * trOpen * Math.sin(u * 1.9 + 1.7); T.bRoll += 0.05 * trOpen * Math.sin(u * 1.4);
-    }
     if (spot > 0.001) {
       T.by = lerp(T.by, 0.14, spot * 0.8); T.bend = lerp(T.bend, 0.24, spot * 0.7); T.hipPitch = lerp(T.hipPitch, 0.12, spot * 0.7);
       mixArm(0, 0.3, -0.12, 0.38, spot * (1 - k)); mixArm(1, 0.04, -0.14, 0.42, spot * (1 - k));
@@ -1118,7 +1095,7 @@ function createSnowRider(THREE, opts) {
       for (let i = 0; i < ks.length; i++) { const kk = ks[i]; T[kk] = lerp(T[kk], G[kk], w); }
     }
     // hang (S.hang): near the top of a big arc the body floats - opens a little, legs ease out, arms drift up
-    const hg = S.hang * (1 - 0.65 * Math.min(1, gVis)) * (1 - 0.6 * spot);
+    const hg = S.hang * (1 - 0.65 * Math.min(1, gVis)) * (1 - 0.6 * spot) * (1 - trOn);
     if (hg > 0.001) {
       const u = at;
       T.by -= 0.09 * hg; T.bend -= 0.12 * hg; T.hipPitch -= 0.06 * hg; T.headPitch += 0.05 * hg; T.side += 0.03 * hg * Math.sin(u * 1.7);
@@ -1480,6 +1457,11 @@ function createSnowRider(THREE, opts) {
 
   function applyRig() {
     body.rotation.y = curSw ? 0 : PI;
+    // In the air the board comes up to him as he tucks (F.by) and goes back down as he opens. The hips used to stay
+    // put through that, so his whole outline rose with every tuck and sank with every stretch along the flight path:
+    // he bobbed up and down through a trick. Now he folds about his middle: the board comes up half way and the
+    // hips and head come down the other half, and the outline stays on the path.
+    body.position.y = -0.5 * Math.max(0, F.by) * (1 - clamp(F.ground, 0, 1));
     // pelvis: leaned about the loaded edge
     eul.set(F.hipRoll, F.hipYaw, -F.hipPitch, 'YXZ'); qA.setFromEuler(eul); qB.setFromAxisAngle(ZAX, F.lean * 0.85);
     pelvis.quaternion.multiplyQuaternions(qB, qA);
@@ -8342,14 +8324,7 @@ function updateCamera(dt) {
   cam.air += (airT - cam.air) * Math.min(1, dt * (airT > cam.air ? 2.2 : P.mode === 'air' ? 5 : 8)); // on touchdown the air framing lets go quickly
   const dist = (close ? 3.9 : 6.0) + clamp01(spd / 30) * (close ? 0.6 : 1.4) + cam.air * (close ? 1.0 : 1.9);
   const hgt = (close ? 1.35 : 2.5) + clamp01(spd / 30) * 0.3 + cam.air * (close ? 0.7 : 1.3);
-  // a flip seen from straight behind is a ball hidden by the board: swing round toward his chest side while he is
-  // flipping, so the rotation reads in profile, and ease back as it finishes
-  const flipping = P.mode === 'air' && !P.airDrop && Math.abs(P.flipRate) > 1.2 ? 1 : 0;
-  cam.orbit = (cam.orbit || 0) + (flipping - (cam.orbit || 0)) * Math.min(1, dt * (flipping ? 5.5 : 1.8));
-  if (camSnap) cam.orbit = 0;
-  if (cam.orbit > 0.004) { const a = 0.72 * cam.orbit * (P.takeoffSw ? -1 : 1), c = Math.cos(a), sn = Math.sin(a); _cp.set(P.pos.x - (cam.dir.x * c - cam.dir.z * sn) * dist, P.pos.y, P.pos.z - (cam.dir.x * sn + cam.dir.z * c) * dist); }
-  else _cp.copy(P.pos).addScaledVector(cam.dir, -dist);
-  _cp.y += hgt;
+  _cp.copy(P.pos).addScaledVector(cam.dir, -dist); _cp.y += hgt;
   // crashed next to a pine (ragdoll / bail): its lower branches would hide him from behind, so swing up to the
   // open side, away from the trunk, and look down on him
   const down = P.mode === 'ragdoll' || P.mode === 'bail';
@@ -8378,7 +8353,6 @@ function updateCamera(dt) {
   cam.ragW = (cam.ragW || 0) + ((P.mode === 'ragdoll' ? 1 : 0) - (cam.ragW || 0)) * Math.min(1, dt * 3);
   const lw = Math.max(cam.ragW * 0.75, cam.treeW);
   if (lw > 0.01) { _ca.copy(P.pos); _ca.y += 0.3; _cl.lerp(_ca, lw); }
-  if ((cam.orbit || 0) > 0.004) { _ca.copy(P.pos); _ca.y += 0.4; _cl.lerp(_ca, 0.7 * cam.orbit); }   // keep him in frame from the side
   // in the air, tip the view down toward the predicted landing so the arc and the touchdown spot read
   if (cam.air > 0.01 && P.timeToLand > 0) _cl.y += (Math.max(LAND.y, P.pos.y - 25) - P.pos.y) * 0.45 * cam.air * clamp01(P.timeToLand / 0.6);
   // keep the look point from dropping into steep landings too fast

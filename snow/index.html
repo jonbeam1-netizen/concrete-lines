@@ -158,15 +158,15 @@ body.touch .mouseonly{display:none}
   <div class="gear"><button class="ghost" id="boardBtn" type="button">Board</button><button class="ghost" id="riderBtn" type="button">Rider</button><button class="ghost" id="setBtn" type="button">Settings</button></div>
   <div class="best" id="bestLine"></div>
   <a class="sib" href="https://jonbeam1-netizen.github.io/concrete-lines/" target="_top"><svg width="22" height="12" viewBox="0 0 22 12" aria-hidden="true"><rect x="1" y="2" width="20" height="4" rx="2" fill="currentColor"/><circle cx="5" cy="9" r="2.2" fill="currentColor"/><circle cx="17" cy="9" r="2.2" fill="currentColor"/></svg>Also play <b>Concrete Lines</b> &middot; skateboarding &rarr;</a>
-  <div class="sub">Updated November 14, 2026 &middot; Play-test 0.014</div>
+  <div class="sub">Updated November 14, 2026 &middot; Play-test 0.015</div>
 </div></div>
 <div class="overlay" id="pause"><div class="card">
   <h2>Paused</h2>
   <div id="pscore"></div>
   <table class="keys tch">
     <tr><td>Stick</td><td>Left thumb anywhere on the left half. Snow: left / right carve, up tuck, down skid. Air: left / right drift</td></tr>
-    <tr><td>Trick</td><td>A whole spin by itself, or a flip with the stick up / down. Stick left / right picks the way. Hold for more turns. On the snow it jumps first</td></tr>
-    <tr><td>Grab</td><td>Hold to grab: a different grab each time, or the stick picks one. On the snow it jumps first. Slide the button sideways to drift</td></tr>
+    <tr><td>Trick</td><td>A whole spin or flip by itself, a different kind each press. Push the stick in the air first to choose: left / right spin, up / down flip. Hold for more turns. On the snow it jumps first</td></tr>
+    <tr><td>Grab</td><td>Hold to grab: a random grab, never the same twice, or push the stick in the air first to pick one. On the snow it jumps first. Slide the button sideways to drift</td></tr>
     <tr><td>Pop</td><td>Snow: hold to crouch and build speed, release for the biggest jump. Pressed in the air: hold it and the stick turns him by hand</td></tr>
     <tr><td>Butter</td><td>Hold to press the tail, stick up for the nose, stick left / right to roll. Also locks onto a rail, box or log</td></tr>
     <tr><td>Right thumb</td><td>Air: drag sideways anywhere on the right half to drift</td></tr>
@@ -176,8 +176,8 @@ body.touch .mouseonly{display:none}
     <tr><td>A / D</td><td>Carve left / right. Air: drift</td></tr>
     <tr><td>W</td><td>Lean forward / tuck</td></tr>
     <tr><td>S</td><td>Skid, slow down</td></tr>
-    <tr><td>E</td><td>Trick: a whole spin by itself. With W a front flip, with S a back flip, A / D pick the way. Hold E for more turns. On the snow it jumps first</td></tr>
-    <tr><td>Q</td><td>Grab (hold): a different one each time, or a direction picks it: W Nose, S Tail, A Melon, D Mute, W+A Method, W+D Japan, S+A Stalefish, S+D Rocket. On the snow it jumps first</td></tr>
+    <tr><td>E</td><td>Trick: a whole spin or flip by itself, a different kind each press. To choose, press a direction in the air first: A / D spin, W front flip, S back flip. Hold E for more turns. On the snow it jumps first</td></tr>
+    <tr><td>Q</td><td>Grab (hold): a random one, never the same twice. To choose, press a direction in the air first: W Nose, S Tail, A Melon, D Mute, W+A Method, W+D Japan, S+A Stalefish, S+D Rocket. On the snow it jumps first</td></tr>
     <tr><td>Space</td><td>Snow: hold to crouch and build speed, release for the biggest jump. Pressed in the air: hold it and W A S D turn him by hand</td></tr>
     <tr><td>R</td><td>Butter: hold to press the tail, W+R nose, A/D+R to roll. Also locks onto a rail, box or log; on a rail W/S = nose/tail press</td></tr>
     <tr><td>Mouse</td><td>Air: move left / right to drift. Left click = E, right click = Q</td></tr>
@@ -7182,7 +7182,7 @@ let touchRelease = () => {};
 const P = {
   pos: new V3(), vel: new V3(), heading: new V3(0, 0, -1), n: new V3(0, 1, 0),
   mode: 'title', s: 0, d: 0, hint: 0, speed: 0,
-  holdT: 0, prevSpace: false, prevQ: false, prevE: false, qJump: false, eJump: false, trick: null, spaceAir: false, grabI: -1, crouch: 0, skid: 0, skidSide: 1, steerSm: 0, lastSide: 1, tuck: 0, press: 0,
+  holdT: 0, prevSpace: false, prevQ: false, prevE: false, qJump: false, eJump: false, trick: null, spaceAir: false, heldOff: { a: false, d: false, w: false, s: false }, lastTrick: '', lastGrab: '', crouch: 0, skid: 0, skidSide: 1, steerSm: 0, lastSide: 1, tuck: 0, press: 0,
   airT: 0, airDrop: false, spin: 0, flip: 0, spinRate: 0, flipRate: 0, grab: null, grabT: 0, grabTotal: 0, sw: false, takeoffSw: false,
   baseQ: new THREE.Quaternion(), rootQ: new THREE.Quaternion(), ragSlide: new V3(), butterYaw: 0, butterRate: 0, shifty: 0, style: null, timeToLand: -1, windup: 0, leftKickerT: 9, popT: 9,
   rail: null, railD: 0, railSign: 1, railSpd: 0, slide: null, slideT: 0, goodS: 20,
@@ -7433,6 +7433,7 @@ function takeoff() {
   P.mode = 'air'; P.airT = 0; P.spin = 0; P.flip = 0; P.spinRate = 0; P.flipRate = 0; P.grab = null; P.grabT = 0; P.grabTotal = 0;
   P.takeoffSw = P.sw; P.airRotSet = false; lastGrabUsed = null; P.spin = bY; // a roll that pops off keeps its yaw
   P.trick = null; P.spaceAir = false;
+  { const H = P.heldOff; H.a = ctl.a; H.d = ctl.d; H.w = ctl.w; H.s = ctl.s; }   // (see freshDir)
   ctl.mouseX = 0;
   // base orientation = current board frame without the skid twist
   _z.copy(P.heading); _y.copy(P.n); _x.crossVectors(_y, _z).normalize(); _z.crossVectors(_x, _y);
@@ -7470,6 +7471,7 @@ function stepAir(dt) {
   // The direction held as it starts picks it (A / D spin that way, W front flip, S back flip). Holding E on asks for more
   // rotation for as long as the air has room. Space, pressed in the air and held, lets W A S D turn him by hand. With
   // neither, A / D only drift (to line up a landing or a rail) and nothing rotates by accident.
+  { const H = P.heldOff; if (!ctl.a) H.a = false; if (!ctl.d) H.d = false; if (!ctl.w) H.w = false; if (!ctl.s) H.s = false; }
   const manual = ctl.space && P.spaceAir && !P.airDrop;
   if (((ctl.e && !P.prevE) || P.eJump) && !P.airDrop && (!P.trick || P.trick.done)) startTrick();
   P.eJump = false;
@@ -7535,24 +7537,36 @@ function stepAir(dt) {
   if (g.h - P.pos.y > 0.6 + 2 * P.vel.length() * dt) { hitWall(dt, true); return; }
   if (P.pos.y <= g.h) landNow(g);
 }
-// a direction held as Q goes down picks the grab; plain Q works through all of them, a different one each time
-const GRAB_CYCLE = ['indy', 'mute', 'melon', 'stalefish', 'nose', 'tail', 'method', 'japan', 'rocket'];
+// A direction picks the trick only if it was pressed in the air. One already down as he left the snow is his carve, tuck
+// or brake, not a choice (holding W to tuck must not make every E a front flip).
+function freshDir(k) { return ctl[k] && !P.heldOff[k]; }
+// the picks are random; in test / screenshot runs they come from a fixed sequence so the suites repeat
+const trickRnd = AUTO ? (() => { let v = 20261114; return () => (v = (v * 16807) % 2147483647) / 2147483647; })() : Math.random;
+// Q: a direction pressed in the air picks the grab; plain Q is a random one, never the same twice running
+const GRAB_LIST = ['indy', 'mute', 'melon', 'stalefish', 'nose', 'tail', 'method', 'japan', 'rocket'];
 function pickGrab() {
-  const w = ctl.w, s = ctl.s, a = ctl.a, d = ctl.d;
-  if (w && a) return 'method'; if (w && d) return 'japan'; if (s && a) return 'stalefish'; if (s && d) return 'rocket';
-  if (w) return 'nose'; if (s) return 'tail'; if (a) return 'melon'; if (d) return 'mute';
-  P.grabI = ((P.grabI === undefined ? -1 : P.grabI) + 1) % GRAB_CYCLE.length; return GRAB_CYCLE[P.grabI];
+  const w = freshDir('w'), s = freshDir('s'), a = freshDir('a'), d = freshDir('d');
+  let g = w && a ? 'method' : w && d ? 'japan' : s && a ? 'stalefish' : s && d ? 'rocket' : w ? 'nose' : s ? 'tail' : a ? 'melon' : d ? 'mute' : '';
+  if (!g) { const pool = GRAB_LIST.filter(n => n !== P.lastGrab); g = pool[Math.floor(trickRnd() * pool.length) % pool.length]; }
+  P.lastGrab = g; return g;
 }
-// E: pick the trick and how much of it fits. The forecast of the air comes from here (the same one the landing uses), so
-// the pace does not depend on anything outside the physics.
+// E: pick the trick and how much of it fits. A direction pressed in the air chooses (A / D spin that way, W front flip,
+// S back flip). With none it is a surprise: a spin or a flip, either way round, and never the same kind twice running
+// (flip, then a spin, then a flip...). The forecast of the air comes from here (the same one the landing uses), so the
+// pace does not depend on anything outside the physics.
 function startTrick() {
   const T = estimateLanding(), tf = (T > 0 ? T : 6) * 0.82 - 0.03, PI2 = 2 * Math.PI;
-  let kind = ctl.w || ctl.s ? 'flip' : 'spin', dir = 1, target = 0;
-  if (kind === 'flip') { if (tf * FEEL.trickFlip[1] >= PI2) { target = PI2; dir = ctl.w ? 1 : -1; } else kind = 'spin'; }   // no room for a flip: spin instead
-  if (kind === 'spin') { dir = ctl.a ? 1 : ctl.d ? -1 : (-P.lastSide || 1); target = tf * FEEL.trickSpin[1] >= PI2 ? PI2 : tf * FEEL.trickSpin[1] >= Math.PI ? Math.PI : 0; }
+  const w = freshDir('w'), s = freshDir('s'), a = freshDir('a'), d = freshDir('d');
+  let kind, dir, target = 0;
+  if (w || s) { kind = 'flip'; dir = w ? 1 : -1; }
+  else if (a || d) { kind = 'spin'; dir = a ? 1 : -1; }
+  else { kind = P.lastTrick ? (P.lastTrick === 'flip' ? 'spin' : 'flip') : (trickRnd() < 0.5 ? 'spin' : 'flip'); dir = trickRnd() < 0.5 ? 1 : -1; }
+  if (kind === 'flip') { if (tf * FEEL.trickFlip[1] >= PI2) target = PI2; else kind = 'spin'; }   // no room for a flip: spin instead
+  if (kind === 'spin') target = tf * FEEL.trickSpin[1] >= PI2 ? PI2 : tf * FEEL.trickSpin[1] >= Math.PI ? Math.PI : 0;
   if (!target) return;   // too close to the snow for even a 180
   const lim = kind === 'spin' ? FEEL.trickSpin : FEEL.trickFlip;
   P.trick = { kind, dir, target, ang: 0, t: 0, held: 0, tf, done: false, min: lim[0], max: lim[1] };
+  P.lastTrick = kind;
   if (kind === 'flip' && !P.style) P.style = 'flip';
 }
 const LAND = { n: new V3(0, 1, 0), t: -1, y: 0 };
@@ -8324,7 +8338,14 @@ function updateCamera(dt) {
   cam.air += (airT - cam.air) * Math.min(1, dt * (airT > cam.air ? 2.2 : P.mode === 'air' ? 5 : 8)); // on touchdown the air framing lets go quickly
   const dist = (close ? 3.9 : 6.0) + clamp01(spd / 30) * (close ? 0.6 : 1.4) + cam.air * (close ? 1.0 : 1.9);
   const hgt = (close ? 1.35 : 2.5) + clamp01(spd / 30) * 0.3 + cam.air * (close ? 0.7 : 1.3);
-  _cp.copy(P.pos).addScaledVector(cam.dir, -dist); _cp.y += hgt;
+  // a flip seen from straight behind is a ball hidden by the board: at speed the camera swings round toward his chest
+  // side while he flips, so it reads in profile, and eases back as it finishes. Slow hops keep the plain view from behind.
+  const flipping = P.mode === 'air' && !P.airDrop && Math.abs(P.flipRate) > 1.2 ? smooth(10, 21, spd) : 0;
+  cam.orbit = (cam.orbit || 0) + (flipping - (cam.orbit || 0)) * Math.min(1, dt * (flipping > (cam.orbit || 0) ? 5.5 : 1.8));
+  if (camSnap) cam.orbit = 0;
+  if (cam.orbit > 0.004) { const a = 0.72 * cam.orbit * (P.takeoffSw ? -1 : 1), c = Math.cos(a), sn = Math.sin(a); _cp.set(P.pos.x - (cam.dir.x * c - cam.dir.z * sn) * dist, P.pos.y, P.pos.z - (cam.dir.x * sn + cam.dir.z * c) * dist); }
+  else _cp.copy(P.pos).addScaledVector(cam.dir, -dist);
+  _cp.y += hgt;
   // crashed next to a pine (ragdoll / bail): its lower branches would hide him from behind, so swing up to the
   // open side, away from the trunk, and look down on him
   const down = P.mode === 'ragdoll' || P.mode === 'bail';
@@ -8353,6 +8374,7 @@ function updateCamera(dt) {
   cam.ragW = (cam.ragW || 0) + ((P.mode === 'ragdoll' ? 1 : 0) - (cam.ragW || 0)) * Math.min(1, dt * 3);
   const lw = Math.max(cam.ragW * 0.75, cam.treeW);
   if (lw > 0.01) { _ca.copy(P.pos); _ca.y += 0.3; _cl.lerp(_ca, lw); }
+  if ((cam.orbit || 0) > 0.004) { _ca.copy(P.pos); _ca.y += 0.4; _cl.lerp(_ca, 0.7 * cam.orbit); }   // keep him in frame from the side
   // in the air, tip the view down toward the predicted landing so the arc and the touchdown spot read
   if (cam.air > 0.01 && P.timeToLand > 0) _cl.y += (Math.max(LAND.y, P.pos.y - 25) - P.pos.y) * 0.45 * cam.air * clamp01(P.timeToLand / 0.6);
   // keep the look point from dropping into steep landings too fast
@@ -8440,6 +8462,9 @@ function updateRiderVisual(dt) {
   if (P.mode === 'air') {
     _qa.setFromAxisAngle(AY, P.spin); _qb.setFromAxisAngle(AX, P.flip);
     P.rootQ.copy(P.baseQ).multiply(_qa).multiply(_qb);
+    // A flip turns about his middle. The pivot used to be the board under his feet (the point that flies the arc), so
+    // the board held the line and his whole body swung round it like a pendulum, a metre and more up and down.
+    if (!P.airDrop) { _sv.set(0, 0.62, 0).applyQuaternion(P.baseQ); _side.set(0, 0.62, 0).applyQuaternion(P.rootQ); root.position.add(_sv).sub(_side); }
   } else {
     // board frame: forward = heading twisted by the skid angle, up = snow normal
     _z.copy(P.heading);
@@ -9827,7 +9852,7 @@ function feelTest() {
   { const k = kickers.find(kk => kk.size === 2 && plan.zones.some(z => z.type === 'jumps' && kk.s > z.s0 && kk.s < z.s1));
     for (const [lbl, eHold, dirKey, hand] of [['E tap', 0.12, ''], ['E held 0.5', 0.5, ''], ['E held 1.0', 1.0, ''], ['E held all', 9, ''], ['E tap + D', 0.12, 'd'], ['E + W tap', 0.12, 'w'], ['E + S tap', 0.12, 's'], ['E + W held', 9, 'w'],
       ['Space + A 1.0 s', 0, 'a', 1.0], ['Space + W 1.25 s', 0, 'w', 1.25], ['Space + A + S 1.3 s', 0, 'as', 1.3]]) {
-      setup(k.s - 30, k.d, 18); P.prevE = false; P.grabI = -1; let tAir = -1, deg = 0, flips = 0, air = 0, bailed = false, doneAt = -1;
+      setup(k.s - 30, k.d, 18); P.prevE = false; P.lastTrick = 'flip'; let tAir = -1, deg = 0, flips = 0, air = 0, bailed = false, doneAt = -1;   // (after a flip, a plain E is a spin)
       sim(9, t => {
         if (P.mode === 'air' && tAir < 0) tAir = t;
         const ta = tAir >= 0 && P.mode === 'air' ? t - tAir : -1, o = { steer: P.mode === 'ride' ? clamp((k.d - P.d) * 0.3, -1, 1) : 0, space: P.s < k.s - 0.5 && P.mode === 'ride' };
@@ -9845,7 +9870,7 @@ function feelTest() {
   // drift; Space pressed in the air turns him by hand, held from the snow it does not; butters are on R
   { const chk = (name, ok, extra) => lines.push((ok ? 'ok    ' : 'FAIL  ') + name + (extra ? '  (' + extra + ')' : ''));
     let s0 = br.s0 + 10; for (let q = br.s0 + 4; q < br.s1 - 20; q += 1) { let ok = true; for (let u = 0; u < 16; u++) if (bumpH(q + u, 0) > 0.01) ok = false; if (ok) { s0 = q; break; } }
-    const hop = (ctlFn, each) => { setup(s0, 0, 9); P.prevE = P.prevQ = false; P.qJump = P.eJump = false; P.trick = null; let airOn = false, apex = 0, y0 = P.pos.y, tAir = -1, mS = 0, mF = 0, grab = '', grabAt = -1;
+    const hop = (ctlFn, each, last) => { setup(s0, 0, 9); P.prevE = P.prevQ = false; P.qJump = P.eJump = false; P.trick = null; P.lastTrick = last === undefined ? 'flip' : last; let airOn = false, apex = 0, y0 = P.pos.y, tAir = -1, mS = 0, mF = 0, grab = '', grabAt = -1;
       sim(5, t => ctlFn(t, tAir >= 0 ? t - tAir : -1), t => airOn && P.mode !== 'air', t => { if (P.mode === 'air') { if (!airOn) { airOn = true; tAir = t; } apex = Math.max(apex, P.pos.y - y0); mS = Math.max(mS, Math.abs(P.spin)); mF = Math.max(mF, Math.abs(P.flip)); if (P.grab && grabAt < 0) { grab = P.grab; grabAt = t - tAir; } if (each) each(t - tAir); } });
       return { airOn, apex, tAir, air: P.airT, mS, mF, grab, grabAt, landed: P.mode === 'ride', name: P.combo.last, q: P.lastLand ? P.lastLand.quality : 0 }; };
     const pop = t => t < 0.25;   // a charged Space pop: a plain jump
@@ -9854,12 +9879,18 @@ function feelTest() {
     chk('E tap is a whole 360 by itself, landed clean', r.landed && Math.abs(r.mS - 2 * Math.PI) < 0.35 && r.q > 0.8 && /360/.test(r.name || ''), (r.name || '-') + ', turned ' + (r.mS * 57.3).toFixed(0) + ' deg, quality ' + r.q.toFixed(2));
     r = hop(t => ({ e: t > 0.1 && t < 0.2, a: t < 0.5, steer: 0 })); const rA = r.mS;
     chk('E while carving still does the trick', r.landed && r.mS > 5.5, 'turned ' + (r.mS * 57.3).toFixed(0) + ' deg');
-    r = hop(t => ({ e: t > 0.1 && t < 0.2, w: t > 0.05 && t < 0.4 }));
-    chk('E + W is a front flip, landed clean', r.landed && Math.abs(r.mF - 2 * Math.PI) < 0.35 && r.q > 0.8 && /flip/i.test(r.name || ''), (r.name || '-') + ', flipped ' + (r.mF * 57.3).toFixed(0) + ' deg, quality ' + r.q.toFixed(2));
-    P.grabI = -1; const g1 = hop(t => ({ q: t > 0.1 })), g2 = hop(t => ({ q: t > 0.1 })), g3 = hop(t => ({ q: t > 0.1, s: t > 0.05 && t < 0.3 }));
+    r = hop((t, ta) => ({ space: t < 0.25, w: ta > 0.04 && ta < 0.4, e: ta > 0.08 && ta < 0.2 }));
+    chk('W pressed in the air, then E, is a front flip, landed clean', r.landed && Math.abs(r.mF - 2 * Math.PI) < 0.35 && r.q > 0.8 && /front/i.test(r.name || ''), (r.name || '-') + ', flipped ' + (r.mF * 57.3).toFixed(0) + ' deg, quality ' + r.q.toFixed(2));
+    r = hop(t => ({ e: t > 0.1 && t < 0.2, w: true }), null, 'flip');
+    chk('W held from the snow does not make E a flip', r.landed && r.mF < 0.05 && r.mS > 5.5, 'turned ' + (r.mS * 57.3).toFixed(0) + ' deg spin, ' + (r.mF * 57.3).toFixed(0) + ' deg flip');
+    { const kinds = []; let lastK = ''; for (let i = 0; i < 6; i++) { const q = hop(t => ({ e: t > 0.1 && t < 0.2 }), null, lastK); kinds.push(q.mF > 3 ? 'flip' : q.mS > 3 ? 'spin' : '?'); lastK = P.lastTrick; }
+      chk('E with no direction alternates spin and flip', kinds.every((kd, i) => kd !== '?' && (i === 0 || kd !== kinds[i - 1])), kinds.join(', ')); }
+    const g1 = hop(t => ({ q: t > 0.1 })), g2 = hop(t => ({ q: t > 0.1 })), g3 = hop((t, ta) => ({ space: t < 0.25, s: ta > 0.04 && ta < 0.3, q: ta > 0.08 }));
+    { const seen = {}; let rep2 = 0, lastG = ''; for (let i = 0; i < 14; i++) { const q = hop(t => ({ q: t > 0.1 })); seen[q.grab] = 1; if (q.grab === lastG) rep2++; lastG = q.grab; }
+      chk('plain Q is random and never the same twice running', rep2 === 0 && Object.keys(seen).length >= 5, Object.keys(seen).length + ' different grabs in 14 jumps, repeats ' + rep2); }
     chk('Q press jumps into a grab', g1.airOn && g1.grabAt >= 0 && g1.grabAt < 0.05, g1.grab + ' ' + (g1.grabAt * 1000).toFixed(0) + ' ms into the air');
     chk('plain Q is a different grab each time', g1.grab && g2.grab && g1.grab !== g2.grab && g1.mS < 0.05, g1.grab + ' then ' + g2.grab);
-    chk('a direction picks the grab', g3.grab === 'tail' && g3.mF < 0.05, 'S + Q = ' + g3.grab);
+    chk('a direction pressed in the air picks the grab', g3.grab === 'tail' && g3.mF < 0.05, 'S then Q = ' + g3.grab);
     let h0 = 0, h1 = 0;
     r = hop((t, ta) => ({ space: pop(t), a: ta > 0.05 }), ta => { const h = Math.atan2(P.vel.x, -P.vel.z); if (ta < 2 * STEP) h0 = h; h1 = h; });
     chk('A alone in the air only drifts', r.mS < 0.05 && r.mF < 0.05 && Math.abs(h1 - h0) > 0.1, 'spin ' + (r.mS * 57.3).toFixed(0) + ' deg, heading ' + ((h1 - h0) * 57.3).toFixed(0) + ' deg');

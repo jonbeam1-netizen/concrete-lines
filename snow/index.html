@@ -158,7 +158,7 @@ body.touch .mouseonly{display:none}
   <div class="gear"><button class="ghost" id="boardBtn" type="button">Board</button><button class="ghost" id="riderBtn" type="button">Rider</button><button class="ghost" id="setBtn" type="button">Settings</button></div>
   <div class="best" id="bestLine"></div>
   <a class="sib" href="https://jonbeam1-netizen.github.io/concrete-lines/" target="_top"><svg width="22" height="12" viewBox="0 0 22 12" aria-hidden="true"><rect x="1" y="2" width="20" height="4" rx="2" fill="currentColor"/><circle cx="5" cy="9" r="2.2" fill="currentColor"/><circle cx="17" cy="9" r="2.2" fill="currentColor"/></svg>Also play <b>Concrete Lines</b> &middot; skateboarding &rarr;</a>
-  <div class="sub">Updated November 14, 2026 &middot; Play-test 0.017</div>
+  <div class="sub">Updated November 14, 2026 &middot; Play-test 0.018</div>
 </div></div>
 <div class="overlay" id="pause"><div class="card">
   <h2>Paused</h2>
@@ -7355,7 +7355,10 @@ function stepRide(dt) {
   const kick = g.kicker, onKicker = !!kick;
   if (!onKicker) P.kickPopPend = 0;
   const tapE = ctl.e && !P.prevE, tapQ = ctl.q && !P.prevQ;
-  if ((!ctl.space && P.prevSpace) || tapE || tapQ) {
+  let spaceUp = !ctl.space && P.prevSpace;
+  if (spaceUp && P.eatRelease) { spaceUp = false; P.holdT = 0; }   // (see landNow)
+  if (!ctl.space) P.eatRelease = false;
+  if (spaceUp || tapE || tapQ) {
     const charge = tapE || tapQ ? Math.max(FEEL.tapCharge, clamp01(P.holdT / FEEL.popFull)) : clamp01(P.holdT / FEEL.popFull);
     if (tapQ) P.qJump = true;
     if (tapE) P.eJump = true;
@@ -7440,7 +7443,7 @@ function takeoff() {
   P.shifty = 0; P.shiftyT = 0; P.style = null;
   P.mode = 'air'; P.airT = 0; P.spin = 0; P.flip = 0; P.spinRate = 0; P.flipRate = 0; P.grab = null; P.grabT = 0; P.grabTotal = 0;
   P.takeoffSw = P.sw; P.airRotSet = false; lastGrabUsed = null; P.spin = bY; // a roll that pops off keeps its yaw
-  P.trick = null; P.spaceAir = false; P.airH = 0;
+  P.trick = null; P.spaceAir = false; P.airH = 0; P.eatRelease = false;
   { const H = P.heldOff; H.a = ctl.a; H.d = ctl.d; H.w = ctl.w; H.s = ctl.s; }   // (see freshDir)
   ctl.mouseX = 0;
   // base orientation = current board frame without the skid twist
@@ -7627,7 +7630,10 @@ function landNow(g) {
   // next half second so it reads as carrying his momentum and not as a shove
   // (never more than brings him back to the speed he hit the lip with: the landing itself already turns some of the drop into speed)
   P.giveBack = quality > 0.4 && !P.heliDrop && P.scrubbed > 0 ? clamp((P.lipSpd || 0) - keepSp, 0, P.scrubbed) : 0; P.scrubbed = 0;
-  if (P.spaceAir) { P.spaceAir = false; P.ignoreSpace = true; P.ignoreT = simT; }   // the hand-control Space must not turn into a pop as he lands
+  // The hand-control Space must not turn into a pop as he lands. The key is ignored for a moment, which the pop code
+  // would read as the key being let go: that one false release is swallowed (P.eatRelease). Without this he popped
+  // again at once, the held key then counted as pressed in the air, and he bounced and kept turning for as long as it was held.
+  if (P.spaceAir) { P.spaceAir = false; P.ignoreSpace = true; P.ignoreT = simT; P.eatRelease = true; }
   const air = P.airT;
   // after long airs the chase camera catches up faster for a moment (it trails a falling rider)
   cam.catchUp = Math.max(cam.catchUp || 0, clamp01((air - 1.0) / 1.8));
@@ -9937,6 +9943,12 @@ function feelTest() {
     chk('drift steers without spinning', Math.abs(h1 - h0) > 0.15 && r.mS < 0.05 && shT > 0.2, 'heading ' + ((h1 - h0) * 57.3).toFixed(0) + ' deg, shifty ' + shT.toFixed(2) + ' s');
     setup(s0, 0, 9); let br1 = 0, pr1 = 0; sim(0.6, () => ({ r: true, steer: 1, d: true }), null, () => { br1 = Math.max(br1, Math.abs(P.butterRate)); pr1 = Math.max(pr1, Math.abs(P.press)); });
     chk('R + direction butters on the snow', P.mode === 'ride' && br1 > 1 && pr1 > 0.5, 'roll ' + br1.toFixed(1) + ' rad/s, press ' + pr1.toFixed(2));
+    { // Space pop, then Space pressed again in the air and held through the landing: one jump, no bouncing
+      setup(s0, 0, 9); let airs = 0, was = 'ride', tA = -1, landT = -1;   // (real key state through frame(): the scripted controls skip the key-ignore rule that caused it)
+      scripted = null;
+      for (let i = 0; i < 300; i++) { const tt = i / 60; keys.Space = tt < 0.25 || (tA >= 0 && tt - tA > 0.15); frame(1 / 60); if (P.mode === 'air' && tA < 0) tA = tt; if (P.mode === 'air' && was !== 'air') airs++; if (P.mode !== 'air' && was === 'air' && landT < 0) landT = tt; was = P.mode; }
+      const airsHeld = airs; keys.Space = false; for (let i = 0; i < 90; i++) frame(1 / 60);   // (letting go after holding it on the snow pops, as it should; let that land)
+      chk('Space held from the air through the landing does not bounce him', airsHeld === 1 && landT > 0, 'jumps while it was held: ' + airsHeld); }
     { // momentum: an E jump keeps the speed he has built; letting go of Space does not brake him; a fast kicker gives its speed back
       const z = plan.zones.find(q => q.type === 'mini' && q.s0 > 300) || mini; setup(z.s0 + 5, 0, 24); P.boost = 1; let v0 = 0, v1 = 0, landedT = -1, tA = -1;
       sim(6, t => ({ space: true, e: t > 0.5 && t < 0.6, steer: clamp(-P.d * 0.05, -1, 1) }), t => landedT >= 0 && t - landedT > 1.0, t => { if (t < 0.5) v0 = P.speed; if (P.mode === 'air' && tA < 0) tA = t; if (tA >= 0 && P.mode === 'ride' && landedT < 0) landedT = t; v1 = P.speed; });

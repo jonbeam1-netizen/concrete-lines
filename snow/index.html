@@ -158,31 +158,30 @@ body.touch .mouseonly{display:none}
   <div class="gear"><button class="ghost" id="boardBtn" type="button">Board</button><button class="ghost" id="riderBtn" type="button">Rider</button><button class="ghost" id="setBtn" type="button">Settings</button></div>
   <div class="best" id="bestLine"></div>
   <a class="sib" href="https://jonbeam1-netizen.github.io/concrete-lines/" target="_top"><svg width="22" height="12" viewBox="0 0 22 12" aria-hidden="true"><rect x="1" y="2" width="20" height="4" rx="2" fill="currentColor"/><circle cx="5" cy="9" r="2.2" fill="currentColor"/><circle cx="17" cy="9" r="2.2" fill="currentColor"/></svg>Also play <b>Concrete Lines</b> &middot; skateboarding &rarr;</a>
-  <div class="sub">Updated November 14, 2026 &middot; Play-test 0.011</div>
+  <div class="sub">Updated November 14, 2026 &middot; Play-test 0.012</div>
 </div></div>
 <div class="overlay" id="pause"><div class="card">
   <h2>Paused</h2>
   <div id="pscore"></div>
   <table class="keys tch">
-    <tr><td>Stick</td><td>Left thumb anywhere on the left half. Snow: left / right carve, up tuck, down skid. Air: left / right spin, up / down flip</td></tr>
-    <tr><td>Pop</td><td>Hold to crouch and build speed, release for the biggest jump</td></tr>
-    <tr><td>Grab</td><td>Snow: jump, already grabbing. Air: hold to grab, the stick picks it. Slide the button sideways to drift</td></tr>
-    <tr><td>Wild</td><td>Snow: jump. Air: hold with the stick for corks, misty and rodeo</td></tr>
+    <tr><td>Stick</td><td>Left thumb anywhere on the left half. Snow: left / right carve, up tuck, down skid. Air: left / right drift</td></tr>
+    <tr><td>Trick</td><td>A whole spin by itself, or a flip with the stick up / down. Stick left / right picks the way. Hold for more turns. On the snow it jumps first</td></tr>
+    <tr><td>Grab</td><td>Hold to grab: a different grab each time, or the stick picks one. On the snow it jumps first. Slide the button sideways to drift</td></tr>
+    <tr><td>Pop</td><td>Snow: hold to crouch and build speed, release for the biggest jump. Pressed in the air: hold it and the stick turns him by hand</td></tr>
     <tr><td>Butter</td><td>Hold to press the tail, stick up for the nose, stick left / right to roll. Also locks onto a rail, box or log</td></tr>
     <tr><td>Right thumb</td><td>Air: drag sideways anywhere on the right half to drift</td></tr>
     <tr><td>Top left</td><td>Pause, camera, respawn, mute</td></tr>
   </table>
   <table class="keys kb">
-    <tr><td>A / D</td><td>Carve left / right. Air: spin</td></tr>
-    <tr><td>W</td><td>Lean forward / tuck. Air: front flip</td></tr>
-    <tr><td>S</td><td>Skid, slow down. Air: back flip</td></tr>
-    <tr><td>Space</td><td>Hold to crouch and build speed, release for the biggest jump</td></tr>
-    <tr><td>Q</td><td>Jump, already grabbing. Air: hold to grab. The direction held picks it: none Indy, W Nose, S Tail, A Melon, D Mute, W+A Method, W+D Japan, S+A Stalefish, S+D Rocket</td></tr>
-    <tr><td>E</td><td>Jump. Air: hold with a direction to go wild: A/D cork, W misty, S rodeo</td></tr>
+    <tr><td>A / D</td><td>Carve left / right. Air: drift</td></tr>
+    <tr><td>W</td><td>Lean forward / tuck</td></tr>
+    <tr><td>S</td><td>Skid, slow down</td></tr>
+    <tr><td>E</td><td>Trick: a whole spin by itself. With W a front flip, with S a back flip, A / D pick the way. Hold E for more turns. On the snow it jumps first</td></tr>
+    <tr><td>Q</td><td>Grab (hold): a different one each time, or a direction picks it: W Nose, S Tail, A Melon, D Mute, W+A Method, W+D Japan, S+A Stalefish, S+D Rocket. On the snow it jumps first</td></tr>
+    <tr><td>Space</td><td>Snow: hold to crouch and build speed, release for the biggest jump. Pressed in the air: hold it and W A S D turn him by hand</td></tr>
     <tr><td>R</td><td>Butter: hold to press the tail, W+R nose, A/D+R to roll. Also locks onto a rail, box or log; on a rail W/S = nose/tail press</td></tr>
     <tr><td>Mouse</td><td>Air: move left / right to drift. Left click = E, right click = Q</td></tr>
     <tr><td>Arrows</td><td>Snow: same as W A S D. Air: left / right drift, with no mouse needed</td></tr>
-    <tr><td>In the air</td><td>A direction you were already holding at takeoff counts once you press it again</td></tr>
     <tr><td>C</td><td>Camera</td></tr>
     <tr><td>B</td><td>Respawn</td></tr>
     <tr><td>M</td><td>Mute</td></tr>
@@ -206,7 +205,7 @@ body.touch .mouseonly{display:none}
     <div class="foot"><button type="button" class="btn" id="rpReset">Default</button><button type="button" class="btn pri" id="rpSave">Save and wear</button></div></div>
 </div></div>
 <div id="touch"><div id="stickBase"><div id="stickKnob"></div></div><div id="stickBase2"><div id="stickKnob2"></div></div>
-  <div id="tbtns"><div data-k="KeyQ">Grab</div><div data-k="KeyE">Wild</div><div data-k="KeyR">Butter</div><div data-k="Space">Pop</div></div>
+  <div id="tbtns"><div data-k="KeyQ">Grab</div><div data-k="KeyE">Trick</div><div data-k="KeyR">Butter</div><div data-k="Space">Pop</div></div>
   <div id="tsys"><div id="tpause" aria-label="Pause">II</div>
     <div id="tcam" aria-label="Camera"><svg viewBox="0 0 24 24"><path d="M3 8h3.5l2-2.5h7l2 2.5H21v11H3z"/><circle cx="12" cy="13" r="3.4"/></svg></div>
     <div id="tresp" aria-label="Respawn"><svg viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4v4h-4"/></svg></div>
@@ -7176,7 +7175,7 @@ let touchRelease = () => {};
 const P = {
   pos: new V3(), vel: new V3(), heading: new V3(0, 0, -1), n: new V3(0, 1, 0),
   mode: 'title', s: 0, d: 0, hint: 0, speed: 0,
-  holdT: 0, prevSpace: false, prevQ: false, prevE: false, qJump: false, airLatch: { a: false, d: false, w: false, s: false }, crouch: 0, skid: 0, skidSide: 1, steerSm: 0, lastSide: 1, tuck: 0, press: 0,
+  holdT: 0, prevSpace: false, prevQ: false, prevE: false, qJump: false, eJump: false, trick: null, spaceAir: false, grabI: -1, crouch: 0, skid: 0, skidSide: 1, steerSm: 0, lastSide: 1, tuck: 0, press: 0,
   airT: 0, airDrop: false, spin: 0, flip: 0, spinRate: 0, flipRate: 0, grab: null, grabT: 0, grabTotal: 0, sw: false, takeoffSw: false,
   baseQ: new THREE.Quaternion(), rootQ: new THREE.Quaternion(), ragSlide: new V3(), butterYaw: 0, butterRate: 0, shifty: 0, style: null, timeToLand: -1, windup: 0, leftKickerT: 9, popT: 9,
   rail: null, railD: 0, railSign: 1, railSpd: 0, slide: null, slideT: 0, goodS: 20,
@@ -7260,7 +7259,10 @@ const FEEL = {
   tapCharge: 0.6,                     // E / Q jump: an instant hop at this much of a full Space charge
   // air rotation, rad/s. Plain directions = relaxed and flat (also while grabbing with Q); two axes at once = a slow cork;
   // E held = wild: off-axis and faster
-  tameSpin: 5.8, tameFlip: 5.2, corkSpin: 5.4, corkFlip: 4.7, wildSpin: 7.0, wildFlip: 5.5, rotAcc: 60,
+  // by hand (Space held in the air + W A S D): relaxed and flat; two axes at once = a slow cork
+  tameSpin: 5.8, tameFlip: 5.2, corkSpin: 5.4, corkFlip: 4.7, rotAcc: 60,
+  // E tricks pace themselves to the air: never slower / faster than this (rad/s)
+  trickSpin: [3.0, 10.5], trickFlip: [3.6, 8.5],
   buildT: 5, buildAcc: 2.7, buildDrag: 0.65, buildCap: 19, vMax: 32
 };
 function airG(vy) { return G * (1 - FEEL.hang * Math.exp(-(vy * vy) / (FEEL.hangV * FEEL.hangV))); }
@@ -7341,6 +7343,7 @@ function stepRide(dt) {
   if ((!ctl.space && P.prevSpace) || tapE || tapQ) {
     const charge = tapE || tapQ ? Math.max(FEEL.tapCharge, clamp01(P.holdT / FEEL.popFull)) : clamp01(P.holdT / FEEL.popFull);
     if (tapQ) P.qJump = true;
+    if (tapE) P.eJump = true;
     let pv = FEEL.popBase + FEEL.popCharge * charge;
     if (onKicker) pv *= FEEL.kickPop;
     P.holdT = 0;
@@ -7422,9 +7425,7 @@ function takeoff() {
   P.shifty = 0; P.shiftyT = 0; P.style = null;
   P.mode = 'air'; P.airT = 0; P.spin = 0; P.flip = 0; P.spinRate = 0; P.flipRate = 0; P.grab = null; P.grabT = 0; P.grabTotal = 0;
   P.takeoffSw = P.sw; P.airRotSet = false; lastGrabUsed = null; P.spin = bY; // a roll that pops off keeps its yaw
-  // a direction held as he leaves the snow (carving off a lip, tucking) must not spin or flip him: it counts again once
-  // it has been let go and pressed in the air
-  { const L = P.airLatch; L.a = ctl.a; L.d = ctl.d; L.w = ctl.w; L.s = ctl.s; }
+  P.trick = null; P.spaceAir = false;
   ctl.mouseX = 0;
   // base orientation = current board frame without the skid twist
   _z.copy(P.heading); _y.copy(P.n); _x.crossVectors(_y, _z).normalize(); _z.crossVectors(_x, _y);
@@ -7441,7 +7442,7 @@ function stepAir(dt) {
   P.airT += dt; P.leftKickerT += dt; P.popT += dt;
   // late pop (coyote window): releasing Space, or tapping E / Q, just after leaving the snow (a lip, a roller) still pops
   const tapAir = (ctl.e && !P.prevE) || (ctl.q && !P.prevQ);
-  if ((!ctl.space && P.prevSpace) || tapAir) {
+  if ((!ctl.space && P.prevSpace && !P.spaceAir) || tapAir) {
     if (!P.airDrop && P.popT > 0.3 && (P.leftKickerT < 0.18 || P.airT < 0.15)) {
       const ch = clamp01(P.holdT / FEEL.popFull);
       const pv = (FEEL.popBase + FEEL.popCharge * (tapAir ? Math.max(FEEL.tapCharge, ch) : ch)) * (P.leftKickerT < 0.18 ? FEEL.kickPop : 1);
@@ -7453,32 +7454,51 @@ function stepAir(dt) {
     }
     P.holdT = 0;
   }
-  if (ctl.space) P.holdT += dt;
+  // Space pressed after leaving the snow = turning by hand (below). Held from the snow it is still the crouch.
+  if (!ctl.space) P.spaceAir = false; else if (!P.prevSpace) P.spaceAir = true;
+  if (ctl.space && !P.spaceAir) P.holdT += dt;
   P.crouch = Math.max(0, P.crouch - dt * 5);
-  // drift steering in the air (lines up landings and rails) has its own input: the mouse, or the right thumb on a phone.
-  // On its own (no spin, no grab) it also turns the board under the hips: a shifty, which scores a little.
-  const drifting = Math.abs(ctl.drift) > 0.05 && !P.airDrop;
-  P.shifty = drifting && !P.grab && Math.abs(P.spinRate) < 1 && Math.abs(P.flipRate) < 1 ? -ctl.drift : 0;
+  // ---- tricks
+  // E does a whole trick by itself: a spin, or a flip with W / S held, paced so that it comes round before the landing.
+  // The direction held as it starts picks it (A / D spin that way, W front flip, S back flip). Holding E on asks for more
+  // rotation for as long as the air has room. Space, pressed in the air and held, lets W A S D turn him by hand. With
+  // neither, A / D only drift (to line up a landing or a rail) and nothing rotates by accident.
+  const manual = ctl.space && P.spaceAir && !P.airDrop;
+  if (((ctl.e && !P.prevE) || P.eJump) && !P.airDrop && (!P.trick || P.trick.done)) startTrick();
+  P.eJump = false;
+  const tr = P.trick && !P.trick.done ? P.trick : null;
+  // drift: the mouse / right thumb / arrows, and plain A / D while no trick is turning him. On its own (no spin, no grab)
+  // it also turns the board under the hips: a shifty, which scores a little.
+  const drift = clamp(ctl.drift + (manual || tr ? 0 : (ctl.d ? 1 : 0) - (ctl.a ? 1 : 0)), -1, 1), drifting = Math.abs(drift) > 0.05 && !P.airDrop;
+  P.shifty = drifting && !P.grab && Math.abs(P.spinRate) < 1 && Math.abs(P.flipRate) < 1 ? -drift : 0;
   if (Math.abs(P.shifty) > 0.3) P.shiftyT = (P.shiftyT || 0) + dt;
   if (drifting) {
-    _qa.setFromAxisAngle(AY, -ctl.drift * FEEL.airSteer * dt);
+    _qa.setFromAxisAngle(AY, -drift * FEEL.airSteer * dt);
     const vy = P.vel.y; P.vel.y = 0; P.vel.applyQuaternion(_qa); P.vel.y = vy; P.baseQ.premultiply(_qa);
   }
-  // rotation: A / D spin and W / S flip directly, relaxed and flat; holding Q (a grab) changes nothing about that.
-  // Holding E makes the same directions wild: off-axis and faster (A / D = cork, W = misty, S = rodeo). E alone is just
-  // a jump. Released: the landing is spotted (pulled to the nearest landable angle).
-  const L = P.airLatch; if (!ctl.a) L.a = false; if (!ctl.d) L.d = false; if (!ctl.w) L.w = false; if (!ctl.s) L.s = false;
-  let sp = ctl.a && !L.a ? 1 : ctl.d && !L.d ? -1 : 0, fl = ctl.w && !L.w ? 1 : ctl.s && !L.s ? -1 : 0;
-  if ((sp !== 0 || fl !== 0) && !P.airDrop) {
-    const wild = ctl.e;
-    if (wild) { if (fl === 0) fl = -1; else if (sp === 0) sp = fl > 0 ? -P.lastSide : -R.toeSide; }
-    const both = sp !== 0 && fl !== 0;
-    if (fl !== 0 && !P.style) P.style = sp === 0 ? 'flip' : fl > 0 ? 'misty' : (sp * R.toeSide < 0 ? 'rodeo' : 'cork');
-    const tS = sp * (wild ? FEEL.wildSpin : both ? FEEL.corkSpin : FEEL.tameSpin), tF = fl * (wild ? FEEL.wildFlip : both ? FEEL.corkFlip : FEEL.tameFlip);
+  let tS = 0, tF = 0, turning = false;
+  if (tr) {
+    tr.t += dt; if (ctl.e) tr.held += dt;
+    const rem = Math.max(0.06, tr.tf - tr.t), spin = tr.kind === 'spin', step = spin ? Math.PI : 2 * Math.PI;
+    // E still held: another half turn of spin per 0.3 s (another whole flip per 0.55 s), while it can still come round in time
+    const want = spin ? Math.min(6, 2 + Math.floor(tr.held / 0.3)) * Math.PI : Math.min(2, 1 + Math.floor(tr.held / 0.55)) * 2 * Math.PI;
+    while (tr.target + step <= want + 1e-6 && (tr.target + step - tr.ang) / rem <= tr.max) tr.target += step;
+    const rate = clamp((tr.target - tr.ang) / rem, tr.min, tr.max), now = Math.abs(spin ? P.spinRate : P.flipRate);
+    if (spin) tS = tr.dir * rate; else tF = tr.dir * rate;
+    tr.ang += now * dt; turning = true;
+    if (tr.ang >= tr.target - now * 0.09) { tr.done = true; turning = false; }   // let go a touch early: the rate eases out over the rest
+  } else if (manual) {
+    const sp = ctl.a ? 1 : ctl.d ? -1 : 0, fl = ctl.w ? 1 : ctl.s ? -1 : 0, both = sp !== 0 && fl !== 0;
+    if (sp !== 0 || fl !== 0) {
+      turning = true; tS = sp * (both ? FEEL.corkSpin : FEEL.tameSpin); tF = fl * (both ? FEEL.corkFlip : FEEL.tameFlip);
+      if (fl !== 0 && !P.style) P.style = sp === 0 ? 'flip' : fl > 0 ? 'misty' : (sp * R.toeSide < 0 ? 'rodeo' : 'cork');
+    }
+  }
+  if (turning) {
     P.spinRate += clamp(tS - P.spinRate, -FEEL.rotAcc * dt, FEEL.rotAcc * dt);
     P.flipRate += clamp(tF - P.flipRate, -FEEL.rotAcc * dt, FEEL.rotAcc * dt);
   } else {
-    // ease rates down, then pull toward the nearest landable orientation
+    // ease the rates down, then pull toward the nearest landable orientation (the landing is spotted)
     P.spinRate *= Math.exp(-10 * dt); P.flipRate *= Math.exp(-10 * dt);
     const tSpin = Math.round(P.spin / Math.PI) * Math.PI, tFlip = Math.round(P.flip / (2 * Math.PI)) * 2 * Math.PI;
     const ms = 5.0 * dt;
@@ -7508,10 +7528,25 @@ function stepAir(dt) {
   if (g.h - P.pos.y > 0.6 + 2 * P.vel.length() * dt) { hitWall(dt, true); return; }
   if (P.pos.y <= g.h) landNow(g);
 }
+// a direction held as Q goes down picks the grab; plain Q works through all of them, a different one each time
+const GRAB_CYCLE = ['indy', 'mute', 'melon', 'stalefish', 'nose', 'tail', 'method', 'japan', 'rocket'];
 function pickGrab() {
   const w = ctl.w, s = ctl.s, a = ctl.a, d = ctl.d;
   if (w && a) return 'method'; if (w && d) return 'japan'; if (s && a) return 'stalefish'; if (s && d) return 'rocket';
-  if (w) return 'nose'; if (s) return 'tail'; if (a) return 'melon'; if (d) return 'mute'; return 'indy';
+  if (w) return 'nose'; if (s) return 'tail'; if (a) return 'melon'; if (d) return 'mute';
+  P.grabI = ((P.grabI === undefined ? -1 : P.grabI) + 1) % GRAB_CYCLE.length; return GRAB_CYCLE[P.grabI];
+}
+// E: pick the trick and how much of it fits. The forecast of the air comes from here (the same one the landing uses), so
+// the pace does not depend on anything outside the physics.
+function startTrick() {
+  const T = estimateLanding(), tf = (T > 0 ? T : 6) * 0.82 - 0.03, PI2 = 2 * Math.PI;
+  let kind = ctl.w || ctl.s ? 'flip' : 'spin', dir = 1, target = 0;
+  if (kind === 'flip') { if (tf * FEEL.trickFlip[1] >= PI2) { target = PI2; dir = ctl.w ? 1 : -1; } else kind = 'spin'; }   // no room for a flip: spin instead
+  if (kind === 'spin') { dir = ctl.a ? 1 : ctl.d ? -1 : (-P.lastSide || 1); target = tf * FEEL.trickSpin[1] >= PI2 ? PI2 : tf * FEEL.trickSpin[1] >= Math.PI ? Math.PI : 0; }
+  if (!target) return;   // too close to the snow for even a 180
+  const lim = kind === 'spin' ? FEEL.trickSpin : FEEL.trickFlip;
+  P.trick = { kind, dir, target, ang: 0, t: 0, held: 0, tf, done: false, min: lim[0], max: lim[1] };
+  if (kind === 'flip' && !P.style) P.style = 'flip';
 }
 const LAND = { n: new V3(0, 1, 0), t: -1, y: 0 };
 function estimateLanding() {
@@ -7545,7 +7580,8 @@ function landNow(g) {
   if (tang > 0.5) P.heading.copy(_v).normalize(); else { downDir(P.s, P.heading, P.pos.x, P.pos.z); projPlane(P.heading, n).normalize(); }
   if (P.heliDrop) { downDir(P.s, _w, P.pos.x, P.pos.z); projPlane(_w, n).normalize(); P.heading.lerp(_w, 0.6).normalize(); keepSp = Math.max(keepSp, 7.5); }
   P.vel.copy(P.heading).multiplyScalar(keepSp);
-  P.mode = 'ride'; P.comboGroundT = 0; P.snapRoot = true; P.qJump = false;
+  P.mode = 'ride'; P.comboGroundT = 0; P.snapRoot = true; P.qJump = false; P.eJump = false; P.trick = null;
+  if (P.spaceAir) { P.spaceAir = false; P.ignoreSpace = true; P.ignoreT = simT; }   // the hand-control Space must not turn into a pop as he lands
   const air = P.airT;
   // after long airs the chase camera catches up faster for a moment (it trails a falling rider)
   cam.catchUp = Math.max(cam.catchUp || 0, clamp01((air - 1.0) / 1.8));
@@ -7666,6 +7702,7 @@ function stepRail(dt) {
   if (ctl.space) { P.holdT += dt; P.crouch = Math.min(1, P.crouch + dt * 4); } else P.crouch = Math.max(0, P.crouch - dt * 6);
   const popped = (!ctl.space && P.prevSpace) || (ctl.e && !P.prevE) || (ctl.q && !P.prevQ);
   if (ctl.q && !P.prevQ) P.qJump = true;
+  if (ctl.e && !P.prevE) P.eJump = true;
   const ended = P.railD <= 0 || P.railD >= rail.len || P.railSpd < 0.8;
   railPoint(rail, P.railD, _rp, _rd); _rd.multiplyScalar(P.railSign);
   P.pos.copy(_rp); P.pos.y += rail.top;
@@ -8536,7 +8573,7 @@ function quitToTitle() {
   resetWorld(true);
   // rider / run state
   placeOnCourse(20, 0, 0, 0);
-  Object.assign(P, { mode: 'title', speed: 0, holdT: 0, prevSpace: false, prevQ: false, prevE: false, qJump: false, crouch: 0, skid: 0, steerSm: 0, tuck: 0, press: 0, airT: 0, airDrop: false, heliDrop: false,
+  Object.assign(P, { mode: 'title', speed: 0, holdT: 0, prevSpace: false, prevQ: false, prevE: false, qJump: false, eJump: false, trick: null, spaceAir: false, crouch: 0, skid: 0, steerSm: 0, tuck: 0, press: 0, airT: 0, airDrop: false, heliDrop: false,
     spin: 0, flip: 0, spinRate: 0, flipRate: 0, grab: null, rail: null, slide: null, bail: null, bailT: 0, tumbleAng: 0, invuln: 0, stillT: 0, ragKeep: 0, goodS: 20,
     butterYaw: 0, butterRate: 0, ignoreSpace: false, score: 0, comboGroundT: 0 });
   P.vel.set(0, 0, 0); loseCombo(); P.combo.last = '';
@@ -8841,7 +8878,86 @@ function startAt(s, d, speed) {
   placeOnCourse(s, d, 0, speed); P.mode = 'ride'; stream(s, 99); camSnap = true;
 }
 function carvePattern(t) { const ph = t % 3.2; return { steer: ph < 0.9 ? 0.55 : ph < 1.6 ? 0 : ph < 2.5 ? -0.55 : 0 }; }
+// ?shot=trick: one jump laid out frame by frame, so a trick can be judged in motion and not from a frozen pose.
+// Top row: the player's own chase camera, zoomed in on the rider. Bottom row: the same moments from the side.
+//   &do=key:from-to,...   inputs in the air, in seconds after leaving the snow (a key alone = held for the whole air)
+//                         keys: q e a d w s r, and drift+ / drift- (the mouse / right thumb)
+//   &jump=kicker|space|e|q  how he leaves the snow (kicker = the big one, popped at the lip)    &v= speed, m/s
+//   &pre=a,...            keys already held on the snow, kept held through takeoff (same from-to form, in air time)
+//   &n= frames per row (8)    &size= kicker size 0..2    &sw=1 riding switch    &cam=1 the close camera
+//   &t0= &t1=  show only this stretch of the air, in seconds (default: the whole air), to see a rotation step by step
+function trickStrip() {
+  const jump = QS.get('jump') || 'kicker', v = parseFloat(QS.get('v') || (jump === 'kicker' ? '17' : '11')), N = clamp(parseInt(QS.get('n') || '8', 10), 4, 14), dt = 1 / 60;
+  const parse = str => (str || '').split(',').map(t => /^([a-z]+[+\-]?)(?::([\d.]+)-([\d.]+))?$/.exec(t.trim())).filter(Boolean).map(m => ({ k: m[1], a: m[2] ? +m[2] : 0, b: m[3] ? +m[3] : 99 }));
+  const spec = parse(QS.get('do')), pre = parse(QS.get('pre')), pressT = 0.9;
+  const held = (list, key, t) => list.some(o => o.k === key && t >= o.a && t < o.b);
+  ensurePlan(4000); ensureCourse(4000);
+  let k = null, tAir = -1, tt = 0;
+  if (jump === 'kicker') { const z = firstZone('jumps'), size = parseInt(QS.get('size') || '2', 10); k = kickers.find(q => q.s > z.s0 && q.size === size && !q.yaw) || kickers.find(q => q.s > z.s0); startAt(k.s - 32, k.d, v); }
+  else { const z = plan.zones.find(q => q.type === 'breather') || firstZone('mini'); startAt(z.s0 + 12, 0, v); }
+  if (QS.has('sw')) P.sw = true;
+  if (QS.has('cam')) camMode = 1;
+  scripted = () => {
+    const o = { steer: 0 };
+    if (tAir < 0) {
+      if (k) { o.steer = P.mode === 'ride' ? clamp((k.d - P.d) * 0.3, -1, 1) : 0; o.space = P.s < k.s - 0.5; }
+      else if (jump === 'space') o.space = tt > 0.3 && tt < pressT; else if (jump === 'e') o.e = tt >= pressT; else if (jump === 'q') o.q = tt >= pressT;
+      for (const key of ['a', 'd', 'w', 's', 'r']) if (held(pre, key, 0)) o[key] = true;
+      if (o.a || o.d) o.steer = (o.d ? 1 : 0) - (o.a ? 1 : 0);
+      return o;
+    }
+    const ta = tt - tAir;
+    for (const key of ['q', 'e', 'a', 'd', 'w', 's', 'r']) if (held(spec, key, ta) || held(pre, key, ta)) o[key] = true;
+    o.drift = held(spec, 'drift+', ta) ? 1 : held(spec, 'drift-', ta) ? -1 : 0;
+    return o;
+  };
+  const W = innerWidth, H = innerHeight, cw = Math.floor(W / N), ch = Math.floor(H / 2);
+  const zc = new THREE.PerspectiveCamera(20, W / H, 0.1, 6000), sc2 = new THREE.PerspectiveCamera(20, W / H, 0.1, 6000);
+  // each frame is drawn full size and its middle copied into a cell of a 2D sheet laid over the game canvas
+  const sheet = document.createElement('canvas'); sheet.width = W; sheet.height = H; sheet.style.cssText = 'position:fixed;left:0;top:0;z-index:40'; document.body.appendChild(sheet);
+  const s2d = sheet.getContext('2d'), cropW = Math.min(W, Math.round(H * cw / ch)), cropX = (W - cropW) >> 1;
+  const paste = (i, row) => s2d.drawImage(renderer.domElement, cropX, 0, cropW, H, i * cw, row * ch, cw, ch);
+  const lab = (txt, x, y, big) => { const d = document.createElement('div'); d.textContent = txt; d.style.cssText = 'position:fixed;z-index:50;left:' + x + 'px;top:' + y + 'px;font:600 ' + (big ? 14 : 12) + 'px system-ui,sans-serif;color:#10243a;background:rgba(255,255,255,.85);padding:1px 6px;border-radius:3px;white-space:nowrap'; document.body.appendChild(d); };
+  elGauge.classList.remove('on'); const tp = document.getElementById('trick'); if (tp) tp.style.display = 'none';
+  const aim = new V3(), dir = new V3();
+  const shoot = (i, label) => {
+    aim.copy(R.root.position); aim.y += 0.55;
+    const half = 1.35 / (cw / ch);   // the cell shows +-1.35 m either side of him, whatever the distance
+    zc.position.copy(camera.position); zc.up.set(0, 1, 0); zc.lookAt(aim); zc.fov = clamp(2 * Math.atan(half / Math.max(1, zc.position.distanceTo(aim))) * 57.3, 5, 60); zc.updateProjectionMatrix();
+    renderer.render(scene, zc); paste(i, 0);
+    dir.set(P.vel.x, 0, P.vel.z); if (dir.lengthSq() < 1) dir.copy(cam.dir); dir.normalize();
+    sc2.position.set(aim.x - dir.z * 9, aim.y + 0.6, aim.z + dir.x * 9); sc2.up.set(0, 1, 0); sc2.lookAt(aim); sc2.fov = clamp(2 * Math.atan(half / 9) * 57.3, 5, 60); sc2.updateProjectionMatrix();
+    renderer.render(scene, sc2); paste(i, 1);
+    lab(label, i * cw + 4, 4); lab(label, i * cw + 4, ch + 4);
+  };
+  let shotI = 0, landT = -1, sched = null, maxSpin = 0, maxFlip = 0, airS = 0, grabs = {}, how = '';
+  for (let guard = 0; guard < 1800; guard++) {
+    frame(dt); tt += dt;
+    if (tAir < 0) {
+      if (P.mode === 'air' && (k ? P.s > k.s - 2 : tt >= pressT - 0.03)) {
+        tAir = tt - dt; sched = [];
+      } else if (tt > 12) break;
+      continue;
+    }
+    const ta = tt - tAir;
+    if (P.mode === 'air' && shotI < N - 1) { // the frames are spread over the air as currently forecast (it shifts a little as he pops / drifts)
+      const T = ta + Math.max(0, P.timeToLand), a0 = QS.has('t0') ? parseFloat(QS.get('t0')) : 0.03, a1 = QS.has('t1') ? parseFloat(QS.get('t1')) : T * 0.97;
+      sched[shotI] = a0 + shotI * (a1 - a0) / (N - 2);
+    }
+    if (P.mode === 'air') { airS = ta; maxSpin = Math.max(maxSpin, Math.abs(P.spin)); maxFlip = Math.max(maxFlip, Math.abs(P.flip)); if (P.grab) grabs[P.grab] = 1; if (shotI < N - 1 && ta >= sched[shotI]) { shoot(shotI, 't ' + ta.toFixed(2) + ' s'); shotI++; } }
+    else if (landT < 0) { landT = tt; how = P.mode; }
+    if (landT >= 0 && tt - landT >= 0.2) { shoot(N - 1, 'after landing'); break; }
+  }
+  scripted = null;
+  const q = P.lastLand ? ' landing quality ' + P.lastLand.quality.toFixed(2) : '';
+  lab('chase camera (zoomed)   |   jump=' + jump + ' v=' + v + (QS.get('pre') ? ' pre=' + QS.get('pre') : '') + ' do=' + (QS.get('do') || 'nothing') + (QS.has('sw') ? ' switch' : '') +
+    '   |   air ' + airS.toFixed(2) + ' s, turned ' + Math.round(maxSpin * 57.3) + ' deg spin / ' + Math.round(maxFlip * 57.3) + ' deg flip, grab ' + (Object.keys(grabs).join('+') || 'none') +
+    '   |   ' + (how === 'bail' || how === 'ragdoll' ? 'CRASHED (' + how + ')' : 'landed: ' + (P.combo.last || 'no trick named')) + q, 4, ch - 24, true);
+  lab('side view', 4, H - 24, true);
+  document.title = 'done';
+}
 function runShot(name) {
+  if (name === 'trick') return trickStrip();
   const t = parseFloat(QS.get('t') || '8');
   const dt = 1 / 60;
   if (name === 'title') { for (let i = 0; i < 30; i++) frame(dt); }
@@ -8876,7 +8992,7 @@ function runShot(name) {
     let airSeen = -1;
     scripted = tt => {
       const o = { steer: clamp((k.d - P.d) * 0.25, -1, 1) * (P.mode === 'ride' ? 1 : 0), space: tt < 1.75 };
-      if (name === 'air' && P.mode === 'air') { if (airSeen < 0) airSeen = tt; o.a = tt - airSeen > 0.05 && tt - airSeen < 0.75; o.q = tt - airSeen > 0.1; o.steer = 0; }
+      if (name === 'air' && P.mode === 'air') { if (airSeen < 0) airSeen = tt; o.e = tt - airSeen < 0.2; o.q = tt - airSeen > 0.1; o.steer = 0; }
       return o;
     };
     if (name === 'kicker') riderRun(1.0, dt);
@@ -8948,7 +9064,7 @@ function runShot(name) {
     } else { // botched landing: a big kicker, spin held far too long
       const z = firstZone('jumps'); const k = kickers.find(kk => kk.s > z.s0 && kk.size === 2) || kickers.find(kk => kk.s > z.s0);
       startAt(k.s - 30, k.d, v); let tA = -1;
-      scripted = tt => { if (P.mode === 'air' && tA < 0) tA = tt; return { steer: P.mode === 'ride' ? clamp((k.d - P.d) * 0.3, -1, 1) : 0, space: P.mode === 'ride' && P.s < k.s - 0.5, a: tA >= 0 && tt - tA > 0.03 && P.mode === 'air' }; };
+      scripted = tt => { if (P.mode === 'air' && tA < 0) tA = tt; return { steer: P.mode === 'ride' ? clamp((k.d - P.d) * 0.3, -1, 1) : 0, space: P.mode === 'ride' && P.s < k.s - 0.5, e: tA >= 0 && tt - tA < 0.2 && P.mode === 'air' }; };
     }
     let hitT = -1, endT = -1, upT = -1, tt = 0;
     for (let i = 0; i < 60 * 12; i++) {
@@ -9278,7 +9394,7 @@ function runTest() {
     const c = tt % 14;
     if (c > 4 && c < 8) o.space = true;
     if (tt % 23 > 19) o.s = true;
-    if (P.mode === 'air') { if (airSeen < 0) { airSeen = tt; airBig = P.timeToLand > 0.9 || P.timeToLand < 0; } o.a = airBig && tt - airSeen > 0.03 && tt - airSeen < 0.62; o.q = airBig; o.s = o.w = false; } else airSeen = -1;
+    if (P.mode === 'air') { if (airSeen < 0) { airSeen = tt; airBig = P.timeToLand > 0.9 || P.timeToLand < 0; } o.e = airBig && tt - airSeen < 0.15; o.q = airBig; o.s = o.w = false; } else airSeen = -1;
     // keep near the clear line: steer the travel direction toward a carve offset from the fall line (like a player would)
     const want = clamp(o.steer * 0.9 - P.d * 0.03, -0.8, 0.8);
     courseDir(P.s, _ca); const vx = P.vel.x, vz = P.vel.z;
@@ -9319,7 +9435,7 @@ function runBot(tt) {
   const o = carvePattern(tt), c = tt % 14;
   if (c > 4 && c < 8) o.space = true;
   if (tt % 23 > 19) o.s = true;
-  if (P.mode === 'air') { if (rbAir < 0) { rbAir = tt; rbBig = P.timeToLand > 0.9 || P.timeToLand < 0; } o.a = rbBig && tt - rbAir > 0.03 && tt - rbAir < 0.62; o.q = rbBig; o.s = o.w = false; } else rbAir = -1;
+  if (P.mode === 'air') { if (rbAir < 0) { rbAir = tt; rbBig = P.timeToLand > 0.9 || P.timeToLand < 0; } o.e = rbBig && tt - rbAir < 0.15; o.q = rbBig; o.s = o.w = false; } else rbAir = -1;
   let cd = 0; for (const g of gullies) if (P.s > g.s0 && P.s < g.s1) cd = gullyC(g, P.s);
   const want = clamp(o.steer * 0.9 - (P.d - cd) * 0.03, -0.8, 0.8);
   courseDir(P.s, _ca); const vx = P.vel.x, vz = P.vel.z;
@@ -9395,7 +9511,7 @@ function soakTest() {
     if (c > 4 && c < 8) o.space = true;
     if (tt % 23 > 19) o.s = true;
     if (tt % 17 > 15) o.r = true;
-    if (P.mode === 'air') { if (airSeen < 0) { airSeen = tt; airBig = P.timeToLand > 0.9 || P.timeToLand < 0; } o.a = airBig && tt - airSeen > 0.03 && tt - airSeen < 0.62; o.q = airBig; o.s = o.w = false; } else airSeen = -1;
+    if (P.mode === 'air') { if (airSeen < 0) { airSeen = tt; airBig = P.timeToLand > 0.9 || P.timeToLand < 0; } o.e = airBig && tt - airSeen < 0.15; o.q = airBig; o.s = o.w = false; } else airSeen = -1;
     const want = clamp(o.steer * 0.9 - P.d * 0.03, -0.8, 0.8);
     courseDir(P.s, _ca); const vx = P.vel.x, vz = P.vel.z;
     const cur = Math.atan2(-(_ca.z * vx - _ca.x * vz), _ca.x * vx + _ca.z * vz);
@@ -9698,43 +9814,57 @@ function feelTest() {
       lines.push(pad('K' + size + (pop ? ' pop ' : ' air ') + v + 'm/s', 14) + 'air ' + airT.toFixed(2) + 's  h ' + hMax.toFixed(1) + '  apex ' + apex.toFixed(1) + '  dist ' + dist.toFixed(0) + '  lip ' + vl.toFixed(1) + '  land ' + (L.strength !== undefined ? L.strength.toFixed(2) + '/' + L.quality.toFixed(2) : '-') + '  out ' + P.speed.toFixed(1));
     }
   }
-  // 2b) spins off the big kicker at 18 m/s, popped: hold E+A for a while, release, spot; report the landed rotation
+  // 2b) E tricks off the big kicker at 18 m/s, popped: what a tap, a hold and a direction give, and by hand with Space
   { const k = kickers.find(kk => kk.size === 2 && plan.zones.some(z => z.type === 'jumps' && kk.s > z.s0 && kk.s < z.s1));
-    for (const [hold, fl, wild] of [[0.9, 0], [1.3, 0], [1.8, 0], [2.3, 0], [1.3, 1], [1.3, -1], [1.3, 0, 1], [2.4, 0, 1], [1.3, 1, 1], [1.3, -1, 1]]) {
-      setup(k.s - 30, k.d, 18); let tAir = -1, deg = 0, flips = 0, air = 0, bailed = false;
+    for (const [lbl, eHold, dirKey, hand] of [['E tap', 0.12, ''], ['E held 0.5', 0.5, ''], ['E held 1.0', 1.0, ''], ['E held all', 9, ''], ['E tap + D', 0.12, 'd'], ['E + W tap', 0.12, 'w'], ['E + S tap', 0.12, 's'], ['E + W held', 9, 'w'],
+      ['Space + A 1.0 s', 0, 'a', 1.0], ['Space + W 1.25 s', 0, 'w', 1.25], ['Space + A + S 1.3 s', 0, 'as', 1.3]]) {
+      setup(k.s - 30, k.d, 18); P.prevE = false; P.grabI = -1; let tAir = -1, deg = 0, flips = 0, air = 0, bailed = false, doneAt = -1;
       sim(9, t => {
         if (P.mode === 'air' && tAir < 0) tAir = t;
-        const inAir = P.mode === 'air' && tAir >= 0;
-        return { steer: P.mode === 'ride' ? clamp((k.d - P.d) * 0.3, -1, 1) : 0, space: P.s < k.s - 0.5 && P.mode === 'ride', e: inAir && !!wild && t - tAir < hold, a: inAir && !fl && t - tAir > 0.02 && t - tAir < hold, w: inAir && fl > 0 && t - tAir > 0.02 && t - tAir < hold, s: inAir && fl < 0 && t - tAir > 0.02 && t - tAir < hold };
-      }, () => (tAir >= 0 && P.mode !== 'air') , t => {
+        const ta = tAir >= 0 && P.mode === 'air' ? t - tAir : -1, o = { steer: P.mode === 'ride' ? clamp((k.d - P.d) * 0.3, -1, 1) : 0, space: P.s < k.s - 0.5 && P.mode === 'ride' };
+        if (ta > 0.03) { if (hand) { o.space = ta > 0.06 && ta < hand; for (const c of dirKey) o[c] = o.space; } else { o.e = ta < 0.03 + eHold; for (const c of dirKey) o[c] = ta < 0.3; } }
+        return o;
+      }, () => (tAir >= 0 && P.mode !== 'air'), t => {
         if (P.mode === 'ride' && P.s < k.s - 5) { const l = P.vel.length(); if (l > 0.1) P.vel.multiplyScalar(18 / l); }
-        if (P.mode === 'air') { deg = Math.round(P.spin / Math.PI) * 180; flips = Math.round(P.flip / (2 * Math.PI)); air = P.airT; }
+        if (P.mode === 'air') { deg = Math.round(P.spin / Math.PI) * 180; flips = Math.round(P.flip / (2 * Math.PI)); air = P.airT; if (doneAt < 0 && P.trick && P.trick.done) doneAt = P.airT; }
         if (P.mode === 'bail') bailed = true;
       });
       const L = P.lastLand || {};
-      lines.push(pad((wild ? 'wild ' : 'spin ') + (fl > 0 ? 'W ' : fl < 0 ? 'S ' : 'A ') + hold, 18) + (P.style ? P.style + ' ' : '') + 'landed ' + Math.abs(deg) + ' deg ' + (flips ? Math.abs(flips) + ' flip ' : '') + ' air ' + air.toFixed(2) + ' s  ' + (bailed || P.mode === 'bail' ? 'BAIL' : 'q ' + (L.quality !== undefined ? L.quality.toFixed(2) : '-')));
+      lines.push(pad(lbl, 20) + pad(P.combo.last || '-', 22) + 'landed ' + Math.abs(deg) + ' deg ' + (flips ? Math.abs(flips) + ' flip ' : '') + ' air ' + air.toFixed(2) + ' s' + (doneAt >= 0 ? '  trick over at ' + doneAt.toFixed(2) + ' s' : '') + '  ' + (bailed || P.mode === 'bail' ? 'BAIL' : 'q ' + (L.quality !== undefined ? L.quality.toFixed(2) : '-')));
     } }
-  // 2c) the control scheme: E / Q jump at once, Q leaves already grabbing, a direction held through takeoff does nothing
-  // until pressed again, plain directions spin, E alone does not, the drift axis steers without spinning, butters are on R
+  // 2c) the controls: E / Q jump at once; E is a whole trick; Q grabs, a different one each time; plain directions only
+  // drift; Space pressed in the air turns him by hand, held from the snow it does not; butters are on R
   { const chk = (name, ok, extra) => lines.push((ok ? 'ok    ' : 'FAIL  ') + name + (extra ? '  (' + extra + ')' : ''));
     let s0 = br.s0 + 10; for (let q = br.s0 + 4; q < br.s1 - 20; q += 1) { let ok = true; for (let u = 0; u < 16; u++) if (bumpH(q + u, 0) > 0.01) ok = false; if (ok) { s0 = q; break; } }
-    const hop = (ctlFn, each) => { setup(s0, 0, 9); P.prevE = P.prevQ = false; P.qJump = false; let airOn = false, apex = 0, y0 = P.pos.y, tAir = -1;
-      sim(5, t => ctlFn(t, tAir), t => airOn && P.mode !== 'air', t => { if (P.mode === 'air') { if (!airOn) { airOn = true; tAir = t; } apex = Math.max(apex, P.pos.y - y0); if (each) each(t - tAir); } });
-      return { airOn, apex, tAir, air: P.airT }; };
+    const hop = (ctlFn, each) => { setup(s0, 0, 9); P.prevE = P.prevQ = false; P.qJump = P.eJump = false; P.trick = null; let airOn = false, apex = 0, y0 = P.pos.y, tAir = -1, mS = 0, mF = 0, grab = '', grabAt = -1;
+      sim(5, t => ctlFn(t, tAir >= 0 ? t - tAir : -1), t => airOn && P.mode !== 'air', t => { if (P.mode === 'air') { if (!airOn) { airOn = true; tAir = t; } apex = Math.max(apex, P.pos.y - y0); mS = Math.max(mS, Math.abs(P.spin)); mF = Math.max(mF, Math.abs(P.flip)); if (P.grab && grabAt < 0) { grab = P.grab; grabAt = t - tAir; } if (each) each(t - tAir); } });
+      return { airOn, apex, tAir, air: P.airT, mS, mF, grab, grabAt, landed: P.mode === 'ride', name: P.combo.last, q: P.lastLand ? P.lastLand.quality : 0 }; };
+    const pop = t => t < 0.25;   // a charged Space pop: a plain jump
     let r = hop(t => ({ e: t > 0.1 && t < 0.2 }));
-    chk('E press jumps at once', r.airOn && r.tAir < 0.1 + 3 * STEP, 'left the snow ' + ((r.tAir - 0.1) * 1000).toFixed(0) + ' ms after the press, apex ' + r.apex.toFixed(2) + ' m, air ' + r.air.toFixed(2) + ' s');
-    let grabAt = -1, grabName = '';
-    r = hop(t => ({ q: t > 0.1 }), ta => { if (P.grab && grabAt < 0) { grabAt = ta; grabName = P.grab; } });
-    chk('Q press jumps into a grab', r.airOn && grabAt >= 0 && grabAt < 0.05, grabName + ' ' + (grabAt * 1000).toFixed(0) + ' ms into the air');
-    let maxSpin = 0;
-    r = hop(t => ({ e: t > 0.1 && t < 0.2, a: true, steer: 0 }), () => { maxSpin = Math.max(maxSpin, Math.abs(P.spin)); });
-    chk('A held through takeoff does not spin', r.airOn && maxSpin < 0.05, 'max ' + (maxSpin * 57.3).toFixed(0) + ' deg');
-    maxSpin = 0; r = hop((t, ta) => ({ e: t > 0.1 && t < 0.2, a: ta >= 0 && t - ta > 0.05 && t - ta < 0.5 }), () => { maxSpin = Math.max(maxSpin, Math.abs(P.spin)); });
-    chk('A pressed in the air spins', maxSpin > 1.5, 'max ' + (maxSpin * 57.3).toFixed(0) + ' deg');
-    maxSpin = 0; let maxFlip = 0; r = hop(t => ({ e: t > 0.1 }), () => { maxSpin = Math.max(maxSpin, Math.abs(P.spin)); maxFlip = Math.max(maxFlip, Math.abs(P.flip)); });
-    chk('E held alone is just a jump', r.airOn && maxSpin < 0.05 && maxFlip < 0.05);
-    maxSpin = 0; let h0 = 0, h1 = 0, shT = 0; r = hop((t, ta) => ({ e: t > 0.1 && t < 0.2, drift: ta >= 0 ? 1 : 0 }), ta => { const h = Math.atan2(P.vel.x, -P.vel.z); if (ta < 2 * STEP) h0 = h; h1 = h; maxSpin = Math.max(maxSpin, Math.abs(P.spin)); shT = P.shiftyT || 0; });
-    chk('drift steers without spinning', Math.abs(h1 - h0) > 0.15 && maxSpin < 0.05 && shT > 0.2, 'heading ' + ((h1 - h0) * 57.3).toFixed(0) + ' deg, shifty ' + shT.toFixed(2) + ' s');
+    chk('E press jumps at once', r.airOn && r.tAir < 0.1 + 3 * STEP, 'left the snow ' + ((r.tAir - 0.1) * 1000).toFixed(0) + ' ms after the press, air ' + r.air.toFixed(2) + ' s');
+    chk('E tap is a whole 360 by itself, landed clean', r.landed && Math.abs(r.mS - 2 * Math.PI) < 0.35 && r.q > 0.8 && /360/.test(r.name || ''), (r.name || '-') + ', turned ' + (r.mS * 57.3).toFixed(0) + ' deg, quality ' + r.q.toFixed(2));
+    r = hop(t => ({ e: t > 0.1 && t < 0.2, a: t < 0.5, steer: 0 })); const rA = r.mS;
+    chk('E while carving still does the trick', r.landed && r.mS > 5.5, 'turned ' + (r.mS * 57.3).toFixed(0) + ' deg');
+    r = hop(t => ({ e: t > 0.1 && t < 0.2, w: t > 0.05 && t < 0.4 }));
+    chk('E + W is a front flip, landed clean', r.landed && Math.abs(r.mF - 2 * Math.PI) < 0.35 && r.q > 0.8 && /flip/i.test(r.name || ''), (r.name || '-') + ', flipped ' + (r.mF * 57.3).toFixed(0) + ' deg, quality ' + r.q.toFixed(2));
+    P.grabI = -1; const g1 = hop(t => ({ q: t > 0.1 })), g2 = hop(t => ({ q: t > 0.1 })), g3 = hop(t => ({ q: t > 0.1, s: t > 0.05 && t < 0.3 }));
+    chk('Q press jumps into a grab', g1.airOn && g1.grabAt >= 0 && g1.grabAt < 0.05, g1.grab + ' ' + (g1.grabAt * 1000).toFixed(0) + ' ms into the air');
+    chk('plain Q is a different grab each time', g1.grab && g2.grab && g1.grab !== g2.grab && g1.mS < 0.05, g1.grab + ' then ' + g2.grab);
+    chk('a direction picks the grab', g3.grab === 'tail' && g3.mF < 0.05, 'S + Q = ' + g3.grab);
+    let h0 = 0, h1 = 0;
+    r = hop((t, ta) => ({ space: pop(t), a: ta > 0.05 }), ta => { const h = Math.atan2(P.vel.x, -P.vel.z); if (ta < 2 * STEP) h0 = h; h1 = h; });
+    chk('A alone in the air only drifts', r.mS < 0.05 && r.mF < 0.05 && Math.abs(h1 - h0) > 0.1, 'spin ' + (r.mS * 57.3).toFixed(0) + ' deg, heading ' + ((h1 - h0) * 57.3).toFixed(0) + ' deg');
+    r = hop((t, ta) => ({ space: pop(t), w: true }));
+    chk('W held off the snow does not flip him', r.mF < 0.05 && r.mS < 0.05);
+    r = hop((t, ta) => ({ space: pop(t) || (ta > 0.08 && ta < 0.7), a: ta > 0.08 && ta < 0.7 }));
+    chk('Space pressed in the air + A turns him by hand', r.mS > 2.5, 'turned ' + (r.mS * 57.3).toFixed(0) + ' deg');
+    { setup(s0, 0, 9); let fl = 0, sp = 0, seenAir = false;   // Space held from the snow over a roll: still the crouch, not hand control
+      const kk = kickers.find(q => q.size === 0) || kickers[0]; setup(kk.s - 22, kk.d, 13);
+      sim(5, () => ({ space: true, w: true, steer: 0 }), () => seenAir && P.mode !== 'air', () => { if (P.mode === 'air') { seenAir = true; fl = Math.max(fl, Math.abs(P.flip)); sp = Math.max(sp, Math.abs(P.spin)); } });
+      chk('Space + W held from the snow does not flip him', seenAir && fl < 0.05 && sp < 0.05, 'air ' + P.airT.toFixed(2) + ' s'); }
+    let shT = 0; h0 = 0; h1 = 0;
+    r = hop((t, ta) => ({ space: pop(t), drift: ta >= 0 ? 1 : 0 }), ta => { const h = Math.atan2(P.vel.x, -P.vel.z); if (ta < 2 * STEP) h0 = h; h1 = h; shT = P.shiftyT || 0; });
+    chk('drift steers without spinning', Math.abs(h1 - h0) > 0.15 && r.mS < 0.05 && shT > 0.2, 'heading ' + ((h1 - h0) * 57.3).toFixed(0) + ' deg, shifty ' + shT.toFixed(2) + ' s');
     setup(s0, 0, 9); let br1 = 0, pr1 = 0; sim(0.6, () => ({ r: true, steer: 1, d: true }), null, () => { br1 = Math.max(br1, Math.abs(P.butterRate)); pr1 = Math.max(pr1, Math.abs(P.press)); });
     chk('R + direction butters on the snow', P.mode === 'ride' && br1 > 1 && pr1 > 0.5, 'roll ' + br1.toFixed(1) + ' rad/s, press ' + pr1.toFixed(2));
     { // riding into a ramp's lip from the front: he must not be put on top of it
@@ -9746,12 +9876,11 @@ function feelTest() {
       setup(kk.s - kk.L * 0.25, kk.d + kk.W / 2 + 4, 8); let maxUp = 0, prevY = P.pos.y, topped = false;
       sim(1.4, () => ({ steer: -1 }), null, () => { maxUp = Math.max(maxUp, P.pos.y - prevY); prevY = P.pos.y; if (Math.abs(P.d - kk.d) < kk.W / 2 - 0.3) topped = true; });
       chk('a ramp side is a bank, not a wall', maxUp < 0.25, 'biggest one-step rise ' + (maxUp * 100).toFixed(0) + ' cm' + (topped ? ', rode up onto it' : '')); }
-    { const hop = (o) => { setup(s0, 0, 9); P.prevE = P.prevQ = false; let ta = -1, h0 = 0, h1 = 0, sp = 0; keys.ArrowRight = false;
-        scripted = null; for (let i = 0; i < 150; i++) { const t = i / 60; keys.KeyE = t > 0.1 && t < 0.2; if (P.mode === 'air' && ta < 0) ta = t; keys.ArrowRight = o.air ? ta >= 0 && P.mode === 'air' : true; frame(1 / 60);
-          if (P.mode === 'air') { const h = Math.atan2(P.vel.x, -P.vel.z); if (!h0) h0 = h; h1 = h; sp = Math.max(sp, Math.abs(P.spin)); } else if (ta >= 0) break; }
-        keys.ArrowRight = keys.KeyE = false; return { turn: (h1 - h0) * 57.3, sp }; };
-      const r = hop({ air: true });
-      chk('right arrow drifts in the air without spinning', Math.abs(r.turn) > 6 && r.sp < 0.05, 'heading ' + r.turn.toFixed(0) + ' deg, spin ' + r.sp.toFixed(2)); }
+    { setup(s0, 0, 9); P.prevE = P.prevQ = false; let ta = -1, a0 = 0, a1 = 0, sp = 0;   // real key events: right arrow in the air drifts
+      scripted = null; for (let i = 0; i < 150; i++) { const t = i / 60; keys.Space = t < 0.25; if (P.mode === 'air' && ta < 0) ta = t; keys.ArrowRight = ta >= 0 && P.mode === 'air'; frame(1 / 60);
+        if (P.mode === 'air') { const h = Math.atan2(P.vel.x, -P.vel.z); if (!a0) a0 = h; a1 = h; sp = Math.max(sp, Math.abs(P.spin)); } else if (ta >= 0) break; }
+      keys.ArrowRight = keys.Space = false;
+      chk('right arrow drifts in the air without spinning', Math.abs(a1 - a0) * 57.3 > 6 && sp < 0.05, 'heading ' + ((a1 - a0) * 57.3).toFixed(0) + ' deg, spin ' + sp.toFixed(2)); }
     for (const sw of [false, true]) for (const dir of [1, -1]) {
       const c0 = SC.spray.carve; let sum = 0, n = 0;
       SC.spray.carve = function (pos, d) { const l = Math.hypot(P.vel.x, P.vel.z) || 1; sum += d.x * (-P.vel.z / l) + d.z * (P.vel.x / l); n++; return c0.apply(SC.spray, arguments); };
@@ -9759,11 +9888,6 @@ function feelTest() {
       for (let i = 0; i < 60; i++) { const l = P.vel.length(); if (l > 0.1) P.vel.multiplyScalar(14 / l); frame(1 / 60); }
       scripted = null; SC.spray.carve = c0; const side = n ? sum / n : 0;
       chk('carve spray flies to the outside: ' + (sw ? 'switch' : 'regular') + ', turning ' + (dir > 0 ? 'right' : 'left'), n > 10 && side * dir < -0.5, n + ' puffs, ' + (side > 0 ? 'right' : 'left') + ' of travel');
-    }
-    for (const [lbl, o] of [['wild E + A', { a: 1 }], ['wild E + W', { w: 1 }], ['wild E + S', { s: 1 }], ['plain A + W', { a: 1, w: 1, tame: 1 }]]) {
-      setup(s0, 0, 9); P.prevE = P.prevQ = false; let ta = -1; P.style = null; let st = null;
-      sim(1.2, t => { if (P.mode === 'air' && ta < 0) ta = t; const on = ta >= 0 && t - ta > 0.03; return { e: (t > 0.1 && t < 0.2) || (on && !o.tame), a: on && !!o.a, w: on && !!o.w, s: on && !!o.s }; }, null, () => { if (P.style) st = P.style; });
-      chk(lbl + ' goes off-axis', Math.abs(P.spinRate) > 3 && Math.abs(P.flipRate) > 3, (st || '-') + '  spin ' + P.spinRate.toFixed(1) + ' flip ' + P.flipRate.toFixed(1) + ' rad/s');
     }
   }
   // 3) turn rate: full steer from straight, yaw rate of the velocity after 0.15/0.3/1.0 s, speed after 1 s

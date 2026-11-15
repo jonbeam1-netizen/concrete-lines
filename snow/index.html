@@ -100,6 +100,15 @@ a.sib b{color:var(--glacier-deep)}
 button.ghost{font-family:var(--font);font-size:15px;font-weight:600;color:var(--glacier-deep);background:rgba(255,255,255,.4);border:0;border-radius:10px;padding:8px 24px;cursor:pointer;box-shadow:inset 0 0 0 2px var(--glacier)}
 button.ghost:hover{background:rgba(58,143,208,.14)}
 .overlay.hide{visibility:hidden}
+#settings .card{min-width:min(380px,84vw)}
+.setrow{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:12px 0;font-size:15px;color:var(--ink);text-align:left}
+.setrow .vol{display:flex;align-items:center;gap:8px}
+.setrow input[type=range]{width:150px;accent-color:var(--glacier-deep)}
+.setrow b{min-width:38px;text-align:right;color:var(--glacier-deep)}
+.seg{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.seg button{font-family:var(--font);font-size:13px;color:var(--ink);background:rgba(255,255,255,.55);border:1px solid rgba(16,36,58,.18);border-radius:14px;padding:4px 11px;cursor:pointer}
+.seg button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+body.touch .mouseonly{display:none}
 /* Rider panel: same language as the board maker (dark panel, readable labels); the stage is see-through to the game canvas */
 #rp{position:fixed;inset:0;z-index:60;display:none;font-family:var(--font);color:#e8eef5;font-size:15px;line-height:1.3;-webkit-user-select:none;user-select:none;touch-action:manipulation}
 #rp.on{display:flex}
@@ -146,10 +155,10 @@ button.ghost:hover{background:rgba(58,143,208,.14)}
   <div class="modes"><button class="big" id="playBtn">Endless</button><button class="big alt" id="bowlBtn">Free-ride Bowl</button><button class="big alt" id="runBtn">Signature Run</button></div>
   <div class="drops" id="drops"><span class="lbl">Bowl drop-in</span></div>
   <div class="drops" id="conds" style="display:none"><span class="lbl">Conditions</span></div>
-  <div class="gear"><button class="ghost" id="boardBtn" type="button">Board</button><button class="ghost" id="riderBtn" type="button">Rider</button></div>
+  <div class="gear"><button class="ghost" id="boardBtn" type="button">Board</button><button class="ghost" id="riderBtn" type="button">Rider</button><button class="ghost" id="setBtn" type="button">Settings</button></div>
   <div class="best" id="bestLine"></div>
   <a class="sib" href="https://jonbeam1-netizen.github.io/concrete-lines/" target="_top"><svg width="22" height="12" viewBox="0 0 22 12" aria-hidden="true"><rect x="1" y="2" width="20" height="4" rx="2" fill="currentColor"/><circle cx="5" cy="9" r="2.2" fill="currentColor"/><circle cx="17" cy="9" r="2.2" fill="currentColor"/></svg>Also play <b>Concrete Lines</b> &middot; skateboarding &rarr;</a>
-  <div class="sub">Updated November 14, 2026 &middot; Play-test 0.010</div>
+  <div class="sub">Updated November 14, 2026 &middot; Play-test 0.011</div>
 </div></div>
 <div class="overlay" id="pause"><div class="card">
   <h2>Paused</h2>
@@ -180,7 +189,15 @@ button.ghost:hover{background:rgba(58,143,208,.14)}
     <tr><td>P / Esc</td><td>Pause</td></tr>
   </table>
   <button class="big" id="resumeBtn">Resume</button>
-  <div class="gear"><button class="ghost" id="boardBtn2" type="button">Board</button><button class="ghost" id="riderBtn2" type="button">Rider</button><button class="ghost quit" id="quitBtn" type="button">Quit to title</button></div>
+  <div class="gear"><button class="ghost" id="boardBtn2" type="button">Board</button><button class="ghost" id="riderBtn2" type="button">Rider</button><button class="ghost" id="setBtn2" type="button">Settings</button><button class="ghost quit" id="quitBtn" type="button">Quit to title</button></div>
+</div></div>
+<div class="overlay" id="settings"><div class="card">
+  <h2>Settings</h2>
+  <div class="setrow"><span>Volume</span><span class="vol"><input type="range" id="setVol" min="0" max="100" step="5" aria-label="Volume"><b id="setVolN"></b></span></div>
+  <div class="setrow"><span>Camera</span><span class="seg" id="setCam"><button type="button" data-v="0">Far</button><button type="button" data-v="1">Close</button></span></div>
+  <div class="setrow mouseonly"><span>Mouse drift</span><span class="seg" id="setSens"><button type="button" data-v="0.6">Gentle</button><button type="button" data-v="1">Normal</button><button type="button" data-v="1.7">Strong</button></span></div>
+  <div class="setrow mouseonly"><span>Hold the cursor while riding</span><span class="seg" id="setCap"><button type="button" data-v="1">On</button><button type="button" data-v="0">Off</button></span></div>
+  <button class="big" id="setDone" type="button">Done</button>
 </div></div>
 <div id="rp" role="dialog" aria-modal="true" aria-label="Rider"><div class="shell">
   <div class="stage" id="rpStage"><span class="t">Rider</span><span class="h">Drag to turn</span></div>
@@ -808,11 +825,13 @@ function createSnowRider(THREE, opts) {
     // the look from tilt = [pitch, yaw, roll] of the whole rider + board (switch-mirrored) and the bone; splay = knees out over
     // the feet; reach = extra forearm stretch (m, <= 0.05) for the grabbing arm. No pull of the board to the hand.
     // Checked with rider-preview ?grabcheck=1 (PASS = ankles within 15 deg of the plain tuck, body penetration <= 2 cm, hand <= 4 cm).
-    // pass 10: melon, stalefish, japan squared too; method keeps the old pose (did not pass yet).
+    // pass 10: melon, stalefish, japan squared too; pass 11: method.
     indy: { sq: 1, reach: 0.05, splay: 0.35, h: [1], p: [[HW, 0.006, 0.06]], tilt: [-0.6, 0, 0.35], f: { by: 0.56, hipY: 0.92, bend: 1.0, hipPitch: 0.42, twist: -0.2, side: 0.12, bRoll: -0.25, hipYaw: 0.2, headYaw: 1.3, headPitch: -0.12, a0x: 0.14, a0y: 0.32, a0o: 0.5 } },
     mute: { sq: 1, reach: 0.05, splay: 0.35, h: [0], p: [[HW, 0.006, -0.1]], tilt: [-0.6, 0.3, -0.3], f: { by: 0.56, hipY: 0.92, bend: 1.0, hipPitch: 0.42, twist: 0.25, side: -0.12, bRoll: -0.25, hipYaw: 0.15, headYaw: 1.1, headPitch: -0.15, a1x: -0.32, a1y: 0.06, a1o: 0.44 } },
     melon: { sq: 1, reach: 0.05, splay: 0.25, h: [0], p: [[-HW, 0.006, -0.18]], hint: [-0.2, -0.3, 1.0], tilt: [-0.4, 0.45, -0.3], f: { by: 0.52, hipY: 0.92, bend: 0.9, hipPitch: 0.4, bx: -0.08, twist: 0.7, side: -0.5, bRoll: -0.3, hipYaw: 0.15, headYaw: 1.2, headPitch: -0.1, a1x: -0.05, a1y: 0.2, a1o: 0.56 } },
-    method: { h: [0], p: [[-HW, 0.006, -0.04]], hint: [-0.3, -0.1, 1.0], f: { hipY: 0.98, by: 0.64, bx: -0.52, bYaw: 0.95, bPitch: -0.6, bRoll: -1.4, bend: -0.32, hipPitch: -0.14, twist: 0.42, side: -0.16, headYaw: 1.45, headPitch: 0.24, a1x: -0.12, a1y: 0.42, a1o: 0.5 } },
+    // method (pass 11): built from the legs, not a tuck: hips open, knees bent ~100 deg toward the toe side (G.knee), the board
+    // rolled heel-edge-up behind him with the shins; front hand on the heel edge by the front binding, back arm up. Allowance 25.
+    method: { sq: 1, alim: 25, reach: 0.05, splay: 0, knee: [1, -0.4, 0.25], h: [0], p: [[-HW, 0.006, -0.16]], hint: [-0.3, -0.1, 1.0], tilt: [0, 0.6, 0], f: { hipY: 0.95, by: 0.62, bx: -0.45, bRoll: -1.8, bYaw: 0, bend: 0.1, hipPitch: 0.1, twist: 0.65, side: -0.4, hipYaw: 0.2, headYaw: 1.45, headPitch: 0.2, a1x: -0.12, a1y: 0.5, a1o: 0.5 } },
     stalefish: { sq: 1, reach: 0.05, splay: 0.25, h: [1], p: [[-HW, 0.006, 0.18]], hint: [-0.7, 0.1, 0.7], tilt: [-0.4, -0.45, 0.3], f: { by: 0.52, hipY: 0.92, bend: 0.9, hipPitch: 0.4, bx: -0.08, twist: -0.7, side: 0.55, bRoll: -0.3, hipYaw: 0.1, headYaw: 1.25, a0x: 0.2, a0y: 0.3, a0o: 0.6 } },
     nose: { sq: 1, reach: 0.05, splay: 0.35, h: [0], p: [[0, 0.006, -0.7]], bone: [0.35, -STANCE], tilt: [-0.3, -0.3, 0], f: { by: 0.56, hipY: 0.92, bend: 1.0, hipPitch: 0.42, bPitch: 0.3, twist: 0.35, side: -0.3, bRoll: -0.2, hipYaw: 0.0, headYaw: 1.05, headPitch: -0.1, a1x: -0.34, a1y: 0.1, a1o: 0.44 } },
     tail: { sq: 1, reach: 0.05, splay: 0.15, h: [1], p: [[0, 0.006, 0.7]], bone: [-0.35, STANCE], tilt: [-0.3, 0.3, 0], f: { by: 0.56, hipY: 0.92, bend: 1.0, hipPitch: 0.42, bPitch: -0.3, twist: -0.4, side: 0.3, bRoll: -0.2, hipYaw: 0.08, headYaw: 1.3, headPitch: 0.05, a0x: 0.36, a0y: 0.16, a0o: 0.38 } },
@@ -1508,6 +1527,8 @@ function createSnowRider(THREE, opts) {
       const lg = legs[i]; hipOf(i, hipP); ankleOf(i, ankP);
       hint.copy(tmpD).addScaledVector(al ? _pz : _z, lg.s * lerp(0.08, 0.3, gr)).normalize();
       if (al && G.kh) { toeDir(i, tmpB); hint.lerp(tmpB, al * G.kh).normalize(); }
+      // G.knee = [fwd, up, out] in the pelvis frame: an explicit direction for both knees (method: forward, a little down and out)
+      if (al && G.knee) { tmpB.set(G.knee[0], G.knee[1], G.knee[2] * lg.s).applyQuaternion(pelvis.quaternion).normalize(); hint.lerp(tmpB, al).normalize(); }
       if (al && G.splay) hint.addScaledVector(_pz, lg.s * G.splay * al).normalize();   // knees out over the feet (less nose / tail lean of the shins)
       ik2(hipP, ankP, hint, L1, L2, kneeP, endP);
       setBone(lg.thigh, hipP, kneeP, hint); setBone(lg.shin, kneeP, endP, hint);
@@ -1621,7 +1642,7 @@ function createSnowRider(THREE, opts) {
     seg('hips', hp[0], hp[1], 0.14);
     const c0 = new V3(0, -0.12, 0).applyMatrix4(pelvis.matrix), c1 = new V3(0, 0.3, 0).applyMatrix4(mHi);
     seg('torso', c0, c1, 0.17);
-    const G = grabName && gVis > 0.3 ? GRABS[grabName] : null;
+    const G = grabName && gVis > 0.3 ? GRABS[grabName] : null; out.alim = G && G.alim ? G.alim : 15;   // per-grab ankle allowance (method: 25)
     for (let i = 0; i < 2; i++) {
       const ar = arms[i], grabbing = G && G.h.indexOf(curSw ? 1 - i : i) >= 0, nm = i ? 'back arm' : 'front arm';
       seg(nm, shW[i], ar.lo.position, 0.065, 0.06, 0); seg(nm, ar.lo.position, ar.hand.position, 0.055, 0, grabbing ? 0.14 : 0);
@@ -5404,6 +5425,11 @@ function createSnowAudio(opts) {
       var t = ctx.currentTime; E.master.gain.setTargetAtTime(mutedFlag ? 0 : (opts.volume == null ? 0.8 : opts.volume), t, 0.02);
       if (ctx.suspend && !opts.ctx) { if (mutedFlag) setTimeout(function () { if (mutedFlag) ctx.suspend(); }, 120); else ctx.resume(); }
     },
+    // master volume 0..1 (the Settings panel); kept while muted and applied on unmute
+    setVolume: function (v) {
+      opts.volume = clamp01(v); if (!ready() || mutedFlag) return;
+      E.master.gain.setTargetAtTime(opts.volume, ctx.currentTime, 0.03);
+    },
     stopAll: function () {
       st.speed = 0; st.skid = 0; st.edge = 0; st.rail = false; st.air = false; st.powder = 0; prevAir = prevRail = false;
       if (!ready()) return; apply(E); api.heliStop();
@@ -5434,6 +5460,7 @@ function createSnowAudio(opts) {
       var h = E.heli; h.out.gain.setTargetAtTime(0, ctx.currentTime, 0.15);
       h.stopping = setTimeout(function () { h.nodes.forEach(function (n) { try { n.stop(); } catch (err) {} }); h.out.disconnect(); if (E.heli === h) E.heli = null; }, 900);
     },
+    get volume() { return opts.volume == null ? 0.8 : opts.volume; },
     get muted() { return mutedFlag; },
     set muted(m) { api.setMuted(m); },
     get unlocked() { return unlocked; },
@@ -7008,6 +7035,7 @@ const ctl = { steer: 0, w: false, s: false, a: false, d: false, space: false, q:
 let scripted = null; // function(t) -> partial ctl, for shots/tests
 const HOLD_KEYS = { Space: 1, KeyW: 1, KeyA: 1, KeyS: 1, KeyD: 1, KeyR: 1, ArrowUp: 1, ArrowDown: 1, ArrowLeft: 1, ArrowRight: 1 };
 addEventListener('keydown', ev => {
+  if (SETUI.on) { if (ev.code === 'Escape') setClose(); if (ev.code === 'Space' || ev.code.startsWith('Arrow')) { const t = ev.target; if (!(t && t.id === 'setVol')) ev.preventDefault(); } return; }
   if (RP.on) { if (ev.code === 'Escape') rpClose(false); if (ev.code === 'Space' || ev.code.startsWith('Arrow')) ev.preventDefault(); return; }
   if (window.BoardMaker && BoardMaker.isOpen()) return;
   // (pause and focus loss let go of every key; a hold key that is physically still down comes back through its
@@ -7020,7 +7048,7 @@ addEventListener('keydown', ev => {
   if (state === 'play' && heliSkippable() && ev.code !== 'KeyP' && ev.code !== 'Escape' && ev.code !== 'KeyM') { skipHeli(); return; }
   if (ev.code === 'KeyP' || (ev.code === 'Escape' && performance.now() - MOUSE.escT > 300)) togglePause();
   if (ev.code === 'KeyM') { userMuted = !userMuted; applyMute(); }
-  if (ev.code === 'KeyC') camMode = (camMode + 1) % 2;
+  if (ev.code === 'KeyC') toggleCam();
   if (ev.code === 'KeyB' && state === 'play') respawn('button');
   // Enter on the title starts a run, unless a title button has focus (then that button's own click does it)
   if ((ev.code === 'Enter') && state === 'title' && !(document.activeElement && document.activeElement.tagName === 'BUTTON')) startGame(WANT_BOWL ? 'bowl' : WANT_RUN ? 'run' : 'endless');
@@ -7042,13 +7070,13 @@ const mouseOnRun = ev => state === 'play' && !RP.on && !(window.BoardMaker && Bo
 addEventListener('mousedown', ev => {
   if ((ev.button !== 0 && ev.button !== 2) || !mouseOnRun(ev)) return;
   keys[ev.button === 2 ? 'KeyQ' : 'KeyE'] = true; MOUSE['b' + ev.button] = true;
-  if (!AUTO && canvas.requestPointerLock && document.pointerLockElement !== canvas) { try { const pr = canvas.requestPointerLock(); if (pr && pr.catch) pr.catch(() => { }); } catch (e) { } }
+  if (!AUTO && SET.cap && canvas.requestPointerLock && document.pointerLockElement !== canvas) { try { const pr = canvas.requestPointerLock(); if (pr && pr.catch) pr.catch(() => { }); } catch (e) { } }
 });
 addEventListener('mouseup', ev => {
   if (ev.button === 0 && MOUSE.b0) { MOUSE.b0 = false; keys.KeyE = false; }
   if (ev.button === 2 && MOUSE.b2) { MOUSE.b2 = false; keys.KeyQ = false; }
 });
-addEventListener('mousemove', ev => { if (state === 'play' && P.mode === 'air' && realMouse()) ctl.mouseX = clamp(ctl.mouseX + (ev.movementX || 0) / 140, -1, 1); });
+addEventListener('mousemove', ev => { if (state === 'play' && P.mode === 'air' && realMouse()) ctl.mouseX = clamp(ctl.mouseX + (ev.movementX || 0) * SET.sens / 140, -1, 1); });
 addEventListener('contextmenu', ev => { if (state === 'play' && !(ev.target && ev.target.closest && ev.target.closest('.overlay.on, #rp'))) ev.preventDefault(); });
 document.addEventListener('pointerlockchange', () => {
   const on = document.pointerLockElement === canvas;
@@ -7137,7 +7165,7 @@ let touchRelease = () => {};
     b.addEventListener('touchstart', ev => { ev.preventDefault(); b.classList.add('down'); fn(); });
     const up = ev => { ev.preventDefault(); b.classList.remove('down'); }; b.addEventListener('touchend', up); b.addEventListener('touchcancel', up); };
   sysBtn('tpause', togglePause);
-  sysBtn('tcam', () => { if (state === 'play') camMode = (camMode + 1) % 2; });
+  sysBtn('tcam', () => { if (state === 'play') toggleCam(); });
   sysBtn('tresp', () => { if (state === 'play') respawn('button'); });
   sysBtn('tmute', () => { audioUnlock(); userMuted = !userMuted; applyMute(); });
 })();
@@ -8191,7 +8219,7 @@ function camClear(p, minH) {
   p.y = Math.min(y, p.y + 9);
 }
 // pull the camera target in toward the rider if a pine stands between them (so it never parks inside foliage)
-function camAvoidTrees(p) {
+function camAvoidTrees(p, dt) {
   const ex = P.pos.x, ez = P.pos.z, dx = p.x - ex, dz = p.z - ez, L2 = dx * dx + dz * dz;
   if (L2 < 1) return;
   let fMin = 1;
@@ -8202,7 +8230,12 @@ function camAvoidTrees(p) {
     const cx = ox - dx * f, cz = oz - dz * f, rr = 0.8 + o.r * 4.5; // the lowest tier of a big pine spreads 4-5 m
     if (cx * cx + cz * cz < rr * rr) fMin = Math.min(fMin, Math.max(0.3, f - rr / Math.sqrt(L2)));
   }
-  if (fMin < 1) { p.x = ex + dx * fMin; p.z = ez + dz * fMin; cam.blockT = 1; }
+  // eased: the pull-in used to switch on the instant a pine crossed the sight line (and off again as it left), and the
+  // camera lurched 30-50 cm in a frame each time, most of all when picking a way through the trees at low speed
+  if (cam.pull === undefined || camSnap) cam.pull = fMin;
+  cam.pull += (fMin - cam.pull) * Math.min(1, (dt || 0) * (fMin < cam.pull ? 6 : 2.5));
+  if (cam.pull < 0.999) { p.x = ex + dx * cam.pull; p.z = ez + dz * cam.pull; }
+  if (fMin < 1) cam.blockT = 1;
 }
 // crash cam: try 12 directions x 4 distance/heights round the rider and keep the one whose sight line passes the fewest
 // pine cones (foliage modelled as a cone, height ~9 m x the tree's scale, a third of that wide at the base). Mild bias toward behind / uphill.
@@ -8265,7 +8298,7 @@ function updateCamera(dt) {
     if (cam.view) { _cl.set(P.pos.x + cam.view.x, P.pos.y + cam.view.y, P.pos.z + cam.view.z); _cp.lerp(_cl, cam.treeW); }
   } else cam.view = null;
   cam.blockT = 0;
-  if ((cam.treeW || 0) < 0.5) camAvoidTrees(_cp); // the crash view already picked a clear line
+  if ((cam.treeW || 0) < 0.5) camAvoidTrees(_cp, dt); // the crash view already picked a clear line
   camClear(_cp, 1.2);
   // look-ahead: aim into the carve (toward where the board points) a little
   const sideT = P.mode === 'ride' ? P.steerSm * clamp01(spd / 10) : 0;
@@ -8476,7 +8509,7 @@ function startGame(mode) {
   introDrop(); resetRun();
 }
 function togglePause() {
-  if (RP.on || (window.BoardMaker && BoardMaker.isOpen())) return; // the panels own the keys (and Escape) while open
+  if (RP.on || SETUI.on || (window.BoardMaker && BoardMaker.isOpen())) return; // the panels own the keys (and Escape) while open
   if (state === 'play') {
     state = 'pause'; elPause.classList.add('on'); sfx.heliStop(); clearKeys(); showTouch(false); freeMouse();
     // the run so far (bowl: this run from the drop; Endless: since the start)
@@ -8519,7 +8552,40 @@ function quitToTitle() {
   elPause.classList.remove('on'); elGauge.classList.remove('on'); elTitle.classList.add('on'); showTouch(false); dropFocus();
   bestLine(); applyMute();
 }
-function applyMute() { sfx.setMuted(userMuted || state === 'pause'); const b = document.getElementById('tmute'); if (b) b.classList.toggle('off', userMuted); }
+// (the Settings panel lets the sound through while it is open over the pause card, so the volume can be judged)
+function applyMute() { sfx.setMuted(userMuted || (state === 'pause' && !SETUI.on)); const b = document.getElementById('tmute'); if (b) b.classList.toggle('off', userMuted); }
+// ---- settings: volume, camera, mouse. Saved in localStorage; the volume starts lower than the audio part's own default.
+const SET_KEY = 'powderLines.settings';
+const SET = { vol: 0.45, cam: 0, sens: 1, cap: 1 };
+if (!AUTO) try { const o = JSON.parse(localStorage.getItem(SET_KEY) || 'null'); if (o && typeof o === 'object') for (const k in SET) if (typeof o[k] === 'number' && isFinite(o[k])) SET[k] = o[k]; } catch (e) { }
+SET.vol = clamp01(SET.vol); SET.cam = SET.cam ? 1 : 0; SET.sens = clamp(SET.sens, 0.3, 3); SET.cap = SET.cap ? 1 : 0;
+function saveSettings() { if (!AUTO) try { localStorage.setItem(SET_KEY, JSON.stringify(SET)); } catch (e) { } }
+function applySettings() { if (sfx.setVolume) sfx.setVolume(SET.vol); camMode = SET.cam; }
+function toggleCam() { camMode = (camMode + 1) % 2; SET.cam = camMode; saveSettings(); }
+const SETUI = { on: false, popT: 0 };
+const elSet = document.getElementById('settings'), elSetVol = document.getElementById('setVol');
+function setRender() {
+  elSetVol.value = Math.round(SET.vol * 100); document.getElementById('setVolN').textContent = Math.round(SET.vol * 100) + '%';
+  for (const [id, key] of [['setCam', 'cam'], ['setSens', 'sens'], ['setCap', 'cap']]) for (const b of document.querySelectorAll('#' + id + ' button')) b.classList.toggle('on', Math.abs(parseFloat(b.dataset.v) - SET[key]) < 0.01);
+}
+function setOpen() {
+  if (SETUI.on || RP.on || (window.BoardMaker && BoardMaker.isOpen())) return;
+  SETUI.on = true; clearKeys(); elTitle.classList.add('hide'); elPause.classList.add('hide'); elSet.classList.add('on'); setRender(); applyMute();
+}
+function setClose() {
+  if (!SETUI.on) return;
+  SETUI.on = false; elSet.classList.remove('on'); elTitle.classList.remove('hide'); elPause.classList.remove('hide'); saveSettings(); applyMute(); clearKeys(); dropFocus();
+}
+elSetVol.addEventListener('input', () => {
+  SET.vol = clamp01(parseFloat(elSetVol.value) / 100 || 0); applySettings(); setRender();
+  // a short pop to judge it by (not more than a few a second while dragging)
+  const now = performance.now(); if (now - SETUI.popT > 180 && SET.vol > 0) { SETUI.popT = now; audioUnlock(); sfx.pop(0.8); }
+});
+for (const [id, key] of [['setCam', 'cam'], ['setSens', 'sens'], ['setCap', 'cap']]) for (const b of document.querySelectorAll('#' + id + ' button'))
+  b.addEventListener('click', e => { e.stopPropagation(); SET[key] = parseFloat(b.dataset.v); applySettings(); setRender(); if (key === 'cap' && !SET.cap) freeMouse(); });
+document.getElementById('setDone').addEventListener('click', e => { e.stopPropagation(); setClose(); });
+['setBtn', 'setBtn2'].forEach(id => { const b = document.getElementById(id); if (b) b.addEventListener('click', e => { e.stopPropagation(); setOpen(); }); });
+applySettings();
 // ---- sound state, every frame (board layers, rail, wind); one-shots fire from the events themselves
 const AUD = { speed: 0, edge: 0, skid: 0, air: false, mode: 'menu', rail: false, railKind: 'rail', powder: 0 };
 let gustPrev = 0, gustNext = 25;
@@ -9422,6 +9488,17 @@ function statesTest() {
   press('KeyP'); ok('P resumes', state === 'play' && !elPause.classList.contains('on') && sfx.muted === false);
   press('KeyM'); ok('M mutes', userMuted && sfx.muted === true); press('KeyM'); ok('M unmutes', !userMuted && sfx.muted === false);
   press('KeyP'); press('KeyM'); press('KeyP'); ok('M while paused then resume stays muted', state === 'play' && sfx.muted === true); press('KeyM');
+  // 4b) settings from the pause card: volume slider, camera, Esc closes the panel only
+  { press('KeyP'); document.getElementById('setBtn2').click();
+    ok('settings open over the pause card', SETUI.on && elSet.classList.contains('on') && elPause.classList.contains('hide') && state === 'pause');
+    ok('volume starts below the old default', SET.vol <= 0.5, 'volume ' + SET.vol);
+    const v0 = SET.vol; elSetVol.value = 20; elSetVol.dispatchEvent(new Event('input', { bubbles: true }));
+    ok('the slider sets the volume', Math.abs(SET.vol - 0.2) < 1e-6 && (!sfx.setVolume || Math.abs(sfx.volume - 0.2) < 1e-6) && document.getElementById('setVolN').textContent === '20%', 'volume ' + SET.vol);
+    document.querySelector('#setCam button[data-v="1"]').click(); ok('camera choice applies', camMode === 1 && SET.cam === 1);
+    document.querySelector('#setCam button[data-v="0"]').click();
+    press('KeyP'); ok('P does not resume behind the settings', state === 'pause' && SETUI.on);
+    press('Escape'); ok('Esc closes the settings only', !SETUI.on && state === 'pause' && !elPause.classList.contains('hide') && sfx.muted === true);
+    SET.vol = v0; applySettings(); press('KeyP'); ok('resumed after settings', state === 'play'); }
   // 5) rider panel from the pause card: keys blocked, Esc closes the panel only
   press('Escape'); rpOpen(); ok('rider panel opens over pause', RP.on && R.root.parent === PV.scene);
   press('KeyB'); press('KeyP'); ok('keys blocked in the rider panel', RP.on && state === 'pause' && P.mode !== 'heli');

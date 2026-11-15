@@ -158,7 +158,7 @@ body.touch .mouseonly{display:none}
   <div class="gear"><button class="ghost" id="boardBtn" type="button">Board</button><button class="ghost" id="riderBtn" type="button">Rider</button><button class="ghost" id="setBtn" type="button">Settings</button></div>
   <div class="best" id="bestLine"></div>
   <a class="sib" href="https://jonbeam1-netizen.github.io/concrete-lines/" target="_top"><svg width="22" height="12" viewBox="0 0 22 12" aria-hidden="true"><rect x="1" y="2" width="20" height="4" rx="2" fill="currentColor"/><circle cx="5" cy="9" r="2.2" fill="currentColor"/><circle cx="17" cy="9" r="2.2" fill="currentColor"/></svg>Also play <b>Concrete Lines</b> &middot; skateboarding &rarr;</a>
-  <div class="sub">Updated November 14, 2026 &middot; Play-test 0.018</div>
+  <div class="sub">Updated November 14, 2026 &middot; Play-test 0.019</div>
 </div></div>
 <div class="overlay" id="pause"><div class="card">
   <h2>Paused</h2>
@@ -842,7 +842,7 @@ function createSnowRider(THREE, opts) {
   };
   const grabFieldKeys = {}; Object.keys(GRABS).forEach(n => { grabFieldKeys[n] = Object.keys(GRABS[n].f); });
 
-  let clock = 0, wasAir = false, airAcc = 0, flipAcc = 0, lastSpin = 0;
+  let clock = 0, wasAir = false, airAcc = 0, flipAcc = 0, lastSpin = 0, slideW = 0;
   let grabName = null, gLin = 0, gVis = 0, gVel = 0;              // grab: linear ramp, then an underdamped follower (tweak overshoot)
   const L = { t: 9, s: 0, q: 1, spin: 0 };                         // landing event
   let bailMode = 0, bailT = 0, recovering = false, recT = 0, recFrom = 0;
@@ -1469,7 +1469,11 @@ function createSnowRider(THREE, opts) {
     pelvis.position.set(ex + hx * c - F.hipY * s, hx * s + F.hipY * c, F.hipZ);
     // board: on the snow it rides on its loaded edge / pressed end, so lift the centre to keep the contact at the surface
     const gr = clamp(F.ground, 0, 1);
-    boardPivot.position.set(F.bx, F.by + gr * (HW * Math.abs(Math.sin(F.bRoll)) + pressLift(F.bPitch)), F.bz);
+    // On a rail, box or log the board rests on it under his feet. The lift that keeps a tilted board's edge / upturned
+    // end on the snow was applied there too, so every slide rode 5-10 cm above the rail.
+    slideW += ((S.slide ? 1 : 0) - slideW) * 0.3;
+    const snowLift = HW * Math.abs(Math.sin(F.bRoll)) + pressLift(F.bPitch), railLift = Math.abs(F.bPitch) > 0.2 ? STANCE * 0.85 * Math.abs(Math.sin(F.bPitch)) : 0;
+    boardPivot.position.set(F.bx, F.by + gr * lerp(snowLift, railLift, slideW), F.bz);
     eul.set(F.bPitch, F.bYaw, F.bRoll, 'YXZ'); boardPivot.quaternion.setFromEuler(eul);
     { const G0 = grabName ? GRABS[grabName] : null, g0 = clamp(gVis, 0, 1.15);
       if (G0 && G0.bone && g0 > 0.001) {   // bone/poke: pitch about the tucked foot's binding so the other leg straightens
@@ -5807,6 +5811,7 @@ function planZone() {
   } else if (type === 'runout') {
     len = 32; gp(s + 12, 0.26); gp(s + 32, 0.28);
     addBump({ s: s + 20, d: lane(r, side, 14, 22), rs: 7, rd: 5, h: 0.7, type: 0 });
+    addRail(r() < 0.5 ? 'down' : 'box', s + 3, lane(r, -side, 9, 15), 26, { h: 0.45 });
   } else if (type === 'mini' || type === 'breather') {
     // build-up: rollers and side hits with small jibs either side; breather: semi-flat, a pause with a few tiny features
     const br = type === 'breather';
@@ -5820,9 +5825,9 @@ function planZone() {
     const nf = br ? 3 : 3 + (r() < 0.4 ? 1 : 0);
     for (let i = 0; i < nf; i++) {
       const fs = s + 10 + (len - 24) * (i + 0.5) / nf, fd = lane(r, i % 2 ? -side : side, 7, 15), pick = r();
-      if (pick < 0.3) addRail('box', fs, fd, br ? 6 : 8, { h: br ? 0.25 : 0.35 });
+      if (pick < 0.3) addRail('box', fs, fd, br ? 22 : 28, { h: br ? 0.25 : 0.35, wind: br ? 0 : 1.2 });
       else if (pick < 0.62) { addBonk(fs, fd, !br && r() < 0.4); if (r() < 0.6) addBonk(fs + 7 + r() * 3, fd + (r() - 0.5) * 3, false); }
-      else if (pick < 0.85) addRail('log', fs, fd, br ? 6 : 8, { radius: 0.32, broken: r() < 0.5 });
+      else if (pick < 0.85) addRail('log', fs, fd, br ? 24 : 32, { radius: 0.34, broken: r() < 0.5 });
       else addObstacle('rock', fs, fd + Math.sign(fd) * 6, 1.1 + r() * 0.6);
     }
   } else if (type === 'jumps') {
@@ -5844,7 +5849,7 @@ function planZone() {
       addMarker(sk - 42, laneBig - kb.W / 2 - 1, 0); addMarker(sk - 42, laneBig + kb.W / 2 + 1, 0);
       addMarker(sk - 1, laneBig - kb.W / 2 - 0.6, 0); addMarker(sk - 1, laneBig + kb.W / 2 + 0.6, 0);
       // rails to land on: a down rail beside the sweet spot of the landing (steer onto it in the air, or ride past)
-      if (step || (j === nJ - 1 && r() < 0.6)) addRail('down', sk + prof.x0 + 6, laneBig + side * 3.4, step ? 22 : 15, { h: 0.6 });
+      if (step || (j === nJ - 1 && r() < 0.6)) addRail('down', sk + prof.x0 + 6, laneBig + side * 3.4, step ? 26 : 22, { h: 0.6 });
       if (gap) {
         // a fallen tree bridging the gap: snow drifted against it, so riding over it is a little hop, flying it is the gap
         const gs = sk + prof.x0 * 0.55;
@@ -5857,38 +5862,39 @@ function planZone() {
     // finish the line: a down / kink rail on the run-out (big side) and a box on the easy side
     gp(x + 30, 0.27);
     if (!F.final) { // (the run's last kicker lands straight into the finish)
-      addRail(r() < 0.5 ? 'down' : 'kink', x - 6, laneBig, 11, { h: 0.7 });
-      addRail('box', x - 2, laneEasy, 8, { h: 0.35 });
+      addRail(r() < 0.5 ? 'down' : 'kink', x - 6, laneBig, 34, { h: 0.7, wind: 1.6 });
+      addRail('box', x - 2, laneEasy, 28, { h: 0.35 });
     }
-    len = x - s + 36;
+    len = x - s + 58;
     noTree(s + 10, s + len);
   } else if (type === 'rails') {
     // a jib line: log -> roller -> down rail, box -> kickup into a short landing, kinks; alternating sides.
     // The garden (signature): longer, with multi-kink rails and a second row.
     const garden = sig === 'garden';
-    len = garden ? 175 + r() * 20 : 125 + r() * 30;
+    len = garden ? 340 + r() * 30 : 265 + r() * 40;
     gp(s + 15, 0.24 + r() * 0.03); gp(s + len - 15, 0.23); gp(s + len, 0.27);
     let sd = side, fs = s + 16;
-    const seq = garden ? ['multi', 'kickup', 'kink', 'multi', 'rainbow', 'down', 'multi'] : ['logroll', 'kickup', 'kink', 'tree', 'rainbow', 'box', 'down', 'logroll'];
+    const seq = garden ? ['multi', 'wind', 'kickup', 'kink', 'multi', 'rainbow', 'wind', 'multi'] : ['logroll', 'wind', 'kickup', 'tree', 'kink', 'box', 'wind', 'rainbow', 'logroll'];
     let qi = (r() * seq.length) | 0;
-    while (fs < s + len - 22) {
-      const t = seq[qi++ % seq.length], d = lane(r, sd, 7, 14);
-      let adv = 22 + r() * 7;
-      if (t === 'box') addRail('box', fs, d, 8 + r() * 4, { h: 0.35 });
-      else if (t === 'down') addRail('down', fs, d, 12, { h: 0.7 });
-      else if (t === 'kink') addRail('kink', fs, d, 13, { h: 0.8 });
-      else if (t === 'rainbow') addRail('rainbow', fs, d, 9, { h: 0.6 });
-      else if (t === 'multi') { addRail('multi', fs, d, 19, { h: 0.7, segs: [['f', 3], ['d', 5], ['f', 3], ['d', 5], ['f', 3]] }); adv += 6; }
-      else if (t === 'tree') addRail('log', fs, d, 11, { radius: 0.45, broken: true, branches: true, skew: (r() - 0.5) * 0.4, rise: 0.6 });
+    while (fs < s + len - 60) {
+      const t = seq[qi++ % seq.length], d = lane(r, sd, 8, 14);
+      let adv = 40;
+      if (t === 'box') { const L = 30 + r() * 8; addRail('box', fs, d, L, { h: 0.35 }); adv = L + 9; }
+      else if (t === 'wind') { const L = 46 + r() * 16; addRail('down', fs, d, L, { h: 0.65, wind: 2.2 + r() * 0.8, windL: 26 + r() * 6 }); adv = L + 9; }   // a long winding rail
+      else if (t === 'down') { addRail('down', fs, d, 38, { h: 0.7 }); adv = 47; }
+      else if (t === 'kink') { addRail('kink', fs, d, 34, { h: 0.8, wind: 1.4 }); adv = 43; }
+      else if (t === 'rainbow') { addRail('rainbow', fs, d, 15, { h: 0.6 }); addRail('down', fs + 19, d, 30, { h: 0.6, wind: 1.5 }); adv = 58; }   // over the rainbow, straight onto a long rail
+      else if (t === 'multi') { addRail('multi', fs, d, 37, { h: 0.7, segs: [['f', 5], ['d', 7], ['f', 5], ['d', 7], ['f', 5], ['d', 5], ['f', 3]] }); adv = 46; }
+      else if (t === 'tree') { const L = 34 + r() * 8; addRail('log', fs, d, L, { radius: 0.45, broken: true, branches: true, skew: (r() - 0.5) * 0.12, rise: 0.5 }); adv = L + 9; }
       else if (t === 'kickup') {
-        // a lone rail that kicks up at the end and works as a ramp: a short steeper landing after it
-        addRail('kickup', fs, d, 10, { h: 0.55 }); gp(fs + 12, 0.24); gp(fs + 15, 0.45); gp(fs + 26, 0.45); gp(fs + 34, 0.25); adv += 8;
-      } else { // logroll: a log jib, then a roller to pop off, then a down rail on the far side of it
-        addRail('log', fs, d, 8, { radius: 0.35, broken: r() < 0.5 });
-        addBump({ s: fs + 13, d, rs: 4, rd: 5, h: 0.8, type: 0 });
-        addRail('down', fs + 21, d, 10, { h: 0.65 }); adv += 14;
+        // a long rail that kicks up at the end and works as a ramp: a short steeper landing after it
+        addRail('kickup', fs, d, 28, { h: 0.55 }); gp(fs + 30, 0.24); gp(fs + 33, 0.45); gp(fs + 44, 0.45); gp(fs + 52, 0.25); adv = 46;
+      } else { // logroll: a long log, then a roller to pop off, then a long down rail on the far side of it
+        addRail('log', fs, d, 28, { radius: 0.36, broken: r() < 0.5 });
+        addBump({ s: fs + 34, d, rs: 4, rd: 5, h: 0.8, type: 0 });
+        addRail('down', fs + 42, d, 32, { h: 0.65, wind: 1.4 }); adv = 82;
       }
-      if (garden) addRail(r() < 0.5 ? 'box' : 'down', fs + 4, d + sd * 6, 10, { h: 0.45 }); // a second row
+      if (garden) addRail(r() < 0.5 ? 'box' : 'down', fs + 4, d + sd * 6, 28, { h: 0.45 }); // a second row
       fs += adv; sd = -sd;
     }
     noTree(s, s + len);
@@ -5900,7 +5906,7 @@ function planZone() {
     gullies.push({ s0: s + 6, s1: s + len - 6, w: 14 + r() * 3, D: 4.2 + r() * 1.3, ph: r() * 6.3 });
     const gw = gullies[gullies.length - 1];
     for (let i = 0; i < 4; i++) { const ss = s + 45 + i * (len - 80) / 3, sd2 = i % 2 ? -side : side; addBump({ s: ss, d: gullyC(gw, ss) + sd2 * (gw.w * 1.05), rs: 4, rd: 4, h: 0.9, type: 2 }); }
-    addRail('log', s + len * 0.45, gullyC(gw, s + len * 0.45) + side * 5, 9, { radius: 0.4, broken: true });
+    addRail('log', s + len * 0.4, gullyC(gw, s + len * 0.45) + side * 5, 30, { radius: 0.4, broken: true });
     noTree(s, s + len);
   } else if (type === 'natural') {
     len = 170 + r() * 30;
@@ -5930,10 +5936,10 @@ function planZone() {
     // rocks off the line, stumps to ollie, broken trees to slide
     for (let i = 0; i < 4; i++) addObstacle('rock', s + 20 + r() * (len - 40), (r() < 0.5 ? -1 : 1) * (19 + r() * 8), 0.8 + r() * 1.2);
     for (let i = 0; i < 3; i++) addBonk(s + 25 + r() * (len - 60), (r() < 0.5 ? -1 : 1) * (6 + r() * 6), r() < 0.3);
-    addRail('log', s + 128 + r() * 10, -side * (8 + r() * 4), 11, { radius: 0.45, broken: true, branches: true, skew: (r() - 0.5) * 0.4, rise: 0.4 });
+    addRail('log', s + 112 + r() * 10, -side * (8 + r() * 4), 32, { radius: 0.45, broken: true, branches: true, skew: (r() - 0.5) * 0.12, rise: 0.4 });
     if (ledge) { // small ledge with a log into the drop
       addCliff(sc, 2.6, side * (halfWidth(sc) - 12));
-      addRail('log', sc - 9, -side * (9 + r() * 4), 11, { radius: 0.4, overEdge: sc });
+      addRail('log', sc - 28, -side * (9 + r() * 4), 30, { radius: 0.4, overEdge: sc });
       const cd = side * (2 + r() * 6); addBump({ s: sc - 0.6, d: cd, rs: 4, rd: 8, h: 0.8, type: 3, cornice: { len: 17, depth: 2.6 } });
     }
     noTree(s + 15, s + len - 10);
@@ -5952,7 +5958,7 @@ function planZone() {
     addBump({ s: sc - 0.5, d: 0, rs: 7, rd: 60, h: 0.55, type: 3 }); // cornice lip along the edge
     // launch options at the edge: a wind lip (a kicker here would throw him far past any landing), a rail off the edge, the cornice
     addBump({ s: sc - 2.2, d: side * (11 + r() * 3), rs: 5, rd: 4, h: 1.0, type: 2 });
-    addRail('down', sc - 15, -side * (7 + r() * 2), 16, { h: 0.6, overEdge: sc });
+    addRail('down', sc - 34, -side * (7 + r() * 2), 36, { h: 0.6, overEdge: sc });
     if (band) addBump({ s: sc - 3, d: side * 3, rs: 4, rd: 3.5, h: 0.9, type: 2, cornice: { len: 7, depth: 1.8 } });
     for (const m of [-8, 8]) addMarker(sc - 55, m, 1);
     noTree(s + 20, s + len);
@@ -6392,12 +6398,15 @@ function buildKicker(k, group, geos) {
 function railPoints(def) {
   // returns list of {s, d, h, ref} control points; y = heightSD(min(s, ref), d) + h
   const P = [], L = def.len, ref = def.overEdge || 1e9;
-  const push = def.across ? (u, h) => P.push({ s: def.s + (def.skew || 0) * u, d: def.d + u, h, ref }) : (u, h) => P.push({ s: def.s + u, d: def.d + (def.skew || 0) * u, h, ref });
+  // (def.wind: metres of side-to-side sway, def.windL its wavelength; it grows in from the start and dies out at the end, so
+  // both ends run straight down the hill and he can get on and off in line)
+  const sway = u => def.wind ? def.wind * Math.sin(2 * Math.PI * u / (def.windL || 28)) * smooth(0, 7, u) * smooth(L, L - 7, u) : 0;
+  const push = def.across ? (u, h) => P.push({ s: def.s + (def.skew || 0) * u, d: def.d + u, h, ref }) : (u, h) => P.push({ s: def.s + u, d: def.d + (def.skew || 0) * u + sway(u), h, ref });
   if (def.type === 'box' || def.type === 'down') { for (let u = 0; u <= L + 0.01; u += 1.5) push(Math.min(u, L), def.h); }
   else if (def.type === 'kink') { const y0 = heightSD(def.s, def.d) + def.h; for (let u = 0; u <= L + 0.01; u += 1.5) { const hh = u < 4 ? Math.max(def.h, y0 - heightSD(def.s + u, def.d)) : def.h; push(u, hh); } }
   else if (def.type === 'rainbow') { for (let u = 0; u <= L + 0.01; u += 1) push(u, def.h + 0.9 * Math.sin(Math.PI * u / L)); }
   else if (def.type === 'kickup') { for (let u = 0; u <= L + 0.01; u += 1) push(u, def.h + (u > L - 3 ? Math.pow((u - (L - 3)) / 3, 2) * 1.1 : 0)); }
-  else if (def.type === 'log') { push(0, def.radius); push(L, def.radius + (def.rise || 0)); }
+  else if (def.type === 'log') { const n = Math.max(1, Math.round(L / 5)); for (let i = 0; i <= n; i++) push(L * i / n, def.radius + (def.rise || 0) * i / n); }   // a point every 5 m: it lies on the snow all the way
   else if (def.type === 'multi') { // flat -> down -> flat -> down ...: flats hold their height, downs drop at ~37 deg back to the snow + h
     let y = heightSD(def.s, def.d) + def.h, u = 0; push(0, def.h);
     for (const sg of def.segs) for (let i = 0; i < sg[1]; i++) { u += 1; const t = heightSD(def.s + u, def.d) + def.h; y = sg[0] === 'f' ? Math.max(y, t) : Math.max(t, y - 0.75); push(u, y - heightSD(def.s + u, def.d)); }
@@ -6410,14 +6419,17 @@ function buildRail(def, group, geos) {
   for (const c of ctrl) { worldFromSD(c.s, c.d, p); pts.push(new V3(p.x, heightSD(Math.min(c.s, c.ref), c.d) + c.h, p.z)); }
   const cum = [0]; for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + pts[i].distanceTo(pts[i - 1]));
   const rail = { def, pts, cum, len: cum[cum.length - 1], kind: isLog ? 'log' : isBox ? 'box' : 'rail',
-    top: isLog ? def.radius * 0.95 : isBox ? 0.06 : 0.05, capture: isLog ? 0.55 : isBox ? 0.6 : 0.45,
+    top: isLog ? def.radius + 0.07 : isBox ? 0.07 : 0.05, capture: isLog ? 0.55 : isBox ? 0.6 : 0.45,   // (the board sits on top of the bark / the box lid)
     minx: 1e9, maxx: -1e9, minz: 1e9, maxz: -1e9 };
   for (const q of pts) { rail.minx = Math.min(rail.minx, q.x); rail.maxx = Math.max(rail.maxx, q.x); rail.minz = Math.min(rail.minz, q.z); rail.maxz = Math.max(rail.maxz, q.z); }
-  if (isLog) {
-    const a = pts[0], b = pts[pts.length - 1], log = SC.makeLog(rail.len, def.radius, { broken: !!def.broken, branches: !!def.branches });
-    log.userData.prop = true; log.position.copy(a).add(b).multiplyScalar(0.5);
-    _a.subVectors(b, a).normalize(); log.quaternion.setFromUnitVectors(AX, _a);
-    group.add(log);
+  if (isLog) {   // trunk pieces laid end to end along the points (a little overlap hides the joints)
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i], end = i === 1 || i === pts.length - 1;
+      const log = SC.makeLog(a.distanceTo(b) + 0.35, def.radius, { broken: !!def.broken && end, branches: !!def.branches && (i % 2 === 1) });
+      log.userData.prop = true; log.position.copy(a).add(b).multiplyScalar(0.5);
+      _a.subVectors(b, a).normalize(); log.quaternion.setFromUnitVectors(AX, _a);
+      group.add(log);
+    }
   } else {
     const mat = isBox ? SC.featureMaterials.metal : (def.type === 'kickup' || def.type === 'rainbow' ? SC.featureMaterials.metalBlue : SC.featureMaterials.metalRed);
     for (let i = 1; i < pts.length; i++) {
@@ -6867,14 +6879,14 @@ function buildBowl() {
   const k1 = K(612, 22, 1); K(616, -4, 0);
   const k2 = K(718, 24, 2); K(722, -2, 1);
   for (const k of [k1, k2]) { addMarker(k.s - 45, k.d - k.W / 2 - 1, 0); addMarker(k.s - 45, k.d + k.W / 2 + 1, 0); addMarker(k.s - 1, k.d - k.W / 2 - 0.6, 0); addMarker(k.s - 1, k.d + k.W / 2 + 0.6, 0); }
-  addRail('box', S(596), 40, 8, { h: 0.3 });
-  addRail('down', S(740), 24, 16, { h: 0.6 });
-  addRail('box', S(812), -6, 9, { h: 0.35 }); addRail('down', S(816), 20, 10, { h: 0.7 }); addRail('kink', S(818), 38, 12, { h: 0.8 });
-  addRail('log', S(834), -10, 8, { radius: 0.36 }); addRail('rainbow', S(838), 12, 8, { h: 0.6 }); addRail('kickup', S(842), 32, 10, { h: 0.55 });
-  addRail('log', S(856), 2, 11, { radius: 0.45, broken: true, branches: true, skew: 0.15, rise: 0.5 });
+  addRail('box', S(596), 40, 24, { h: 0.3 });
+  addRail('down', S(740), 24, 36, { h: 0.6, wind: 1.6 });
+  addRail('box', S(812), -6, 24, { h: 0.35 }); addRail('down', S(816), 20, 34, { h: 0.7, wind: 1.8 }); addRail('kink', S(818), 38, 30, { h: 0.8 });
+  addRail('log', S(840), -10, 26, { radius: 0.36 }); addRail('rainbow', S(854), 12, 14, { h: 0.6 }); addRail('kickup', S(852), 32, 24, { h: 0.55 });
+  addRail('log', S(872), 2, 30, { radius: 0.45, broken: true, branches: true, skew: 0.06, rise: 0.5 });
   // natural log jibs (fallen trees) in the glade and mid bowl
-  for (const [bs, d, len] of [[760, -150, 10], [820, 128, 11], [700, 192, 9], [540, -40, 9]])
-    addRail('log', S(bs), d, len, { radius: 0.42, broken: true, branches: true, skew: (rng() - 0.5) * 0.5, rise: 0.4 });
+  for (const [bs, d, len] of [[760, -150, 28], [820, 128, 30], [700, 192, 26], [540, -40, 26]])
+    addRail('log', S(bs), d, len, { radius: 0.42, broken: true, branches: true, skew: (rng() - 0.5) * 0.16, rise: 0.4 });
   for (const k of [kickers, railDefs, markers]) k.sort((a, b) => a.s - b.s);
   for (const k of kickers) buildKicker(k, group, geos);
   for (const r of railDefs) rails.push(buildRail(r, group, geos));
@@ -7274,7 +7286,10 @@ const FEEL = {
   // E tricks snap: a 360 in about 0.65 s, a flip in about 0.7 s, up to speed almost at once and braked onto the exact
   // angle (they used to be paced out over the whole air, which read as slow and floaty)
   trickSpin: 10.2, trickFlip: 9.2, trickAcc: 170,
-  buildT: 5, buildAcc: 2.7, buildDrag: 0.65, buildCap: 19, vMax: 32
+  // Space builds speed up to 13 + buildCap m/s (72 mph) at full boost. Past that it takes a full boost AND a full tuck (W):
+  // together they push on toward vMax, 49.2 m/s = 110 mph, against drag that grows with the square of the speed, so
+  // about 90 mph holds on an ordinary pitch and the last 20 need a steep one, clean landings and no mistakes.
+  buildT: 5, buildAcc: 2.7, buildDrag: 0.65, buildCap: 19, tuckCap: 17.2, vMax: 49.2
 };
 function airG(vy) { return G * (1 - FEEL.hang * Math.exp(-(vy * vy) / (FEEL.hangV * FEEL.hangV))); }
 // kicker launch: throws you up in proportion to speed
@@ -7334,14 +7349,14 @@ function stepRide(dt) {
   // drag, friction, skid, boost
   spd = P.vel.length();
   const b = boostAmt();
-  let c = 0.014 * (1 - 0.3 * P.tuck);
+  let c = 0.014 * (1 - (0.3 + 0.16 * b) * P.tuck);   // a full tuck on a full boost slips through the air best: that is what the top 20 mph are made of
   c *= 1 - FEEL.buildDrag * b;
   const e = Math.abs(P.steerSm);
   let dec = 0.28 + c * spd * spd + e * FEEL.carveDrag * clamp01(spd / 12) + Math.abs(P.press) * 0.3;
   if (P.skid > 0.05 && spd > 2.5) dec += FEEL.skidDec * P.skid * (0.7 + 0.3 * clamp01(spd / 15));
-  if (spd > FEEL.vMax) dec += (spd - FEEL.vMax) * 3; // hard ceiling ~72 mph
+  if (spd > FEEL.vMax) dec += (spd - FEEL.vMax) * 3; // hard ceiling, 110 mph
   let acc = 0;
-  if (ctl.space && spd < 13 + FEEL.buildCap * b) acc += FEEL.buildAcc * (0.35 + 0.65 * b);
+  if (ctl.space && spd < 13 + FEEL.buildCap * b + FEEL.tuckCap * b * b * P.tuck) acc += FEEL.buildAcc * (0.35 + 0.65 * b);
   // carve sling: a loaded carve gives a little speed back when it unwinds or switches edge (rhythmic pumping)
   if (e > 0.45 && spd > 5 && P.skid < 0.2) P.carveLoad = Math.min(1, (P.carveLoad || 0) + dt * 1.5 * e);
   if ((P.carveLoad || 0) > 0.15 && (e < 0.25 || flipping)) {
@@ -8580,7 +8595,7 @@ let shownMph = -1, hudMph = 0;
 function updateHud(dt) {
   hudMph += (P.speed * 2.237 - hudMph) * Math.min(1, dt * 6);
   const m = Math.round(hudMph);
-  if (m !== shownMph) { shownMph = m; elGNum.textContent = m; elArc.setAttribute('d', arcPath(hudMph / 80)); }
+  if (m !== shownMph) { shownMph = m; elGNum.textContent = m; elArc.setAttribute('d', arcPath(hudMph / 110)); }
   if (trickFade > 0) { trickFade -= dt; if (trickFade <= 0) elTrick.style.opacity = 0; }
   if (sumT > 0) { sumT -= dt; if (sumT <= 0) elSum.classList.remove('on'); }
   if (RUNM && state === 'play' && RS.on) { const tt = Math.floor((RS.done && RS.lastSum ? RS.lastSum.time : RS.t) * 10); if (tt !== RS.shownT) { RS.shownT = tt; elRTime.textContent = fmtT(tt / 10); } elRTime.classList.add('on'); }

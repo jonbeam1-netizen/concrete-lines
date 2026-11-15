@@ -158,7 +158,7 @@ body.touch .mouseonly{display:none}
   <div class="gear"><button class="ghost" id="boardBtn" type="button">Board</button><button class="ghost" id="riderBtn" type="button">Rider</button><button class="ghost" id="setBtn" type="button">Settings</button></div>
   <div class="best" id="bestLine"></div>
   <a class="sib" href="https://jonbeam1-netizen.github.io/concrete-lines/" target="_top"><svg width="22" height="12" viewBox="0 0 22 12" aria-hidden="true"><rect x="1" y="2" width="20" height="4" rx="2" fill="currentColor"/><circle cx="5" cy="9" r="2.2" fill="currentColor"/><circle cx="17" cy="9" r="2.2" fill="currentColor"/></svg>Also play <b>Concrete Lines</b> &middot; skateboarding &rarr;</a>
-  <div class="sub">Updated November 14, 2026 &middot; Play-test 0.016</div>
+  <div class="sub">Updated November 14, 2026 &middot; Play-test 0.017</div>
 </div></div>
 <div class="overlay" id="pause"><div class="card">
   <h2>Paused</h2>
@@ -7182,7 +7182,7 @@ let touchRelease = () => {};
 const P = {
   pos: new V3(), vel: new V3(), heading: new V3(0, 0, -1), n: new V3(0, 1, 0),
   mode: 'title', s: 0, d: 0, hint: 0, speed: 0,
-  holdT: 0, prevSpace: false, prevQ: false, prevE: false, qJump: false, eJump: false, trick: null, spaceAir: false, heldOff: { a: false, d: false, w: false, s: false }, lastTrick: '', lastGrab: '', lastDir: { spin: 0, flip: 0 }, airH: 0, crouch: 0, skid: 0, skidSide: 1, steerSm: 0, lastSide: 1, tuck: 0, press: 0,
+  holdT: 0, boost: 0, giveBack: 0, scrubbed: 0, prevSpace: false, prevQ: false, prevE: false, qJump: false, eJump: false, trick: null, spaceAir: false, heldOff: { a: false, d: false, w: false, s: false }, lastTrick: '', lastGrab: '', lastDir: { spin: 0, flip: 0 }, airH: 0, crouch: 0, skid: 0, skidSide: 1, steerSm: 0, lastSide: 1, tuck: 0, press: 0,
   airT: 0, airDrop: false, spin: 0, flip: 0, spinRate: 0, flipRate: 0, grab: null, grabT: 0, grabTotal: 0, sw: false, takeoffSw: false,
   baseQ: new THREE.Quaternion(), rootQ: new THREE.Quaternion(), ragSlide: new V3(), butterYaw: 0, butterRate: 0, shifty: 0, style: null, timeToLand: -1, windup: 0, leftKickerT: 9, popT: 9,
   rail: null, railD: 0, railSign: 1, railSpd: 0, slide: null, slideT: 0, goodS: 20,
@@ -7195,7 +7195,10 @@ const _v = new V3(), _w = new V3(), _gt = new V3(), _lat = new V3(), _m4 = new T
 const _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion(), _qc = new THREE.Quaternion();
 
 function projPlane(v, n) { return v.addScaledVector(n, -v.dot(n)); }
-function boostAmt() { return clamp01(P.holdT / FEEL.buildT); }
+// Built-up speed (0..1): grows while Space is held on the snow, fades slowly when it is not, and is kept through pops,
+// tricks and the air. It used to be the same counter as the pop charge, so every jump threw it away, and the easier
+// glide it gives only applied with Space actually down: letting go at speed braked him at close to 1 g.
+function boostAmt() { return P.boost || 0; }
 
 function placeOnCourse(s, d, above, speed) {
   ensureCourse(s + 200);
@@ -7284,7 +7287,9 @@ function kickerLaunch(k) {
   // fast hits: cap the upward throw, scrub a little forward speed (keeps 20-30 m/s airs ~3-4 s, landing on the sized landing)
   P.kickCapY = kickCapY(size, spd);
   if (P.vel.y > P.kickCapY) P.vel.y = P.kickCapY;
-  if (spd > FEEL.kickScrubAt) { const keepH = (spd - FEEL.kickScrub * (spd - FEEL.kickScrubAt)) / spd; P.vel.x *= keepH; P.vel.z *= keepH; }
+  // (what is held back here is only to keep the air on its landing: it is handed back once he has landed, see landNow)
+  P.scrubbed = 0;
+  if (spd > FEEL.kickScrubAt) { const keepH = (spd - FEEL.kickScrub * (spd - FEEL.kickScrubAt)) / spd; P.vel.x *= keepH; P.vel.z *= keepH; P.scrubbed = spd * (1 - keepH); P.lipSpd = spd; }
   P.leftKickerT = 0; P.launchK = size + 1;
 }
 
@@ -7300,6 +7305,7 @@ function stepRide(dt) {
   if (Math.abs(steer) > 0.2) P.lastSide = Math.sign(steer);
   // space: crouch + speed build
   if (ctl.space) { P.holdT += dt; P.crouch = Math.min(1, P.crouch + dt * 4); } else P.crouch = Math.max(0, P.crouch - dt * 6);
+  P.boost = ctl.space ? Math.min(1, (P.boost || 0) + dt / FEEL.buildT) : Math.max(0, (P.boost || 0) - dt * 0.3);
   P.tuck += ((ctl.w && !ctl.r ? 1 : 0) - P.tuck) * Math.min(1, dt * 5);
   const wantSkid = ctl.s && !ctl.r ? 1 : 0;
   if (wantSkid && P.skid < 0.05) { P.skidSide = P.lastSide; if (P.vel.length() > 8) { P.skidBurst = 1; P.skidCue = 1; } }
@@ -7329,7 +7335,7 @@ function stepRide(dt) {
   spd = P.vel.length();
   const b = boostAmt();
   let c = 0.014 * (1 - 0.3 * P.tuck);
-  if (ctl.space) c *= 1 - FEEL.buildDrag * b;
+  c *= 1 - FEEL.buildDrag * b;
   const e = Math.abs(P.steerSm);
   let dec = 0.28 + c * spd * spd + e * FEEL.carveDrag * clamp01(spd / 12) + Math.abs(P.press) * 0.3;
   if (P.skid > 0.05 && spd > 2.5) dec += FEEL.skidDec * P.skid * (0.7 + 0.3 * clamp01(spd / 15));
@@ -7342,6 +7348,7 @@ function stepRide(dt) {
     const sl = FEEL.slingMax * P.carveLoad * (1 - clamp01((spd - 22) / 9));
     acc += sl / dt; P.slingCue = clamp01(sl / FEEL.slingMax); P.carveLoad = 0; P.slingT = 0;
   } else if (e < 0.25) P.carveLoad = Math.max(0, (P.carveLoad || 0) - dt * 2);
+  if (P.giveBack > 0) { const gb = Math.min(P.giveBack, 16 * dt); P.giveBack -= gb; acc += gb / dt; }
   let ns = Math.max(0, spd - dec * dt) + acc * dt;
   if (spd > 0.01) P.vel.multiplyScalar(ns / spd); else P.vel.copy(P.heading).multiplyScalar(ns);
   // pop: Space released (charged), or E / Q pressed (an instant hop; Q leaves the snow already grabbing)
@@ -7440,6 +7447,7 @@ function takeoff() {
   _z.copy(P.heading); _y.copy(P.n); _x.crossVectors(_y, _z).normalize(); _z.crossVectors(_x, _y);
   P.baseQ.setFromRotationMatrix(_m4.makeBasis(_x, _y, _z));
   P.skid = 0;
+  if (P.leftKickerT > 0) P.scrubbed = 0;   // not off a kicker just now
   P.leftKickerT = Math.min(P.leftKickerT, 9);
   // rider cue: how hard a kicker threw him (decays over the air)
   P.launchCue = P.leftKickerT === 0 && !P.airDrop ? clamp01((P.vel.y - 1.5) / 7) : 0;
@@ -7615,6 +7623,10 @@ function landNow(g) {
   if (P.heliDrop) { downDir(P.s, _w, P.pos.x, P.pos.z); projPlane(_w, n).normalize(); P.heading.lerp(_w, 0.6).normalize(); keepSp = Math.max(keepSp, 7.5); }
   P.vel.copy(P.heading).multiplyScalar(keepSp);
   P.mode = 'ride'; P.comboGroundT = 0; P.snapRoot = true; P.qJump = false; P.eJump = false; P.trick = null;
+  // the forward speed a fast kicker held back at the lip: his again after a landing he rides away from, fed in over the
+  // next half second so it reads as carrying his momentum and not as a shove
+  // (never more than brings him back to the speed he hit the lip with: the landing itself already turns some of the drop into speed)
+  P.giveBack = quality > 0.4 && !P.heliDrop && P.scrubbed > 0 ? clamp((P.lipSpd || 0) - keepSp, 0, P.scrubbed) : 0; P.scrubbed = 0;
   if (P.spaceAir) { P.spaceAir = false; P.ignoreSpace = true; P.ignoreT = simT; }   // the hand-control Space must not turn into a pop as he lands
   const air = P.airT;
   // after long airs the chase camera catches up faster for a moment (it trails a falling rider)
@@ -7703,7 +7715,7 @@ function tryRail() {
     // too close to the end he is heading for (either way along the rail): no lock, no zero-length slide
     if ((al >= 0 ? rail.len - RC.at : RC.at) < 0.8) continue;
     // lock
-    P.rail = rail; P.railSign = al >= 0 ? 1 : -1; P.railD = RC.at; P.railSpd = Math.max(4, spd * Math.abs(al) * 0.97);
+    P.rail = rail; P.railSign = al >= 0 ? 1 : -1; P.railD = RC.at; P.railSpd = Math.max(4, spd * (0.9 + 0.09 * Math.abs(al)));   // (was spd x the cosine of the angle he came on at: up to 40% gone, 75% with R held)
     // slide type: board across (from spin or steer held) = boardslide, else 50-50
     // slide pick: board yaw vs the rail (spin into it, or steer held), which way the chest turned (down or up the rail),
     // and which side of the rail he came from (nose crosses first = boardslide, tail first = lipslide). W / S on the rail = nose / tail.
@@ -7728,7 +7740,7 @@ function stepRail(dt) {
   const rail = P.rail;
   railPoint(rail, P.railD, _rp, _rd);
   _rd.multiplyScalar(P.railSign);
-  P.railSpd += (-G * _rd.y) * dt - 0.35 * dt;
+  P.railSpd += (-G * _rd.y) * dt - 0.12 * dt;
   P.railD += P.railSign * P.railSpd * dt;
   P.slideT += dt;
   if (!P.slideBase || P.slideBase === '5050') P.slide = ctl.w ? 'nosepress' : ctl.s ? 'tailpress' : '5050';
@@ -7804,7 +7816,7 @@ function startBail(kind, why) {
   if (P.mode === 'bail') return;
   P.stats.why = (P.stats.why || '') + (why || '?') + '@' + Math.round(P.d) + ' ';
   P.mode = 'bail'; P.bail = kind; P.bailT = 0; P.tumbleAng = 0; P.rail = null; P.slide = null; P.grab = null;
-  P.spin = P.flip = P.spinRate = P.flipRate = 0; P.holdT = 0; P.crouch = 0; P.skid = 0;
+  P.spin = P.flip = P.spinRate = P.flipRate = 0; P.holdT = 0; P.boost = 0; P.giveBack = 0; P.crouch = 0; P.skid = 0;
   P.butterYaw = 0; P.butterRate = 0;
   R.bail(kind); loseCombo(); SC.trail.lift(); camShake(kind === 'tumble' ? 0.6 : 0.3);
   if (kind === 'tumble') P.stats.tumbles++; else P.stats.stumbles++;
@@ -7823,7 +7835,7 @@ function startRagdoll(vel, keepSpeed, obstacle) {
   if (P.mode === 'bail' || P.mode === 'ragdoll') return;
   P.stats.why = (P.stats.why || '') + 'RAG' + (obstacle ? obstacle.kind : 'land') + '@' + Math.round(P.d) + ' ';
   P.mode = 'ragdoll'; P.bail = null; P.bailT = 0; P.rail = null; P.slide = null; P.grab = null;
-  P.spin = P.flip = P.spinRate = P.flipRate = 0; P.holdT = 0; P.crouch = 0; P.skid = 0; P.tuck = 0; P.press = 0;
+  P.spin = P.flip = P.spinRate = P.flipRate = 0; P.holdT = 0; P.boost = 0; P.giveBack = 0; P.crouch = 0; P.skid = 0; P.tuck = 0; P.press = 0;
   RG.t = 0; RG.lastSlam = -1; RG.keep = keepSpeed; RG.hit = obstacle; RG.contacts.length = 0;
   RG.hips.copy(P.pos); RG.hipPrev.copy(P.pos); ragSpeed = vel.length();
   P.butterYaw = 0; P.butterRate = 0;
@@ -8145,7 +8157,7 @@ function startHeliDrop(kind, s, d) {
   settleRider();
   placeOnCourse(s, d, 0, 0); P.butterYaw = 0; P.butterRate = 0;
   P.mode = 'heli'; P.airT = 0; P.airDrop = false; P.heliDrop = false; P.spin = P.flip = P.spinRate = P.flipRate = 0;
-  P.grab = null; P.rail = null; P.slide = null; P.bail = null; P.holdT = 0; P.crouch = 0; P.skid = 0; P.steerSm = 0; P.tuck = 0; P.press = 0;
+  P.grab = null; P.rail = null; P.slide = null; P.bail = null; P.holdT = 0; P.boost = 0; P.giveBack = 0; P.crouch = 0; P.skid = 0; P.steerSm = 0; P.tuck = 0; P.press = 0;
   P.vel.set(0, 0, 0); P.stillT = 0;
   SC.trail.lift(); trailOn = false;
   stream(s, 99);
@@ -8620,7 +8632,7 @@ function quitToTitle() {
   resetWorld(true);
   // rider / run state
   placeOnCourse(20, 0, 0, 0);
-  Object.assign(P, { mode: 'title', speed: 0, holdT: 0, prevSpace: false, prevQ: false, prevE: false, qJump: false, eJump: false, trick: null, spaceAir: false, crouch: 0, skid: 0, steerSm: 0, tuck: 0, press: 0, airT: 0, airDrop: false, heliDrop: false,
+  Object.assign(P, { mode: 'title', speed: 0, holdT: 0, boost: 0, giveBack: 0, scrubbed: 0, prevSpace: false, prevQ: false, prevE: false, qJump: false, eJump: false, trick: null, spaceAir: false, crouch: 0, skid: 0, steerSm: 0, tuck: 0, press: 0, airT: 0, airDrop: false, heliDrop: false,
     spin: 0, flip: 0, spinRate: 0, flipRate: 0, grab: null, rail: null, slide: null, bail: null, bailT: 0, tumbleAng: 0, invuln: 0, stillT: 0, ragKeep: 0, goodS: 20,
     butterYaw: 0, butterRate: 0, ignoreSpace: false, score: 0, comboGroundT: 0 });
   P.vel.set(0, 0, 0); loseCombo(); P.combo.last = '';
@@ -9823,7 +9835,7 @@ function feelTest() {
     }
     scripted = null; return simt;
   }
-  function setup(s, d, speed) { placeOnCourse(s, d, 0, speed); P.mode = 'ride'; P.holdT = 0; P.prevSpace = false; P.crouch = 0; P.skid = 0; P.steerSm = 0; P.sw = false; P.invuln = 99; P.combo.n = 0; P.carveLoad = 0; }
+  function setup(s, d, speed) { placeOnCourse(s, d, 0, speed); P.mode = 'ride'; P.holdT = 0; P.boost = 0; P.giveBack = 0; P.scrubbed = 0; P.prevSpace = false; P.crouch = 0; P.skid = 0; P.steerSm = 0; P.sw = false; P.invuln = 99; P.combo.n = 0; P.carveLoad = 0; }
   function airMeasure(onAir) {
     const m = { air: 0, hMax: 0, apex: -1e9, y0: P.pos.y, x0: P.pos.x, z0: P.pos.z, dist: 0, land: null, spin: 0 };
     return m;
@@ -9925,6 +9937,21 @@ function feelTest() {
     chk('drift steers without spinning', Math.abs(h1 - h0) > 0.15 && r.mS < 0.05 && shT > 0.2, 'heading ' + ((h1 - h0) * 57.3).toFixed(0) + ' deg, shifty ' + shT.toFixed(2) + ' s');
     setup(s0, 0, 9); let br1 = 0, pr1 = 0; sim(0.6, () => ({ r: true, steer: 1, d: true }), null, () => { br1 = Math.max(br1, Math.abs(P.butterRate)); pr1 = Math.max(pr1, Math.abs(P.press)); });
     chk('R + direction butters on the snow', P.mode === 'ride' && br1 > 1 && pr1 > 0.5, 'roll ' + br1.toFixed(1) + ' rad/s, press ' + pr1.toFixed(2));
+    { // momentum: an E jump keeps the speed he has built; letting go of Space does not brake him; a fast kicker gives its speed back
+      const z = plan.zones.find(q => q.type === 'mini' && q.s0 > 300) || mini; setup(z.s0 + 5, 0, 24); P.boost = 1; let v0 = 0, v1 = 0, landedT = -1, tA = -1;
+      sim(6, t => ({ space: true, e: t > 0.5 && t < 0.6, steer: clamp(-P.d * 0.05, -1, 1) }), t => landedT >= 0 && t - landedT > 1.0, t => { if (t < 0.5) v0 = P.speed; if (P.mode === 'air' && tA < 0) tA = t; if (tA >= 0 && P.mode === 'ride' && landedT < 0) landedT = t; v1 = P.speed; });
+      chk('an E jump keeps the speed he had', v1 > v0 * 0.9, v0.toFixed(1) + ' m/s before, ' + v1.toFixed(1) + ' a second after landing, boost ' + P.boost.toFixed(2));
+      setup(z.s0 + 5, 0, 24); P.boost = 1; let vA = 0; sim(1.0, () => ({ steer: clamp(-P.d * 0.05, -1, 1) }), null, () => { vA = P.speed; });
+      chk('letting go of Space at speed does not brake him', vA > 24 * 0.82, '24 m/s -> ' + vA.toFixed(1) + ' after 1 s off Space');
+      const kk = kickers.find(q => q.size === 2 && !q.yaw) || kickers[0]; setup(kk.s - 30, kk.d, 26); P.boost = 1; let lip = 0, after = 0, lt = -1, ta = -1, scr = 0;
+      sim(9, t => ({ space: P.mode === 'ride', steer: P.mode === 'ride' ? clamp((kk.d - P.d) * 0.3, -1, 1) : 0 }), t => lt >= 0 && t - lt > 0.9, t => {
+        if (P.mode === 'ride' && P.s < kk.s - 5) { const l = P.vel.length(); if (l > 0.1) P.vel.multiplyScalar(26 / l); lip = 26; }
+        if (P.mode === 'air' && ta < 0) { ta = t; scr = P.scrubbed; } if (ta >= 0 && P.mode === 'ride' && lt < 0) lt = t; after = P.speed; });
+      chk('a fast kicker hit rides away at the speed he came in with', scr > 3 && after > lip * 0.9, 'in ' + lip.toFixed(0) + ' m/s, held back ' + scr.toFixed(1) + ' at the lip, ' + after.toFixed(1) + ' m/s a second after landing'); }
+    { // a rail met at an angle keeps his speed
+      const rd = railDefs.find(q => q.s > 100); let sIn = 0, sOn = 0, on = false; setup(rd.s - 12, rd.d - 5, 16);
+      sim(3, t => ({ steer: P.mode === 'ride' ? clamp((rd.d - P.d) * 0.5 + 0.35, -1, 1) : 0, r: true }), () => on && P.slideT > 0.1, () => { if (P.mode === 'ride') sIn = P.speed; if (P.mode === 'rail') { on = true; sOn = P.railSpd; } });
+      chk('a rail met at an angle keeps his speed', !on || sOn > sIn * 0.88, on ? sIn.toFixed(1) + ' m/s on the snow, ' + sOn.toFixed(1) + ' on the rail' : 'did not reach the rail in this set-up'); }
     { // riding into a ramp's lip from the front: he must not be put on top of it
       const kk = kickers.find(q => q.size === 2 && !q.yaw) || kickers[0];
       setup(kk.s + 4, kk.d, 6); P.heading.negate(); P.vel.negate(); P.stats.walls = 0; let maxUp = 0, prevY = P.pos.y, hit = false;
